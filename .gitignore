@@ -1,4 +1,5 @@
+# test VM artifacts: disk images, the test VM's SSH key, QEMU monitor socket (never commit these)
+test/vm/images/
+test/vm/keys/
 *.pkg.tar.*
 __pycache__/
-vm/images/
-vm/keys/
