@@ -45,6 +45,13 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
 - test/vm/deploy.sh WITHOUT --fixtures keeps current PAM files; WITH --fixtures resets /etc/pam.d to stock Omarchy (undoes edits).
 - Don't use `pkill -f` (kills own shell); no sshpass/pamtester on Arch -> test/vm/trylogin.sh (SSH_ASKPASS) and pamtest.py (ctypes libpam).
 
+## Session 2 additions (all tested in VM)
+- Services matrix (sddm, sudo, login, sshd, system-remote-login) incl. session open + pam_mkhomedir (home 0700). All services funnel into system-auth, so one edit covers them. `su` uses pam_unix directly (AD users can't `su`; root `su` always works via pam_rootok).
+- SDDM drop-ins merge in C-locale filename order, last wins; Omarchy's autologin.conf sorts after `99-*`, so our override is `zz-omarchy-identity.conf`. `status` autologin = effective value.
+- Safety: local-fallback precondition + `--confirm-within` auto-revert timer + `confirm`. status has `revert_pending`.
+- e2e tests share faillock state in the VM; reset faillock AFTER enrol (before enrol, directory users don't resolve and the reset is a silent no-op).
+- Tooling gotcha: when patching scripts with python `s.index(...)`, make sure you match the intended occurrence (a duplicate-match once duplicated a whole test file).
+
 ## Open items / next steps (priority order)
 1. Smoke-test on a real Omarchy install is NOT done: SDDM greeter login of an AD user, hyprlock unlock as AD user,
    `sudo` as AD user, home-dir creation via pam_mkhomedir in a graphical session. VM is stock Arch w/o SDDM/Hyprland.

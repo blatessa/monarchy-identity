@@ -28,7 +28,7 @@ Provider-agnostic corporate identity for Omarchy (Arch + Hyprland). Read `HANDOF
     cd test/dc && docker compose up -d && ./seed-users.sh
     (cd test/vm && (setsid ./run.sh </dev/null >vm.log 2>&1 &))     # first boot: cloud-init, ~1 min
     test/vm/deploy.sh                 # push repo to VM (add --fixtures to reset PAM to stock Omarchy)
-    test/vm/e2e.sh && test/vm/e2e-modes.sh      # must print RESULT: ALL PASS
+    test/vm/e2e.sh && test/vm/e2e-modes.sh && test/vm/e2e-services.sh && test/vm/e2e-safety.sh   # each must print RESULT: ALL PASS (safety takes ~4 min)
     bash hooks/test-reassert.sh; bash shell-plugin/tests/run.sh
 VM: `ssh -i test/vm/keys/id_oi -p 2222 tester@127.0.0.1`. Lab creds (throwaway, loopback): Administrator/alice/bob/carol, password `Passw0rd!Test`.
 Run e2e at least twice after touching enroll/unenroll: failures have been order-dependent (fresh vs pre-existing computer account).

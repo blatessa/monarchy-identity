@@ -3,9 +3,9 @@
 Legend: [ ] open, size S/M/L. Update this file as you go; put lessons in HANDOFF.md.
 
 ## P0 - before this touches a real machine
-- [ ] **Omarchy-like test VM (M).** Install sddm + hyprland + hyprlock (or the Omarchy shell lock) in the VM with the real `/etc/pam.d` + `/etc/sddm.conf.d` fixtures. Verify graphically: SDDM login as AD user, lock/unlock as AD user, `sudo` as AD user, `pam_mkhomedir` home creation. Add a scripted check where possible (e.g. sddm PAM service via `pamtest.py sddm ...`).
-- [ ] **Autologin handling (S).** `/etc/sddm.conf.d/50-identity.conf` drop-in overriding `autologin.conf`; enroll offers `--disable-autologin`; `reassert` keeps it; `status` already reports it. Test that a local user can still log in.
-- [ ] **Lockout safety net (M).** Before editing PAM, verify a local fallback exists (a local user with a password) and refuse otherwise; document break-glass; consider an automatic revert timer on first enrol.
+- [~] **Omarchy-like test VM (M).** DONE: Omarchy's real PAM services (sddm, sudo, login, sshd, system-remote-login, lock) + SDDM conf fixtures, session open + home-dir creation tested (`test/vm/e2e-services.sh`). REMAINING: a truly graphical check (SDDM greeter + Hyprland + the Omarchy lock screen's Quickshell PamContext) needs a VM with a GPU/virtio-gpu display; only this proves the greeter/lock UX. Also `polkit-1` PAM service is absent on this Omarchy (falls to `other`): check polkit auth as AD user.
+- [x] **Autologin handling.** `--disable-autologin` writes `/etc/sddm.conf.d/zz-omarchy-identity.conf` (must sort AFTER Omarchy's `autologin.conf`); `status` reports the *effective* setting; `reassert` keeps it; `leave` restores. Tested.
+- [x] **Lockout safety net.** `enroll` refuses unless a local account with a usable password exists (`--allow-no-local-fallback` overrides); `--confirm-within N` schedules an auto-revert (systemd transient timer) until `omarchy-identity confirm`. Tested (`test/vm/e2e-safety.sh`).
 
 ## P1 - make it usable
 - [ ] **Hook installation (S).** `omarchy-identity install-hooks` (per-user `omarchy hook install post-update ...`); simulate a `pambase` upgrade (rewrite stock `system-auth`) in the VM and confirm the alpm hook repairs it.

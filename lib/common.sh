@@ -60,3 +60,24 @@ sddm_autologin_disable() {
   chmod 0644 "$SDDM_OVERRIDE"
 }
 sddm_autologin_restore() { rm -f "$SDDM_OVERRIDE"; }
+
+# --- lockout safety -----------------------------------------------------------------------------
+# Local accounts (files only, not sssd) a human could still log in with if the directory is broken:
+# uid>=1000, a real shell, and a usable password hash in /etc/shadow.
+local_fallback_users() {
+  local name pw uid shell
+  while IFS=: read -r name _ uid _ _ _ shell; do
+    [[ $uid -ge 1000 && $uid -lt 60000 ]] || continue
+    [[ $shell != */nologin && $shell != */false && -n $shell ]] || continue
+    pw=$(getent -s files shadow "$name" 2>/dev/null | cut -d: -f2)
+    [[ -n $pw && $pw != '!'* && $pw != '*'* ]] && echo "$name"
+  done < <(getent -s files passwd)
+}
+
+REVERT_UNIT="omarchy-identity-revert"
+revert_schedule() { # minutes
+  systemd-run --quiet --unit="$REVERT_UNIT" --on-active="${1}m" --description="omarchy-identity auto-revert (unconfirmed enrolment)" \
+    env OI_ROOT="$OI_ROOT" "$OI_ROOT/bin/omarchy-identity" leave >/dev/null
+}
+revert_cancel()  { systemctl stop "$REVERT_UNIT.timer" "$REVERT_UNIT.service" 2>/dev/null || true; }
+revert_pending() { systemctl is-active --quiet "$REVERT_UNIT.timer" 2>/dev/null; }

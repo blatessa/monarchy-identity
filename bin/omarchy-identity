@@ -15,6 +15,7 @@ Usage: omarchy-identity <command>
   status [--json]            Show enrolment and posture
   enroll <provider> [args]   Enrol with a directory provider
   leave                      Unenrol and restore previous config
+  confirm                    Cancel the pending auto-revert (after verifying login works; root)
   reassert                   Re-apply managed /etc edits (run after updates; root)
   providers                  List available providers
 EOF
@@ -40,8 +41,8 @@ cmd_status() {
       < <("$ROOT/providers/$provider/status" 2>/dev/null)
   fi
   if ((json)); then
-    printf '{"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"wheel_members":"%s","details":{%s}}\n' \
-      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(json_escape "$wheel")" "$details"
+    printf '{"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"revert_pending":%s,"wheel_members":"%s","details":{%s}}\n' \
+      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(revert_pending && echo true || echo false)" "$(json_escape "$wheel")" "$details"
   else
     echo "enrolled:      $enrolled"
     echo "provider:      $provider"
@@ -64,6 +65,7 @@ case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;
   enroll) shift; [[ $# -ge 1 ]] || { usage; exit 1; }; p=$1; shift; run_provider "$p" enroll "$@" ;;
+  confirm) [[ $EUID -eq 0 ]] || { echo "must run as root" >&2; exit 1; }; if revert_pending; then revert_cancel; log "enrolment confirmed; auto-revert cancelled"; else echo "no auto-revert pending"; fi ;;
   reassert) run_provider "$(conf_get provider local)" reassert ;;
   leave) shift; run_provider "$(conf_get provider local)" unenroll "$@" ;;
   -h|--help|"") usage ;;
