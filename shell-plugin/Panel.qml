@@ -10,8 +10,8 @@ import "Model.js" as Model
 // "identity: unavailable". Not a security boundary.
 Panel {
   id: root
-  moduleName: "brady.identity-status"
-  ipcTarget: "brady.identity-status"
+  moduleName: "omarchy-identity.status"
+  ipcTarget: "omarchy-identity.status"
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color urgent: bar ? bar.urgent : Color.urgent

@@ -7,9 +7,9 @@ const ok = (o) => JSON.stringify(Object.assign({ enrolled: true, provider: "sssd
 
 let r = M.parse(ok({}));                       assert.equal(r.state, "ok");   assert.equal(r.summary, "identity: sssd")
 r = M.parse(ok({ autologin: true }));          assert.equal(r.state, "warn"); assert.match(r.summary, /1 warning\)/)
-r = M.parse(ok({ wheel_members: "brady,bob" })); assert.equal(r.state, "warn"); assert.match(r.warnings[0], /brady, bob/)
+r = M.parse(ok({ wheel_members: "alice,bob" })); assert.equal(r.state, "warn"); assert.match(r.warnings[0], /alice, bob/)
 r = M.parse(ok({ autologin: true, wheel_members: "x" })); assert.match(r.summary, /2 warnings\)/)
-r = M.parse(ok({ enrolled: false, provider: "local", login_mode: "none", autologin: true, wheel_members: "brady" }))
+r = M.parse(ok({ enrolled: false, provider: "local", login_mode: "none", autologin: true, wheel_members: "alice" }))
 assert.equal(r.state, "local"); assert.equal(r.warnings.length, 0); assert.equal(r.summary, "identity: not enrolled")
 r = M.parse(ok({ wheel_members: ["a", "b"] })); assert.equal(r.state, "warn")   // array form tolerated
 for (const bad of ["", "not json", "[]", "null", "{}", '{"enrolled":"yes"}', undefined]) {

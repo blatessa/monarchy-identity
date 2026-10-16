@@ -3,6 +3,7 @@
 #   (--server optional: omit to use DNS SRV discovery)
 #   [--mode groups|assigned|any] [--groups a,b] [--users u1,u2] [--disable-autologin]
 #   [--password-file FILE]      admin password from a 0600 file instead of stdin (or $OI_ADMIN_PASSWORD_FILE)
+#   [--keep-login-theme]        do not switch SDDM to the theme with a username field
 #   [--confirm-within MINUTES]  auto-leave unless `omarchy-identity confirm` is run in time
 #   [--allow-no-local-fallback] skip the "a local user with a password must exist" safety check   (admin password on stdin)
 set -euo pipefail
@@ -10,10 +11,10 @@ export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)
 source "$OI_ROOT/providers/sssd/lib.sh"
 need_root
 
-pwfile="" confirm_within=0 allow_no_fallback=0 disable_autologin=0 realm="" server="" admin="Administrator" mode="groups" groups="" users=""
+keep_theme=0 pwfile="" confirm_within=0 allow_no_fallback=0 disable_autologin=0 realm="" server="" admin="Administrator" mode="groups" groups="" users=""
 while [[ $# -gt 0 ]]; do case $1 in
   --realm) realm=$2; shift 2;; --server) server=$2; shift 2;; --admin) admin=$2; shift 2;;
-  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;; --disable-autologin) disable_autologin=1; shift;; --confirm-within) confirm_within=$2; shift 2;; --password-file) pwfile=$2; shift 2;; --allow-no-local-fallback) allow_no_fallback=1; shift;;
+  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;; --disable-autologin) disable_autologin=1; shift;; --confirm-within) confirm_within=$2; shift 2;; --password-file) pwfile=$2; shift 2;; --keep-login-theme) keep_theme=1; shift;; --allow-no-local-fallback) allow_no_fallback=1; shift;;
   *) die "unknown option $1";; esac; done
 [[ -n $realm ]] || die "--realm is required (--server is optional: omit it to discover DCs through DNS)"
 validate_enroll_args "$realm" "$server" "$admin" "$groups" "$users" "$confirm_within"
@@ -63,7 +64,10 @@ if [[ $mode == groups ]]; then probe=${groups%%,*}; getent group "$probe" >/dev/
   die "group '$probe' not resolvable via sssd; refusing to modify PAM"; fi
 pam_apply
 ((disable_autologin)) && sddm_autologin_disable
-conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" autologin_disabled="$([[ $disable_autologin == 1 ]] && echo true || echo false)"
+if ((!keep_theme)); then
+  sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the omarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"
+fi
+conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" autologin_disabled="$([[ $disable_autologin == 1 ]] && echo true || echo false)" login_theme="$([[ $keep_theme == 1 ]] && echo stock || echo identity)"
 trap - ERR
 watch_enable   # self-heal: root-owned path unit re-asserts our edits if anything overwrites them
 ((confirm_within > 0)) && { revert_schedule "$confirm_within"; log "AUTO-REVERT in ${confirm_within} min unless you run: omarchy-identity confirm"; }

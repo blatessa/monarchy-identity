@@ -3,7 +3,7 @@
 # HANDOFF - read this first when resuming
 
 Project: provider-agnostic corporate identity for Omarchy. Design in docs/DESIGN.md. Test env in test/README.md.
-Owner: brady. Do NOT test PAM/sssd changes on the host (/etc of this laptop); only in the QEMU VM.
+Owner: the repo owner. Do NOT test PAM/sssd changes on the owner's own laptop (the host); only in the QEMU VM.
 
 ## Decisions made (don't re-litigate)
 - System package `omarchy-identity` (CLI + providers + /etc drop-ins + post-update hook) is the product.
@@ -30,7 +30,7 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
   (skip counts computed from the file, safe next to Omarchy's pam_systemd_home lines). `remove` restores byte-identical.
 - Drift: `status` reports pam_*=false when pambase etc. clobber PAM; `reassert` fixes it (tested).
 - Packaging (`packaging/PKGBUILD`, alpm hook, `hooks/reassert.sh`, `hooks/post-update.d/`, `hooks/test-reassert.sh`): builds (checked with makepkg in a scratch copy).
-- Shell widget `shell-plugin/` (id brady.identity-status): lint+model tests pass; NEVER loaded in a real shell yet.
+- Shell widget `shell-plugin/` (id omarchy-identity.status): lint+model tests pass; NEVER loaded in a real shell yet.
 
 ## Hard-won findings (do not rediscover)
 - Omarchy lock screen uses its own PAM service /etc/pam.d/omarchy-lock-password (not package-owned, copy of auth stack). Must be edited too.
@@ -61,7 +61,7 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
 1. Smoke-test on a real Omarchy install is NOT done: SDDM greeter login of an AD user, hyprlock unlock as AD user,
    `sudo` as AD user, home-dir creation via pam_mkhomedir in a graphical session. VM is stock Arch w/o SDDM/Hyprland.
    Consider an Omarchy-like VM (install sddm + the fixtures) before touching the real laptop.
-2. Autologin: sddm autologin.conf (User=brady) conflicts with managed identity; add a drop-in /etc/sddm.conf.d/50-identity.conf
+2. (DONE, see TODO.md) Autologin: Omarchy's autologin.conf logs in one fixed local user; override via /etc/sddm.conf.d/zz-omarchy-identity.conf
    disabling autologin (+ `managed` profile: remove wheel, break-glass admin). Not implemented. Core CLI only *reports* autologin.
 3. Wire the post-update hook install: `omarchy hook install post-update hooks/post-update.d/10-omarchy-identity-reassert`
    (Omarchy hooks are per-user ~/.config/omarchy/hooks; alpm hook covers system-level upgrades). Test with a simulated pambase upgrade.
@@ -71,7 +71,7 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
 7. oidc provider (Entra/Okta/Google via authd/himmelblau) = empty dir. IPA/LDAP variants of sssd. Provider contract is
    detect/enroll/unenroll/status/reassert scripts under providers/<name>/ (status prints key=value lines).
 8. PKGBUILD url/license placeholders; shell package name check; config.toml parsing is flat key="value" only.
-9. Do not test on the host /etc until (1) is done. Host = brady's daily Omarchy laptop.
+9. Do not test on the host /etc until (1) is done. The host is the owner's daily-driver laptop.
 
 ## Quick start for a new session
     cd test/dc && docker compose up -d && ./seed-users.sh     # if DC down

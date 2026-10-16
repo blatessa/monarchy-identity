@@ -45,8 +45,8 @@ cmd_status() {
   fi
   if ((json)); then
     local selfheal; selfheal=$(watch_active && echo true || echo false)
-    printf '{"schema":1,"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"revert_pending":%s,"self_heal":%s,"wheel_members":"%s","details":{%s},' \
-      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(revert_pending && echo true || echo false)" "$selfheal" "$(json_escape "$wheel")" "$details"
+    printf '{"schema":1,"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"revert_pending":%s,"self_heal":%s,"wheel_members":"%s","login_theme":"%s","username_field":%s,"details":{%s},' \
+      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(revert_pending && echo true || echo false)" "$selfheal" "$(json_escape "$wheel")" "$(json_escape "$(sddm_theme_effective)")" "$([[ $(sddm_theme_effective) == "$IDENTITY_THEME" ]] && echo true || echo false)" "$details"
     printf '"device":{"hostname":"%s","os":"%s","omarchy":"%s","kernel":"%s"},' \
       "$(json_escape "$(uname -n)")" "$(json_escape "$(posture_os)")" "$(json_escape "$(posture_omarchy_version)")" "$(json_escape "$(uname -r)")"
     printf '"compliance":{"disk_encryption":"%s","firewall":"%s","secure_boot":"%s","tpm2":"%s","screen_lock_seconds":"%s"}}\n' \

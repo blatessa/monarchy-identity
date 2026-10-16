@@ -12,7 +12,7 @@ Some fields are stronger when run as root (`details.domain_joined` is `unknown` 
       "autologin": false,               // EFFECTIVE SDDM autologin (merged conf.d, last wins)
       "revert_pending": false,          // an unconfirmed --confirm-within timer is armed
       "self_heal": true,                // root-owned path unit is repairing drift
-      "wheel_members": "root,brady",
+      "wheel_members": "root,admin",
       "details": {                      // provider-specific, from providers/<p>/status
         "sssd_active": "true", "nss_sss": "true", "pam_system_auth": "true",
         "pam_omarchy_lock_password": "true", "domain_joined": "true|false|unknown"

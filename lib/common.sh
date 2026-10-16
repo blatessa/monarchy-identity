@@ -39,20 +39,21 @@ restore_file() {
 SDDM_CONF_D="${OMARCHY_IDENTITY_SDDM_CONF_D:-/etc/sddm.conf.d}"
 SDDM_OVERRIDE="$SDDM_CONF_D/zz-omarchy-identity.conf"
 
-sddm_autologin_user() { # prints the effective autologin user ("" if none)
-  local f user="" sect="" line
+sddm_conf_value() { # sddm_conf_value Section Key -> effective value (last file wins, C-locale name order)
+  local f val="" sect="" line
   while IFS= read -r f; do
     sect=""
     while IFS= read -r line; do
       line="${line%%#*}"; line="${line//[[:space:]]/}"
       case $line in
         \[*\]) sect=$line ;;
-        User=*) [[ $sect == "[Autologin]" ]] && user=${line#User=} ;;
+        "$2="*) [[ $sect == "[$1]" ]] && val=${line#"$2="} ;;
       esac
     done < "$f"
   done < <(LC_ALL=C ls -1 "$SDDM_CONF_D"/*.conf 2>/dev/null | LC_ALL=C sort)
-  echo "$user"
+  echo "$val"
 }
+sddm_autologin_user() { sddm_conf_value Autologin User; }   # prints the effective autologin user ("" if none)
 
 sddm_autologin_disable() { # idempotent: only writes when content differs (a path unit watches this dir)
   local want=$'# managed by omarchy-identity: disables autologin on managed machines\n[Autologin]\nUser=\nSession=\n'
@@ -110,3 +111,20 @@ read_admin_password() {
   fi
   [[ -n $pw ]] || die "empty admin password"
 }
+
+# --- SDDM login theme with a username field -----------------------------------------------------
+# Omarchy's stock theme has no username box (it logs in userModel.lastUser), so directory users cannot
+# sign in at the greeter. We select our own theme with a drop-in that sorts after Omarchy's.
+SDDM_THEMES="${OMARCHY_IDENTITY_SDDM_THEMES:-/usr/share/sddm/themes}"
+IDENTITY_THEME=omarchy-identity
+SDDM_THEME_CONF="$SDDM_CONF_D/zz-omarchy-identity-theme.conf"
+sddm_theme_installed() { [[ -f $SDDM_THEMES/$IDENTITY_THEME/Main.qml ]]; }
+sddm_theme_effective() { sddm_conf_value Theme Current; }
+sddm_theme_enable() { # idempotent; returns 1 if the theme package files are missing
+  sddm_theme_installed || return 1
+  local want=$'# managed by omarchy-identity: login screen with a username field\n[Theme]\nCurrent='"$IDENTITY_THEME"$'\n'
+  install -d -m 0755 "$SDDM_CONF_D"
+  [[ -f $SDDM_THEME_CONF && $(cat "$SDDM_THEME_CONF") == "${want%$'\n'}" ]] && return 0
+  printf '%s' "$want" > "$SDDM_THEME_CONF"; chmod 0644 "$SDDM_THEME_CONF"
+}
+sddm_theme_restore() { rm -f "$SDDM_THEME_CONF"; }

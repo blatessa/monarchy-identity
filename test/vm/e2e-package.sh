@@ -18,6 +18,13 @@ out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/omarchy-identity enroll sssd --realm
 st() { "${V[@]}" '/usr/bin/omarchy-identity status --json'; }
 [[ $(st) == *'"pam_system_auth":"true"'* ]] && ok "PAM edits present" || bad "PAM edits missing"
 
+echo "[login theme with a username field]"
+"${V[@]}" 'test -f /usr/share/sddm/themes/omarchy-identity/Main.qml && test -L /usr/share/sddm/themes/omarchy-identity/logo.png' && ok "theme files installed (Main.qml + asset symlinks)" || bad "theme files missing"
+"${V[@]}" 'grep -q "^Current=omarchy-identity" /etc/sddm.conf.d/zz-omarchy-identity-theme.conf' && ok "enrol selects the identity theme via zz- drop-in" || bad "theme drop-in missing"
+[[ $(st) == *'"login_theme":"omarchy-identity"'* && $(st) == *'"username_field":true'* ]] && ok "status: effective theme omarchy-identity, username_field:true" || bad "status theme: $(st)"
+"${V[@]}" 'sudo rm -f /etc/sddm.conf.d/zz-omarchy-identity-theme.conf'
+for _ in $(seq 15); do sleep 1; [[ $(st) == *'"username_field":true'* ]] && break; done
+[[ $(st) == *'"username_field":true'* ]] && ok "theme drop-in self-heals after deletion" || bad "theme drop-in not healed"
 echo "[self-heal: root-owned path unit repairs drift with no manual step]"
 "${V[@]}" 'systemctl is-active omarchy-identity-reassert.path' | grep -qx active && ok "watcher active after enrol" || bad "watcher not active"
 [[ $(st) == *'"self_heal":true'* ]] && ok "status reports self_heal:true" || bad "self_heal flag"
@@ -38,6 +45,7 @@ echo "$PW" | "${V[@]}" 'sudo /usr/bin/omarchy-identity leave --admin Administrat
 sleep 6
 pam_stock() { for f in system-auth omarchy-lock-password; do "${V[@]}" "cat /etc/pam.d/$f" | diff -q - fixtures/pam.d/$f >/dev/null || return 1; done; }
 pam_stock && ok "after leave: PAM stock and NOT re-added by the watcher (no race)" || bad "watcher re-added edits after leave"
+"${V[@]}" 'test ! -e /etc/sddm.conf.d/zz-omarchy-identity-theme.conf' && ok "leave removed the theme drop-in" || bad "theme drop-in left behind"
 "${V[@]}" 'systemctl is-active omarchy-identity-reassert.path' | grep -qx inactive && ok "watcher stopped by leave" || bad "watcher still active after leave"
 "${V[@]}" 'sudo pacman -R --noconfirm omarchy-identity' >/dev/null 2>&1 && ok "package removes cleanly" || bad "package removal"
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

@@ -1,4 +1,4 @@
-# omarchy-identity-shell (brady.identity-status)
+# omarchy-identity-shell (omarchy-identity.status)
 
 Optional Omarchy bar widget that shows the output of `omarchy-identity status --json`:
 

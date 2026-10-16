@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "brady.identity-status",
+  "id": "omarchy-identity.status",
   "name": "Identity status",
   "version": "0.1.0",
-  "author": "brady",
+  "author": "omarchy-identity contributors",
   "license": "MIT",
   "description": "Shows corporate-identity enrolment and posture from omarchy-identity in the Omarchy bar. Cosmetic only; requires the omarchy-identity package.",
   "kinds": [

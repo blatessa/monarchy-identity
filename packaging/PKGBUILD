@@ -1,4 +1,4 @@
-# Maintainer: brady <brady@latessa.net>
+# Maintainer: Your Name <you@example.com>   (placeholder: set before publishing)
 pkgbase=omarchy-identity
 pkgname=(omarchy-identity omarchy-identity-shell)
 pkgver=0.1.0
@@ -22,7 +22,7 @@ package_omarchy-identity() {
   cp -a "$_root/providers/." "$pkgdir/usr/share/omarchy-identity/providers/"
   install -d "$pkgdir/usr/share/omarchy-identity/lib"
   install -m755 "$_root/lib/pamedit.py" "$pkgdir/usr/share/omarchy-identity/lib/pamedit.py"
-  install -m644 "$_root/lib/common.sh" "$pkgdir/usr/share/omarchy-identity/lib/common.sh"
+  install -m644 "$_root/lib/common.sh" "$_root/lib/posture.sh" "$pkgdir/usr/share/omarchy-identity/lib/"
 
   install -d "$pkgdir/usr/share/omarchy-identity/hooks/post-update.d"
   install -m755 "$_root/hooks/reassert.sh" "$pkgdir/usr/share/omarchy-identity/hooks/reassert.sh"
@@ -30,6 +30,12 @@ package_omarchy-identity() {
 
   install -Dm644 "$_root/packaging/omarchy-identity.hook" \
     "$pkgdir/usr/share/libalpm/hooks/omarchy-identity.hook"
+  install -d "$pkgdir/usr/share/sddm/themes/omarchy-identity"
+  install -m644 "$_root/sddm-theme/omarchy-identity/"{Main.qml,metadata.desktop,theme.conf} "$pkgdir/usr/share/sddm/themes/omarchy-identity/"
+  # assets come from Omarchy's own theme so the look stays in sync (dangling, harmlessly, on non-Omarchy systems)
+  for a in logo lock lock-failed entry entry-failed bullet; do
+    ln -s "../omarchy/$a.png" "$pkgdir/usr/share/sddm/themes/omarchy-identity/$a.png"
+  done
   install -Dm644 "$_root/packaging/omarchy-identity-reassert.path" "$pkgdir/usr/lib/systemd/system/omarchy-identity-reassert.path"
   install -Dm644 "$_root/packaging/omarchy-identity-reassert.service" "$pkgdir/usr/lib/systemd/system/omarchy-identity-reassert.service"
   install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/omarchy-identity/config.toml"
