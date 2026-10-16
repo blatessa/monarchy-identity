@@ -1,0 +1,71 @@
+#!/bin/bash
+# omarchy-identity: directory enrolment, login policy, posture reporting.
+set -euo pipefail
+
+ROOT="${OMARCHY_IDENTITY_ROOT:-/usr/share/omarchy-identity}"
+[[ -d $ROOT/providers ]] || ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+CONF="${OMARCHY_IDENTITY_CONF:-/etc/omarchy-identity/config.toml}"
+
+usage() {
+  cat <<EOF
+Usage: omarchy-identity <command>
+
+  status [--json]            Show enrolment and posture
+  enroll <provider> [args]   Enrol with a directory provider
+  leave                      Unenrol and restore previous config
+  providers                  List available providers
+EOF
+}
+
+conf_get() { # conf_get key default  (flat key = "value" lookup)
+  local v=""
+  [[ -r $CONF ]] && v=$(sed -n "s/^$1[[:space:]]*=[[:space:]]*\"\?\([^\"]*\)\"\?$/\1/p" "$CONF" | head -1)
+  echo "${v:-$2}"
+}
+
+json_escape() { local s=${1//\\/\\\\}; s=${s//\"/\\\"}; printf '%s' "$s"; }
+
+autologin_enabled() {
+  grep -qsE '^\s*User=.+' /etc/sddm.conf.d/*.conf 2>/dev/null &&
+    grep -qsE '^\[Autologin\]' /etc/sddm.conf.d/*.conf 2>/dev/null
+}
+
+wheel_members() { getent group wheel | cut -d: -f4; }
+
+cmd_status() {
+  local json=0; [[ ${1:-} == --json ]] && json=1
+  local provider mode enrolled=false autologin=false
+  provider=$(conf_get provider local)
+  mode=$(conf_get login_mode none)
+  [[ $provider != local ]] && enrolled=true
+  autologin_enabled && autologin=true
+  local wheel; wheel=$(wheel_members)
+  if ((json)); then
+    printf '{"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"wheel_members":"%s"}\n' \
+      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(json_escape "$wheel")"
+  else
+    echo "enrolled:      $enrolled"
+    echo "provider:      $provider"
+    echo "login mode:    $mode"
+    echo "autologin:     $autologin"
+    echo "wheel members: ${wheel:-none}"
+  fi
+}
+
+cmd_providers() { ls "$ROOT/providers"; }
+
+run_provider() { # run_provider <provider> <action> [args]
+  local p=$1 a=$2; shift 2
+  local s="$ROOT/providers/$p/$a"
+  [[ -x $s ]] || { echo "provider '$p' has no '$a'" >&2; exit 1; }
+  "$s" "$@"
+}
+
+case "${1:-}" in
+  status) shift; cmd_status "$@" ;;
+  providers) cmd_providers ;;
+  enroll) shift; [[ $# -ge 1 ]] || { usage; exit 1; }; p=$1; shift; run_provider "$p" enroll "$@" ;;
+  leave) run_provider "$(conf_get provider local)" unenroll ;;
+  -h|--help|"") usage ;;
+  *) usage; exit 1 ;;
+esac

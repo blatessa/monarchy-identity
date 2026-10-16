@@ -1,0 +1,3 @@
+#!/bin/bash
+# local provider: no directory; unenroll is a no-op
+exit 0
