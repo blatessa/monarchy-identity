@@ -1,5 +1,5 @@
-# /etc/omarchy-identity/policy.toml: what "compliant" means for your fleet.
-# `omarchy-identity check` evaluates this against `status --json` and exits 1 on any violation,
+# /etc/monarchy-identity/policy.toml: what "compliant" means for your fleet.
+# `monarchy-identity check` evaluates this against `status --json` and exits 1 on any violation,
 # so an MDM / osquery / cron job can use it as a compliance script. Only rules listed here are checked.
 # Unknown keys are an error: a typo must never silently weaken a policy.
 

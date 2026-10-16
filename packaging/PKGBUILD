@@ -1,53 +1,53 @@
 # Maintainer: Your Name <you@example.com>   (placeholder: set before publishing)
-pkgbase=omarchy-identity
-pkgname=(omarchy-identity omarchy-identity-shell)
+pkgbase=monarchy-identity
+pkgname=(monarchy-identity monarchy-identity-shell)
 pkgver=0.1.0
 pkgrel=1
 pkgdesc='Provider-agnostic corporate identity (directory login, policy, posture) for Omarchy'
 arch=(any)
-url='https://example.invalid/omarchy-identity'
+url='https://example.invalid/monarchy-identity'
 license=(MIT)
 options=(!strip)
 
 # Sources live in the repo this PKGBUILD sits in (packaging/..). No downloads.
 _root="$startdir/.."
 
-package_omarchy-identity() {
+package_monarchy-identity() {
   depends=(bash python sssd samba krb5)
-  backup=(etc/omarchy-identity/config.toml)
+  backup=(etc/monarchy-identity/config.toml)
 
-  install -Dm755 "$_root/bin/omarchy-identity" "$pkgdir/usr/bin/omarchy-identity"
+  install -Dm755 "$_root/bin/monarchy-identity" "$pkgdir/usr/bin/monarchy-identity"
 
-  install -d "$pkgdir/usr/share/omarchy-identity/providers"
-  cp -a "$_root/providers/." "$pkgdir/usr/share/omarchy-identity/providers/"
-  install -d "$pkgdir/usr/share/omarchy-identity/lib"
-  install -m755 "$_root/lib/pamedit.py" "$_root/lib/check.py" "$pkgdir/usr/share/omarchy-identity/lib/"
-  install -m644 "$_root/lib/common.sh" "$_root/lib/posture.sh" "$pkgdir/usr/share/omarchy-identity/lib/"
+  install -d "$pkgdir/usr/share/monarchy-identity/providers"
+  cp -a "$_root/providers/." "$pkgdir/usr/share/monarchy-identity/providers/"
+  install -d "$pkgdir/usr/share/monarchy-identity/lib"
+  install -m755 "$_root/lib/pamedit.py" "$_root/lib/check.py" "$pkgdir/usr/share/monarchy-identity/lib/"
+  install -m644 "$_root/lib/common.sh" "$_root/lib/posture.sh" "$pkgdir/usr/share/monarchy-identity/lib/"
 
-  install -d "$pkgdir/usr/share/omarchy-identity/hooks/post-update.d"
-  install -m755 "$_root/hooks/reassert.sh" "$pkgdir/usr/share/omarchy-identity/hooks/reassert.sh"
-  install -m755 "$_root/hooks/post-update.d/"* "$pkgdir/usr/share/omarchy-identity/hooks/post-update.d/"
+  install -d "$pkgdir/usr/share/monarchy-identity/hooks/post-update.d"
+  install -m755 "$_root/hooks/reassert.sh" "$pkgdir/usr/share/monarchy-identity/hooks/reassert.sh"
+  install -m755 "$_root/hooks/post-update.d/"* "$pkgdir/usr/share/monarchy-identity/hooks/post-update.d/"
 
-  install -Dm644 "$_root/packaging/omarchy-identity.hook" \
-    "$pkgdir/usr/share/libalpm/hooks/omarchy-identity.hook"
-  install -d "$pkgdir/usr/share/sddm/themes/omarchy-identity"
-  install -m644 "$_root/sddm-theme/omarchy-identity/"{Main.qml,metadata.desktop,theme.conf} "$pkgdir/usr/share/sddm/themes/omarchy-identity/"
+  install -Dm644 "$_root/packaging/monarchy-identity.hook" \
+    "$pkgdir/usr/share/libalpm/hooks/monarchy-identity.hook"
+  install -d "$pkgdir/usr/share/sddm/themes/monarchy-identity"
+  install -m644 "$_root/sddm-theme/monarchy-identity/"{Main.qml,metadata.desktop,theme.conf} "$pkgdir/usr/share/sddm/themes/monarchy-identity/"
   # assets come from Omarchy's own theme so the look stays in sync (dangling, harmlessly, on non-Omarchy systems)
   for a in logo lock lock-failed entry entry-failed bullet; do
-    ln -s "../omarchy/$a.png" "$pkgdir/usr/share/sddm/themes/omarchy-identity/$a.png"
+    ln -s "../omarchy/$a.png" "$pkgdir/usr/share/sddm/themes/monarchy-identity/$a.png"
   done
-  install -Dm644 "$_root/packaging/omarchy-identity-reassert.path" "$pkgdir/usr/lib/systemd/system/omarchy-identity-reassert.path"
-  install -Dm644 "$_root/packaging/omarchy-identity-reassert.service" "$pkgdir/usr/lib/systemd/system/omarchy-identity-reassert.service"
-  install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/omarchy-identity/config.toml"
-  install -Dm644 "$_root/packaging/policy.example.toml" "$pkgdir/usr/share/doc/omarchy-identity/policy.example.toml"
-  install -Dm644 "$_root/docs/DESIGN.md" "$pkgdir/usr/share/doc/omarchy-identity/DESIGN.md"
+  install -Dm644 "$_root/packaging/monarchy-identity-reassert.path" "$pkgdir/usr/lib/systemd/system/monarchy-identity-reassert.path"
+  install -Dm644 "$_root/packaging/monarchy-identity-reassert.service" "$pkgdir/usr/lib/systemd/system/monarchy-identity-reassert.service"
+  install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/monarchy-identity/config.toml"
+  install -Dm644 "$_root/packaging/policy.example.toml" "$pkgdir/usr/share/doc/monarchy-identity/policy.example.toml"
+  install -Dm644 "$_root/docs/DESIGN.md" "$pkgdir/usr/share/doc/monarchy-identity/DESIGN.md"
 }
 
-package_omarchy-identity-shell() {
-  pkgdesc='Optional Omarchy shell status widget for omarchy-identity (cosmetic, not a security boundary)'
-  depends=(omarchy-identity)
+package_monarchy-identity-shell() {
+  pkgdesc='Optional Omarchy shell status widget for monarchy-identity (cosmetic, not a security boundary)'
+  depends=(monarchy-identity)
 
-  install -d "$pkgdir/usr/share/omarchy-identity/shell-plugin"
-  [[ -d $_root/shell-plugin ]] && cp -a "$_root/shell-plugin/." "$pkgdir/usr/share/omarchy-identity/shell-plugin/"
+  install -d "$pkgdir/usr/share/monarchy-identity/shell-plugin"
+  [[ -d $_root/shell-plugin ]] && cp -a "$_root/shell-plugin/." "$pkgdir/usr/share/monarchy-identity/shell-plugin/"
   return 0
 }

@@ -6,7 +6,7 @@ SSHO=(-i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKno
 B=$(mktemp -d); trap 'rm -rf "$B"' EXIT
 rsync -a --exclude=.git --exclude=test "$R/" "$B/src/"
 (cd "$B/src/packaging" && makepkg -f --nodeps >"$B/build.log" 2>&1) || { tail "$B/build.log"; exit 1; }
-PKG=$(ls "$B"/src/packaging/omarchy-identity-[0-9]*.pkg.tar.zst | head -1)
+PKG=$(ls "$B"/src/packaging/monarchy-identity-[0-9]*.pkg.tar.zst | head -1)
 scp -q "${SSHO[@]}" -P 2222 "$PKG" tester@127.0.0.1:/home/tester/oi.pkg.tar.zst
 ssh "${SSHO[@]}" -p 2222 tester@127.0.0.1 'sudo pacman -U --noconfirm oi.pkg.tar.zst >/dev/null 2>&1'
 echo "package installed"

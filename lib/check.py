@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate `omarchy-identity status --json` (stdin) against a policy file.
+"""Evaluate `monarchy-identity status --json` (stdin) against a policy file.
 
 usage: check.py POLICY_FILE [--json]        exit 0 = compliant, 1 = violations, 2 = bad policy/input
 

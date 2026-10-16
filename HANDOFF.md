@@ -6,10 +6,10 @@ Project: provider-agnostic corporate identity for Omarchy. Design in docs/DESIGN
 Owner: the repo owner. Do NOT test PAM/sssd changes on the owner's own laptop (the host); only in the QEMU VM.
 
 ## Decisions made (don't re-litigate)
-- System package `omarchy-identity` (CLI + providers + /etc drop-ins + post-update hook) is the product.
+- System package `monarchy-identity` (CLI + providers + /etc drop-ins + post-update hook) is the product.
   Shell plugin (`shell-plugin/`) is optional cosmetic UI, built LAST.
 - MDM owns privilege removal/boot hardening. We own: enrolment, login policy (login.mode), posture
-  reporting (`omarchy-identity status --json`). Optional `managed` profile later.
+  reporting (`monarchy-identity status --json`). Optional `managed` profile later.
 - login.mode = assigned | groups | any. Default deny. Local break-glass admin always allowed.
 - No AUR deps: join via samba `net ads join`, home dirs via pam_mkhomedir (adcli/oddjob are AUR-only).
 - Use /etc drop-ins; never edit /usr/share/omarchy. Re-assert after `omarchy update` via post-update hook.
@@ -23,14 +23,14 @@ Owner: the repo owner. Do NOT test PAM/sssd changes on the owner's own laptop (t
 
 ## Status (2026-10-16)
 DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, both ALL PASS, e2e.sh passed 4x in a row from a fresh AD account):
-- Core CLI `bin/omarchy-identity`: status [--json] (incl. provider details), enroll, leave [--admin U], reassert, providers.
+- Core CLI `bin/monarchy-identity`: status [--json] (incl. provider details), enroll, leave [--admin U], reassert, providers.
 - sssd provider (`providers/sssd/{enroll,unenroll,reassert,status,detect,lib.sh}`), AD via samba `net ads join` + sssd.
   login.mode groups|assigned|any all tested; carol (directory-only) denied under groups/assigned; local user always works.
 - `lib/pamedit.py`: idempotent BEGIN/END-marked pam_sss edit of /etc/pam.d/system-auth and omarchy-lock-password
   (skip counts computed from the file, safe next to Omarchy's pam_systemd_home lines). `remove` restores byte-identical.
 - Drift: `status` reports pam_*=false when pambase etc. clobber PAM; `reassert` fixes it (tested).
 - Packaging (`packaging/PKGBUILD`, alpm hook, `hooks/reassert.sh`, `hooks/post-update.d/`, `hooks/test-reassert.sh`): builds (checked with makepkg in a scratch copy).
-- Shell widget `shell-plugin/` (id omarchy-identity.status): lint+model tests pass; NEVER loaded in a real shell yet.
+- Shell widget `shell-plugin/` (id monarchy-identity.status): lint+model tests pass; NEVER loaded in a real shell yet.
 
 ## Hard-won findings (do not rediscover)
 - Omarchy lock screen uses its own PAM service /etc/pam.d/omarchy-lock-password (not package-owned, copy of auth stack). Must be edited too.
@@ -47,18 +47,18 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
 
 ## Session 2 additions (all tested in VM)
 - Services matrix (sddm, sudo, login, sshd, system-remote-login) incl. session open + pam_mkhomedir (home 0700). All services funnel into system-auth, so one edit covers them. `su` uses pam_unix directly (AD users can't `su`; root `su` always works via pam_rootok).
-- SDDM drop-ins merge in C-locale filename order, last wins; Omarchy's autologin.conf sorts after `99-*`, so our override is `zz-omarchy-identity.conf`. `status` autologin = effective value.
+- SDDM drop-ins merge in C-locale filename order, last wins; Omarchy's autologin.conf sorts after `99-*`, so our override is `zz-monarchy-identity.conf`. `status` autologin = effective value.
 - Safety: local-fallback precondition + `--confirm-within` auto-revert timer + `confirm`. status has `revert_pending`.
 - e2e tests share faillock state in the VM; reset faillock AFTER enrol (before enrol, directory users don't resolve and the reset is a silent no-op).
 - Tooling gotcha: when patching scripts with python `s.index(...)`, make sure you match the intended occurrence (a duplicate-match once duplicated a whole test file).
 
-- Self-heal: `omarchy-identity-reassert.path` (packaged in /usr/lib/systemd/system, enabled by enroll, disabled FIRST by leave) + flock in the CLI prevent the watcher from re-adding edits during leave. Plain pacman upgrades keep modified `backup=` files (.pacnew), so real drift comes from migrations/manual edits.
+- Self-heal: `monarchy-identity-reassert.path` (packaged in /usr/lib/systemd/system, enabled by enroll, disabled FIRST by leave) + flock in the CLI prevent the watcher from re-adding edits during leave. Plain pacman upgrades keep modified `backup=` files (.pacnew), so real drift comes from migrations/manual edits.
 - `omarchy-hook` runs as the invoking USER from ~/.config/omarchy/hooks; `omarchy update` keeps sudo alive, so the hook uses `sudo -n`. Users can delete it: the path unit is the tamper-resistant mechanism.
 - pam_sss refuses password changes initiated by root ("Password reset by root is not supported"): test as the user. Real `passwd` is setuid-root with the caller's real uid.
 - Lab DNS: `test/dc/fix-dns.sh` (A record -> 10.0.2.2); VM resolves ~corp.test via systemd-resolved drop-in (set by e2e-dns.sh). DNS-discovery enrol works without --server.
 
 - Rollback bug fixed: `enroll` rolled back via an ERR trap, but `die` calls `exit` (ERR never fires), so verification failures left sssd running + nsswitch edited. Now an EXIT trap with an `enrolled_ok` flag; it also deletes the just-created AD computer account (admin password is kept until success). `test/vm/e2e-failure.sh` snapshots PAM/nsswitch/services/config and proves failed enrolments change nothing.
-- Greeter: Omarchy's SDDM theme has no username field -> `sddm-theme/omarchy-identity` (selected by enroll). Test mode render: `sddm-greeter-qt6 --test-mode --theme DIR` + `grim` works on the host without touching system config.
+- Greeter: Omarchy's SDDM theme has no username field -> `sddm-theme/monarchy-identity` (selected by enroll). Test mode render: `sddm-greeter-qt6 --test-mode --theme DIR` + `grim` works on the host without touching system config.
 - Anything the CLI sources must be installed by PKGBUILD (posture.sh was missed once; e2e-package.sh catches it).
 
 - Real greeter testing: Omarchy's SDDM greeter runs inside Hyprland; the VM uses SDDM's X11 greeter instead (same theme QML, same daemon, same PAM). `test/vm/qmon.py` (HMP socket: sendkey, screendump->PNG) + `e2e-greeter.sh`. `loginctl terminate-session` makes SDDM treat the helper as crashed and NOT restart the greeter: end test sessions by letting the session script exit.
@@ -69,9 +69,9 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
 1. Smoke-test on a real Omarchy install is NOT done: SDDM greeter login of an AD user, hyprlock unlock as AD user,
    `sudo` as AD user, home-dir creation via pam_mkhomedir in a graphical session. VM is stock Arch w/o SDDM/Hyprland.
    Consider an Omarchy-like VM (install sddm + the fixtures) before touching the real laptop.
-2. (DONE, see TODO.md) Autologin: Omarchy's autologin.conf logs in one fixed local user; override via /etc/sddm.conf.d/zz-omarchy-identity.conf
+2. (DONE, see TODO.md) Autologin: Omarchy's autologin.conf logs in one fixed local user; override via /etc/sddm.conf.d/zz-monarchy-identity.conf
    disabling autologin (+ `managed` profile: remove wheel, break-glass admin). Not implemented. Core CLI only *reports* autologin.
-3. Wire the post-update hook install: `omarchy hook install post-update hooks/post-update.d/10-omarchy-identity-reassert`
+3. Wire the post-update hook install: `omarchy hook install post-update hooks/post-update.d/10-monarchy-identity-reassert`
    (Omarchy hooks are per-user ~/.config/omarchy/hooks; alpm hook covers system-level upgrades). Test with a simulated pambase upgrade.
 4. Run hooks/test-reassert.sh and widget tests/run.sh again after any CLI change; try widget in real shell (see shell-plugin/README.md).
 5. DNS-based discovery (production): lab uses /etc/hosts + explicit --server. Support omitting --server (SRV lookup), AD sites.

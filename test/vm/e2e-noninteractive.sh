@@ -6,32 +6,32 @@ V=(ssh -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKn
 PW='Passw0rd!Test'; fail=0
 ok() { printf '  PASS %s\n' "$1"; }; bad() { printf '  FAIL %s\n' "$1"; fail=1; }
 A="--realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users"
-st() { "${V[@]}" '~/oi/bin/omarchy-identity status --json'; }
+st() { "${V[@]}" '~/oi/bin/monarchy-identity status --json'; }
 ./deploy.sh --fixtures >/dev/null
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 "${V[@]}" "sudo install -m 600 /dev/null /root/oi.pw && echo '$PW' | sudo tee /root/oi.pw >/dev/null; sudo install -m 644 /dev/null /tmp/oi-open.pw && echo '$PW' | sudo tee /tmp/oi-open.pw >/dev/null"
 
 echo "[password file]"
-out=$("${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd $A --password-file /tmp/oi-open.pw </dev/null" 2>&1)
+out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --password-file /tmp/oi-open.pw </dev/null" 2>&1)
 [[ $out == *"accessible by group/other"* ]] && ok "world-readable password file refused" || bad "not refused: $out"
 [[ $(st) == *'"enrolled":false'* ]] && ok "nothing changed after refusal" || bad "state changed"
-out=$("${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd $A --password-file /root/oi.pw </dev/null" 2>&1)
+out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --password-file /root/oi.pw </dev/null" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok "enrol via --password-file, stdin closed" || { bad "enrol via file"; echo "$out" | sed 's/^/      /'; }
-out=$("${V[@]}" "sudo ~/oi/bin/omarchy-identity leave --admin Administrator --password-file /root/oi.pw </dev/null" 2>&1)
+out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity leave --admin Administrator --password-file /root/oi.pw </dev/null" 2>&1)
 [[ $(docker exec oi-test-dc samba-tool computer list | grep -c OI-CLIENT) -eq 0 ]] && ok "leave --password-file removed the computer account" || bad "computer account left: $out"
 
 echo "[environment variable]"
-out=$("${V[@]}" "sudo OI_ADMIN_PASSWORD_FILE=/root/oi.pw ~/oi/bin/omarchy-identity enroll sssd $A </dev/null" 2>&1)
+out=$("${V[@]}" "sudo OI_ADMIN_PASSWORD_FILE=/root/oi.pw ~/oi/bin/monarchy-identity enroll sssd $A </dev/null" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok "enrol via OI_ADMIN_PASSWORD_FILE" || { bad "enrol via env"; echo "$out" | sed 's/^/      /'; }
-out=$("${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd $A </dev/null" 2>&1)
-"${V[@]}" "sudo OI_ADMIN_PASSWORD_FILE=/root/oi.pw ~/oi/bin/omarchy-identity leave --admin Administrator </dev/null" >/dev/null 2>&1
-out=$("${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd $A </dev/null" 2>&1)
+out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A </dev/null" 2>&1)
+"${V[@]}" "sudo OI_ADMIN_PASSWORD_FILE=/root/oi.pw ~/oi/bin/monarchy-identity leave --admin Administrator </dev/null" >/dev/null 2>&1
+out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A </dev/null" 2>&1)
 [[ $out == *"password must be given"* ]] && ok "no password source -> clear error, no hang" || bad "unexpected: $out"
 
 echo "[install-hooks]"
-"${V[@]}" '~/oi/bin/omarchy-identity install-hooks' | grep -q installed && ok "install-hooks (as user)" || bad "install-hooks"
-"${V[@]}" 'test -x ~/.config/omarchy/hooks/post-update.d/10-omarchy-identity-reassert' && ok "hook present and executable" || bad "hook missing"
-"${V[@]}" '~/oi/bin/omarchy-identity remove-hooks' >/dev/null; "${V[@]}" 'test -e ~/.config/omarchy/hooks/post-update.d/10-omarchy-identity-reassert' && bad "hook not removed" || ok "remove-hooks"
-"${V[@]}" 'sudo ~/oi/bin/omarchy-identity install-hooks' 2>&1 | grep -q 'not root' && ok "install-hooks refuses root" || bad "install-hooks as root"
+"${V[@]}" '~/oi/bin/monarchy-identity install-hooks' | grep -q installed && ok "install-hooks (as user)" || bad "install-hooks"
+"${V[@]}" 'test -x ~/.config/omarchy/hooks/post-update.d/10-monarchy-identity-reassert' && ok "hook present and executable" || bad "hook missing"
+"${V[@]}" '~/oi/bin/monarchy-identity remove-hooks' >/dev/null; "${V[@]}" 'test -e ~/.config/omarchy/hooks/post-update.d/10-monarchy-identity-reassert' && bad "hook not removed" || ok "remove-hooks"
+"${V[@]}" 'sudo ~/oi/bin/monarchy-identity install-hooks' 2>&1 | grep -q 'not root' && ok "install-hooks refuses root" || bad "install-hooks as root"
 "${V[@]}" 'sudo rm -f /root/oi.pw /tmp/oi-open.pw'
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

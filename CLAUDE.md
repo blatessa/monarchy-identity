@@ -1,4 +1,4 @@
-# CLAUDE.md - omarchy-identity
+# CLAUDE.md - monarchy-identity
 
 Provider-agnostic corporate identity for Omarchy (Arch + Hyprland). Read `HANDOFF.md` (findings, state) and `TODO.md` (next work) before changing anything. Design: `docs/DESIGN.md`.
 
@@ -12,19 +12,19 @@ Provider-agnostic corporate identity for Omarchy (Arch + Hyprland). Read `HANDOF
 - Don't `pkill -f` (kills your own shell). Don't commit `test/vm/images`, `test/vm/keys`.
 
 ## Layout
-    bin/omarchy-identity        core CLI: status [--json] | enroll <provider> | leave [--admin U] | reassert | providers
+    bin/monarchy-identity        core CLI: status [--json] | enroll <provider> | leave [--admin U] | reassert | providers
     providers/<name>/           detect enroll unenroll reassert status (+lib.sh). status prints key=value lines
     lib/common.sh, lib/posture.sh, lib/pamedit.py   shared helpers, read-only posture probes, idempotent BEGIN/END-marked PAM editor
-    sddm-theme/omarchy-identity/    login theme = Omarchy's look + a username field (stock theme only logs in the last user)
+    sddm-theme/monarchy-identity/    login theme = Omarchy's look + a username field (stock theme only logs in the last user)
     hooks/                      reassert.sh + post-update.d wrapper (re-apply edits after updates)
-    packaging/                  PKGBUILD (omarchy-identity + omarchy-identity-shell), alpm hook, default config
-    shell-plugin/               optional Quickshell bar widget (id omarchy-identity.status)
+    packaging/                  PKGBUILD (monarchy-identity + monarchy-identity-shell), alpm hook, default config
+    shell-plugin/               optional Quickshell bar widget (id monarchy-identity.status)
     test/dc  test/vm            Samba AD container + Arch QEMU client, e2e scripts
     docs/DESIGN.md POSTURE.md   architecture + security model; status --json schema
     test/unit                   no-VM unit tests (input validation)
 
 ## Provider contract
-`providers/<name>/{detect,enroll,unenroll,reassert,status}` executables. They source `lib/common.sh`, use `$OI_ROOT` (set by the CLI), write state to `/etc/omarchy-identity/config.toml` (flat `key = "value"`), back up originals to `/var/lib/omarchy-identity/backup`. `enroll` must roll back fully on failure and must verify the directory works BEFORE touching PAM. `unenroll` must restore the pre-enrolment state exactly.
+`providers/<name>/{detect,enroll,unenroll,reassert,status}` executables. They source `lib/common.sh`, use `$OI_ROOT` (set by the CLI), write state to `/etc/monarchy-identity/config.toml` (flat `key = "value"`), back up originals to `/var/lib/monarchy-identity/backup`. `enroll` must roll back fully on failure and must verify the directory works BEFORE touching PAM. `unenroll` must restore the pre-enrolment state exactly.
 
 ## Dev loop
     cd test/dc && docker compose up -d && ./seed-users.sh

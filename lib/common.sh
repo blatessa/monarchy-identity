@@ -1,10 +1,10 @@
 # shared helpers for providers. Sourced, not executed.
-OI_CONF="${OMARCHY_IDENTITY_CONF:-/etc/omarchy-identity/config.toml}"
-OI_STATE="${OMARCHY_IDENTITY_STATE:-/var/lib/omarchy-identity}"
+OI_CONF="${MONARCHY_IDENTITY_CONF:-/etc/monarchy-identity/config.toml}"
+OI_STATE="${MONARCHY_IDENTITY_STATE:-/var/lib/monarchy-identity}"
 OI_ROOT="${OI_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-ETC="${OMARCHY_IDENTITY_ETC:-/etc}"   # overridable for tests
+ETC="${MONARCHY_IDENTITY_ETC:-/etc}"   # overridable for tests
 
-log() { echo "omarchy-identity: $*" >&2; logger -t omarchy-identity -- "$*" 2>/dev/null || true; }
+log() { echo "monarchy-identity: $*" >&2; logger -t monarchy-identity -- "$*" 2>/dev/null || true; }
 die() { log "ERROR: $*"; exit 1; }
 need_root() { [[ $EUID -eq 0 ]] || die "must run as root"; }
 
@@ -35,9 +35,9 @@ restore_file() {
 
 # --- SDDM autologin ---------------------------------------------------------------------------
 # SDDM merges $SDDM_CONF_D/*.conf in C-locale name order; the LAST [Autologin] User= wins. Omarchy's
-# autologin.conf sorts after "99-...", so our override must sort after it: zz-omarchy-identity.conf.
-SDDM_CONF_D="${OMARCHY_IDENTITY_SDDM_CONF_D:-/etc/sddm.conf.d}"
-SDDM_OVERRIDE="$SDDM_CONF_D/zz-omarchy-identity.conf"
+# autologin.conf sorts after "99-...", so our override must sort after it: zz-monarchy-identity.conf.
+SDDM_CONF_D="${MONARCHY_IDENTITY_SDDM_CONF_D:-/etc/sddm.conf.d}"
+SDDM_OVERRIDE="$SDDM_CONF_D/zz-monarchy-identity.conf"
 
 sddm_conf_value() { # sddm_conf_value Section Key -> effective value (last file wins, C-locale name order)
   local f val="" sect="" line
@@ -56,7 +56,7 @@ sddm_conf_value() { # sddm_conf_value Section Key -> effective value (last file 
 sddm_autologin_user() { sddm_conf_value Autologin User; }   # prints the effective autologin user ("" if none)
 
 sddm_autologin_disable() { # idempotent: only writes when content differs (a path unit watches this dir)
-  local want=$'# managed by omarchy-identity: disables autologin on managed machines\n[Autologin]\nUser=\nSession=\n'
+  local want=$'# managed by monarchy-identity: disables autologin on managed machines\n[Autologin]\nUser=\nSession=\n'
   install -d -m 0755 "$SDDM_CONF_D"
   [[ -f $SDDM_OVERRIDE && $(cat "$SDDM_OVERRIDE") == "${want%$'\n'}" ]] && return 0
   printf '%s' "$want" > "$SDDM_OVERRIDE"; chmod 0644 "$SDDM_OVERRIDE"
@@ -76,10 +76,10 @@ local_fallback_users() {
   done < <(getent -s files passwd)
 }
 
-REVERT_UNIT="omarchy-identity-revert"
+REVERT_UNIT="monarchy-identity-revert"
 revert_schedule() { # minutes
-  systemd-run --quiet --unit="$REVERT_UNIT" --on-active="${1}m" --description="omarchy-identity auto-revert (unconfirmed enrolment)" \
-    env OI_ROOT="$OI_ROOT" "$OI_ROOT/bin/omarchy-identity" leave >/dev/null
+  systemd-run --quiet --unit="$REVERT_UNIT" --on-active="${1}m" --description="monarchy-identity auto-revert (unconfirmed enrolment)" \
+    env OI_ROOT="$OI_ROOT" "$OI_ROOT/bin/monarchy-identity" leave >/dev/null
 }
 revert_cancel()  { systemctl stop "$REVERT_UNIT.timer" "$REVERT_UNIT.service" 2>/dev/null || true; }
 revert_pending() { systemctl is-active --quiet "$REVERT_UNIT.timer" 2>/dev/null; }
@@ -87,10 +87,10 @@ revert_pending() { systemctl is-active --quiet "$REVERT_UNIT.timer" 2>/dev/null;
 # --- serialization + self-heal watcher ----------------------------------------------------------
 # Every state-changing command takes this lock, so the path-triggered reassert can never interleave
 # with enroll/leave (it would otherwise re-add edits that leave is removing).
-OI_LOCK="${OMARCHY_IDENTITY_LOCK:-/run/omarchy-identity.lock}"
+OI_LOCK="${MONARCHY_IDENTITY_LOCK:-/run/monarchy-identity.lock}"
 oi_lock() { exec 9>"$OI_LOCK" && flock 9; }
 
-WATCH_UNIT="omarchy-identity-reassert.path"
+WATCH_UNIT="monarchy-identity-reassert.path"
 watch_enable()  { systemctl cat "$WATCH_UNIT" >/dev/null 2>&1 && systemctl enable --now "$WATCH_UNIT" >/dev/null 2>&1 || true; }
 watch_disable() { systemctl disable --now "$WATCH_UNIT" >/dev/null 2>&1 || true; }
 watch_active()  { systemctl is-active --quiet "$WATCH_UNIT" 2>/dev/null; }
@@ -115,14 +115,14 @@ read_admin_password() {
 # --- SDDM login theme with a username field -----------------------------------------------------
 # Omarchy's stock theme has no username box (it logs in userModel.lastUser), so directory users cannot
 # sign in at the greeter. We select our own theme with a drop-in that sorts after Omarchy's.
-SDDM_THEMES="${OMARCHY_IDENTITY_SDDM_THEMES:-/usr/share/sddm/themes}"
-IDENTITY_THEME=omarchy-identity
-SDDM_THEME_CONF="$SDDM_CONF_D/zz-omarchy-identity-theme.conf"
+SDDM_THEMES="${MONARCHY_IDENTITY_SDDM_THEMES:-/usr/share/sddm/themes}"
+IDENTITY_THEME=monarchy-identity
+SDDM_THEME_CONF="$SDDM_CONF_D/zz-monarchy-identity-theme.conf"
 sddm_theme_installed() { [[ -f $SDDM_THEMES/$IDENTITY_THEME/Main.qml ]]; }
 sddm_theme_effective() { sddm_conf_value Theme Current; }
 sddm_theme_enable() { # idempotent; returns 1 if the theme package files are missing
   sddm_theme_installed || return 1
-  local want=$'# managed by omarchy-identity: login screen with a username field\n[Theme]\nCurrent='"$IDENTITY_THEME"$'\n'
+  local want=$'# managed by monarchy-identity: login screen with a username field\n[Theme]\nCurrent='"$IDENTITY_THEME"$'\n'
   install -d -m 0755 "$SDDM_CONF_D"
   [[ -f $SDDM_THEME_CONF && $(cat "$SDDM_THEME_CONF") == "${want%$'\n'}" ]] && return 0
   printf '%s' "$want" > "$SDDM_THEME_CONF"; chmod 0644 "$SDDM_THEME_CONF"
@@ -132,12 +132,12 @@ sddm_theme_restore() { rm -f "$SDDM_THEME_CONF"; }
 # --- sudo for directory groups --------------------------------------------------------------------
 # Optional: map directory groups to sudo via a sudoers drop-in. Validated with visudo BEFORE install
 # (a broken sudoers file can lock out root access). Names are restricted so no escaping is needed.
-SUDOERS_FILE="${OMARCHY_IDENTITY_SUDOERS:-/etc/sudoers.d/50-omarchy-identity}"
+SUDOERS_FILE="${MONARCHY_IDENTITY_SUDOERS:-/etc/sudoers.d/50-monarchy-identity}"
 valid_sudo_groups() { local g IFS=,; [[ -n $1 ]] || return 1; for g in $1; do [[ $g =~ ^[A-Za-z0-9._-]{1,64}$ ]] || return 1; done; }
 sudoers_apply() { # sudoers_apply "g1,g2"  -- idempotent: untouched file => no write (a path unit watches this dir)
   valid_sudo_groups "$1" || die "invalid --sudo-groups '$1' (letters, digits, . _ - only; no spaces)"
   local want g IFS=,
-  want="# managed by omarchy-identity: directory groups with sudo"
+  want="# managed by monarchy-identity: directory groups with sudo"
   for g in $1; do want+=$'\n'"%$g ALL=(ALL:ALL) ALL"; done
   [[ -f $SUDOERS_FILE && $(cat "$SUDOERS_FILE") == "$want" && $(stat -c %a "$SUDOERS_FILE") == 440 ]] && return 0
   local tmp; tmp=$(mktemp "${SUDOERS_FILE}.XXXXXX") || die "cannot create temp sudoers file"

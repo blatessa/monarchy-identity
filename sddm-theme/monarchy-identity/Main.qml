@@ -1,4 +1,4 @@
-// omarchy-identity login theme: Omarchy's look, plus an editable username line so directory
+// monarchy-identity login theme: Omarchy's look, plus an editable username line so directory
 // (corporate) users can sign in. Upstream theme only logs in userModel.lastUser.
 import QtQuick 2.0
 import SddmComponents 2.0

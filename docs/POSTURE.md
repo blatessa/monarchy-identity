@@ -1,4 +1,4 @@
-# Posture report (`omarchy-identity status --json`)
+# Posture report (`monarchy-identity status --json`)
 
 Stable, versioned JSON for MDM / osquery / Ansible. Additive changes keep `schema`; breaking changes bump it.
 Read-only; works unprivileged. Anything not determinable is the string `"unknown"` (never a guess, never an error).
@@ -28,5 +28,5 @@ Some fields are stronger when run as root (`details.domain_joined` is `unknown` 
     }
 
 Drift signal: any `details.pam_*` or `nss_sss` equal to `"false"` while `enrolled` is true.
-Typical osquery/Ansible check: `omarchy-identity status --json | jq -e '.enrolled and .compliance.disk_encryption=="true"'`.
+Typical osquery/Ansible check: `monarchy-identity status --json | jq -e '.enrolled and .compliance.disk_encryption=="true"'`.
 Probes live in `lib/posture.sh`; add a probe there and a line to this file.

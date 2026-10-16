@@ -14,8 +14,8 @@ scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKn
 "${V[@]}" 'sudo faillock --user alice --reset; sudo faillock --user bob --reset; sudo faillock --user carol --reset; sudo faillock --user tester --reset' 
 echo "[enrol]"
 # clean slate: leave if a previous run left us enrolled
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
-out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
+out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok enrol || { bad "enrol"; echo "$out" | sed 's/^/      /'; }
 # reset AFTER enrol: before it, directory users don't resolve and the reset is a silent no-op
 "${V[@]}" 'for u in alice bob carol tester; do sudo faillock --user $u --reset; done' 2>/dev/null
@@ -29,11 +29,11 @@ for svc in system-auth omarchy-lock-password; do
 done
 echo "[drift + reassert]"
 "${V[@]}" 'sudo cp ~/oi/../../../etc/pam.d/system-auth /dev/null 2>/dev/null; sudo python3 -I ~/oi/lib/pamedit.py remove /etc/pam.d/system-auth'
-"${V[@]}" '~/oi/bin/omarchy-identity status --json' | grep -q '"pam_system_auth":"false"' && ok "drift detected by status" || bad "drift detected"
-"${V[@]}" 'sudo ~/oi/bin/omarchy-identity reassert' >/dev/null 2>&1
+"${V[@]}" '~/oi/bin/monarchy-identity status --json' | grep -q '"pam_system_auth":"false"' && ok "drift detected by status" || bad "drift detected"
+"${V[@]}" 'sudo ~/oi/bin/monarchy-identity reassert' >/dev/null 2>&1
 expect "alice allowed after reassert" ALLOWED system-auth alice "$PW"
 echo "[leave]"
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 for f in system-auth omarchy-lock-password; do "${V[@]}" "cat /etc/pam.d/$f" | diff -q - fixtures/pam.d/$f >/dev/null && ok "$f restored to stock" || bad "$f restored"; done
 [[ $(docker exec oi-test-dc samba-tool computer list | grep -c 'OI-CLIENT') -eq 0 ]] && ok "computer account removed" || bad "computer account removed"
 expect "tester still ok after leave" ALLOWED system-auth tester tester

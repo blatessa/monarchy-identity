@@ -1,8 +1,8 @@
 #!/bin/bash
-# omarchy-identity: directory enrolment, login policy, posture reporting.
+# monarchy-identity: directory enrolment, login policy, posture reporting.
 set -euo pipefail
 
-ROOT="${OMARCHY_IDENTITY_ROOT:-/usr/share/omarchy-identity}"
+ROOT="${MONARCHY_IDENTITY_ROOT:-/usr/share/monarchy-identity}"
 [[ -d $ROOT/providers ]] || ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 export OI_ROOT="$ROOT"
 source "$ROOT/lib/common.sh"
@@ -11,12 +11,12 @@ CONF="$OI_CONF"
 
 usage() {
   cat <<EOF
-Usage: omarchy-identity <command>
+Usage: monarchy-identity <command>
 
   status [--json]            Show enrolment and posture
   enroll <provider> [args]   Enrol with a directory provider
   leave                      Unenrol and restore previous config
-  check [--json]             Evaluate posture against /etc/omarchy-identity/policy.toml (exit 1 if non-compliant)
+  check [--json]             Evaluate posture against /etc/monarchy-identity/policy.toml (exit 1 if non-compliant)
   confirm                    Cancel the pending auto-revert (after verifying login works; root)
   reassert                   Re-apply managed /etc edits (run after updates; root)
   install-hooks              Install the post-update hook for the current user (not root)
@@ -81,14 +81,14 @@ case "${1:-}" in
   enroll) shift; [[ $# -ge 1 ]] || { usage; exit 1; }; p=$1; shift; run_provider "$p" enroll "$@" ;;
   install-hooks|remove-hooks)
     [[ $EUID -ne 0 ]] || { echo "run as the desktop user, not root (Omarchy hooks live in ~/.config/omarchy/hooks)" >&2; exit 1; }
-    hook_name=10-omarchy-identity-reassert; hook_src="$ROOT/hooks/post-update.d/$hook_name"
+    hook_name=10-monarchy-identity-reassert; hook_src="$ROOT/hooks/post-update.d/$hook_name"
     hook_dst="$HOME/.config/omarchy/hooks/post-update.d/$hook_name"
     if [[ $1 == install-hooks ]]; then
       [[ -f $hook_src ]] || { echo "hook source not found: $hook_src" >&2; exit 1; }
       install -D -m 0755 "$hook_src" "$hook_dst"; echo "installed $hook_dst"
     else rm -f "$hook_dst"; echo "removed $hook_dst"; fi ;;
   check)
-    shift; pol="${OMARCHY_IDENTITY_POLICY:-/etc/omarchy-identity/policy.toml}"
+    shift; pol="${MONARCHY_IDENTITY_POLICY:-/etc/monarchy-identity/policy.toml}"
     [[ -r $pol ]] || { echo "no policy file at $pol (see docs/ADMIN.md)" >&2; exit 2; }
     cmd_status --json | python3 -I "$ROOT/lib/check.py" "$pol" "$@" ;;
   confirm) [[ $EUID -eq 0 ]] || { echo "must run as root" >&2; exit 1; }; if revert_pending; then revert_cancel; log "enrolment confirmed; auto-revert cancelled"; else echo "no auto-revert pending"; fi ;;

@@ -1,4 +1,4 @@
-# Read-only device posture probes for `omarchy-identity status --json`. Sourced, not executed.
+# Read-only device posture probes for `monarchy-identity status --json`. Sourced, not executed.
 # Every probe prints one token; anything it cannot determine is "unknown" (never a guess, never an error).
 
 posture_disk_encryption() { # true | false | unknown  -- is the root filesystem on a dm-crypt (LUKS) device?

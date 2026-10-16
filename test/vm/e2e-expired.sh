@@ -13,8 +13,8 @@ trap 'dc user delete dave' EXIT
 scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 pamtest.py tester@127.0.0.1:/home/tester/
 ./deploy.sh --fixtures >/dev/null; "${V[@]}" 'sudo install -m 644 ~/pamtest.py /tmp/pamtest.py'
 dc user delete dave; dc user create dave "$PW" --must-change-at-next-login; dc group addmembers oi-laptop-users dave
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
-out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
+out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok enrol || { bad enrol; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'sudo faillock --user dave --reset' 2>/dev/null
 
@@ -28,5 +28,5 @@ echo "[the user fixes it with passwd]"
 expect PASSWORD-CHANGED "dave changes the expired password with passwd" passwd dave "$PW" --chauthtok "$NEW"
 for svc in system-auth sddm sshd; do expect ALLOWED "$svc: dave can log in with the new password" --session $svc dave "$NEW"; done
 expect DENIED "old password no longer works" system-auth dave "$PW"
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

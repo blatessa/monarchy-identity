@@ -4,14 +4,14 @@ import qs.Commons
 import qs.Ui
 import "Model.js" as Model
 
-// Bar button + click-through popup showing `omarchy-identity status --json`.
+// Bar button + click-through popup showing `monarchy-identity status --json`.
 // Cosmetic only: it never runs a privileged command, never blocks the shell
 // (the CLI runs in a Process with a 5s timeout), and any failure collapses to
 // "identity: unavailable". Not a security boundary.
 Panel {
   id: root
-  moduleName: "omarchy-identity.status"
-  ipcTarget: "omarchy-identity.status"
+  moduleName: "monarchy-identity.status"
+  ipcTarget: "monarchy-identity.status"
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color urgent: bar ? bar.urgent : Color.urgent
@@ -31,7 +31,7 @@ Panel {
   Process {
     id: statusProc
     // sh gives a clean exit 127 when the CLI is absent instead of a spawn error.
-    command: ["sh", "-c", "exec timeout 5 omarchy-identity status --json"]
+    command: ["sh", "-c", "exec timeout 5 monarchy-identity status --json"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.lastOutput = text
@@ -39,7 +39,7 @@ Panel {
     onExited: function(exitCode) {
       root.status = exitCode === 0
         ? Model.parse(root.lastOutput)
-        : Model.unavailable("omarchy-identity exited " + exitCode)
+        : Model.unavailable("monarchy-identity exited " + exitCode)
     }
   }
 
@@ -92,7 +92,7 @@ Panel {
         visible: root.status.state === "unavailable"
         textFormat: Text.PlainText
         width: parent.width
-        text: (root.status.reason !== "" ? root.status.reason + ". " : "") + "Is the omarchy-identity package installed?"
+        text: (root.status.reason !== "" ? root.status.reason + ". " : "") + "Is the monarchy-identity package installed?"
         color: root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall

@@ -12,8 +12,8 @@ Every inserted block is wrapped in BEGIN/END markers so `remove` is exact.
 import re
 import sys
 
-BEGIN = "# BEGIN omarchy-identity"
-END = "# END omarchy-identity"
+BEGIN = "# BEGIN monarchy-identity"
+END = "# END monarchy-identity"
 
 
 def is_rule(line, kind):

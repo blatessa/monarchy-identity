@@ -1,12 +1,12 @@
 #!/bin/bash
-# omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator
+# monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator
 #   (--server optional: omit to use DNS SRV discovery)
 #   [--mode groups|assigned|any] [--groups a,b] [--users u1,u2] [--disable-autologin]
 #   [--password-file FILE]      admin password from a 0600 file instead of stdin (or $OI_ADMIN_PASSWORD_FILE)
 #   [--sudo-groups g1,g2]       directory groups that get sudo (visudo-validated drop-in)
 #   [--offline-days N]          cached credentials stop working after N days offline (default: never)
 #   [--keep-login-theme]        do not switch SDDM to the theme with a username field
-#   [--confirm-within MINUTES]  auto-leave unless `omarchy-identity confirm` is run in time
+#   [--confirm-within MINUTES]  auto-leave unless `monarchy-identity confirm` is run in time
 #   [--allow-no-local-fallback] skip the "a local user with a password must exist" safety check   (admin password on stdin)
 set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
@@ -84,10 +84,10 @@ pam_apply
 ((disable_autologin)) && sddm_autologin_disable
 [[ -z $sudo_groups ]] || sudoers_apply "$sudo_groups"
 if ((!keep_theme)); then
-  sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the omarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"
+  sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the monarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"
 fi
 conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" autologin_disabled="$([[ $disable_autologin == 1 ]] && echo true || echo false)" login_theme="$([[ $keep_theme == 1 ]] && echo stock || echo identity)" sudo_groups="$sudo_groups" offline_days="$offline_days"
 enrolled_ok=1; trap - EXIT; pw=""
 watch_enable   # self-heal: root-owned path unit re-asserts our edits if anything overwrites them
-((confirm_within > 0)) && { revert_schedule "$confirm_within"; log "AUTO-REVERT in ${confirm_within} min unless you run: omarchy-identity confirm"; }
+((confirm_within > 0)) && { revert_schedule "$confirm_within"; log "AUTO-REVERT in ${confirm_within} min unless you run: monarchy-identity confirm"; }
 log "enrolled in $realm (login mode: $mode)"

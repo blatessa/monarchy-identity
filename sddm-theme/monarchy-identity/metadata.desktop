@@ -1,7 +1,7 @@
 [SddmGreeterTheme]
-Name=Omarchy (identity)
+Name=Monarchy (identity)
 Description=Omarchy login theme with a username field for directory users
-Author=omarchy-identity
+Author=monarchy-identity
 Type=sddm-theme
 Version=1.0
 QtVersion=6

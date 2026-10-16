@@ -1,6 +1,6 @@
 .pragma library
 
-// Pure parsing of `omarchy-identity status --json`. No QML or shell types so
+// Pure parsing of `monarchy-identity status --json`. No QML or shell types so
 // tests/test_model.js can run it under node.
 //
 // state: "unavailable" | "local" | "ok" | "warn"

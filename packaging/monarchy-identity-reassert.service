@@ -1,0 +1,6 @@
+[Unit]
+Description=Re-assert monarchy-identity managed configuration
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/monarchy-identity reassert

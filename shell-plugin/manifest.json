@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "id": "omarchy-identity.status",
+  "id": "monarchy-identity.status",
   "name": "Identity status",
   "version": "0.1.0",
-  "author": "omarchy-identity contributors",
+  "author": "monarchy-identity contributors",
   "license": "MIT",
-  "description": "Shows corporate-identity enrolment and posture from omarchy-identity in the Omarchy bar. Cosmetic only; requires the omarchy-identity package.",
+  "description": "Shows corporate-identity enrolment and posture from monarchy-identity in the Omarchy bar. Cosmetic only; requires the monarchy-identity package.",
   "kinds": [
     "bar-widget"
   ],
@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "Identity",
-    "description": "Enrolment state and posture warnings (autologin on, local admins) from omarchy-identity status --json.",
+    "description": "Enrolment state and posture warnings (autologin on, local admins) from monarchy-identity status --json.",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right",

@@ -9,7 +9,7 @@ BASE="--realm CORP.TEST --server dc.corp.test --admin Administrator --mode group
 trap 'docker start oi-test-dc >/dev/null 2>&1' EXIT
 
 ./deploy.sh --fixtures >/dev/null
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 
 # Snapshot of everything enrolment can touch; compare after each failure.
 snap() { "${V[@]}" 'sudo bash -c "
@@ -17,8 +17,8 @@ snap() { "${V[@]}" 'sudo bash -c "
   echo \"== sddm\"; ls /etc/sddm.conf.d; echo \"== sudoers.d\"; ls /etc/sudoers.d
   echo \"== sssd conf: \$(test -e /etc/sssd/sssd.conf && echo present || echo absent)\"
   echo \"== sssd active: \$(systemctl is-active sssd)\"
-  echo \"== watcher: \$(systemctl is-active omarchy-identity-reassert.path)\"
-  echo \"== provider: \$(grep ^provider /etc/omarchy-identity/config.toml 2>/dev/null | grep -q sssd && echo sssd || echo local-or-unset)\"
+  echo \"== watcher: \$(systemctl is-active monarchy-identity-reassert.path)\"
+  echo \"== provider: \$(grep ^provider /etc/monarchy-identity/config.toml 2>/dev/null | grep -q sssd && echo sssd || echo local-or-unset)\"
   echo \"== keytab: \$(test -e /etc/krb5.keytab && echo present || echo absent)\"
 "' 2>&1; }
 BEFORE=$(snap)
@@ -31,7 +31,7 @@ check_untouched() { # check_untouched <label>
 attempt() { # attempt <label> <expected error substring> <password> <extra args...>
   local label=$1 want=$2 pw=$3; shift 3
   local out rc q=""; for a in "$@"; do q+=" $(printf '%q' "$a")"; done   # %q: survive the remote shell intact
-  out=$(echo "$pw" | "${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd $BASE$q" 2>&1); rc=$?
+  out=$(echo "$pw" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $BASE$q" 2>&1); rc=$?
   [[ $rc -ne 0 ]] && ok "$label: exits non-zero" || bad "$label: exited 0"
   [[ -z $want || $out == *"$want"* ]] && ok "$label: reports the cause" || { bad "$label: message lacks '$want'"; echo "$out" | tail -3 | sed 's/^/      /'; }
   check_untouched "$label"
@@ -55,7 +55,7 @@ attempt "invalid realm (newline injection)" "invalid --realm" "$PW" --groups oi-
 attempt "missing groups" "needs --groups" "$PW"
 
 echo "[recovery: a good enrolment still works after all that]"
-out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd $BASE --groups oi-laptop-users" 2>&1)
+out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $BASE --groups oi-laptop-users" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok "clean enrolment succeeds after failures" || { bad "enrolment after failures"; echo "$out" | tail -4 | sed 's/^/      /'; }
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

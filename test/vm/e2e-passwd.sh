@@ -12,10 +12,10 @@ expect() { local want=$1 desc=$2; shift 2; local out; out=$(pt "$@"); [[ $out ==
 scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 pamtest.py tester@127.0.0.1:/home/tester/
 ./deploy.sh --fixtures >/dev/null
 "${V[@]}" 'sudo install -m 644 ~/pamtest.py /tmp/pamtest.py'
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 # always restore lab passwords, whatever happens
 trap 'docker exec oi-test-dc samba-tool user setpassword alice --newpassword="$PW" >/dev/null 2>&1; "${V[@]}" "echo tester:tester | sudo chpasswd" >/dev/null 2>&1' EXIT
-out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
+out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok enrol || { bad enrol; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'for u in alice tester; do sudo faillock --user $u --reset; done' 2>/dev/null
 "${V[@]}" 'grep -c "^password.*pam_sss" /etc/pam.d/system-auth' | grep -qx 1 && ok "password stack has pam_sss" || bad "password stack edit missing"
@@ -33,6 +33,6 @@ expect PASSWORD-CHANGED "tester: local passwd still changes the local password" 
 expect ALLOWED "tester: new local password works" system-auth tester "tester2-pw"
 expect PASSWORD-CHANGED "tester: change back" passwd tester "tester2-pw" --chauthtok "tester"
 expect ALLOWED "tester: original works" system-auth tester tester
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 for f in system-auth; do "${V[@]}" "cat /etc/pam.d/$f" | diff -q - fixtures/pam.d/$f >/dev/null && ok "leave restores stock $f (incl. password stack)" || bad "$f not stock"; done
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

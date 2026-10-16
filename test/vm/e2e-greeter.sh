@@ -1,6 +1,6 @@
 #!/bin/bash
 # Real SDDM greeter test: type credentials with QEMU sendkey into the actual greeter (X11 greeter, our
-# omarchy-identity theme, real PAM stack) and check that sessions start / don't start. Needs DC + VM
+# monarchy-identity theme, real PAM stack) and check that sessions start / don't start. Needs DC + VM
 # (started by run.sh with its monitor socket). Screenshots land in $SHOTS (default: a temp dir, printed).
 set -u
 H="$(cd "$(dirname "$0")" && pwd)"; cd "$H"
@@ -43,14 +43,14 @@ echo "[setup: packaged install, enrol, X11 greeter for the VM]"
 ./install-package.sh >/dev/null
 tar -C fixtures -czf - omarchy-theme-assets oi-test-session oi-test.desktop | "${V[@]}" 'cd /tmp && rm -rf oi-fx && mkdir oi-fx && tar -xzf - -C oi-fx && sudo install -d /usr/share/sddm/themes/omarchy /usr/share/xsessions && sudo install -m644 oi-fx/omarchy-theme-assets/*.png /usr/share/sddm/themes/omarchy/ && sudo install -m755 oi-fx/oi-test-session /usr/local/bin/oi-test-session && sudo install -m644 oi-fx/oi-test.desktop /usr/share/xsessions/oi-test.desktop'
 "${V[@]}" 'sudo rm -rf /run/oi-test; sudo install -d -m 0777 /run/oi-test; sudo install -m 0666 /dev/null /run/oi-test/session.log'
-echo "$PW" | "${V[@]}" 'sudo systemctl stop sddm; sudo /usr/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+echo "$PW" | "${V[@]}" 'sudo systemctl stop sddm; sudo /usr/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 "${V[@]}" 'sudo rm -rf /home/alice /home/bob /home/carol /var/lib/sddm/state.conf /run/oi-test/logout; for u in alice bob carol tester; do sudo faillock --user $u --reset 2>/dev/null; done'
-out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users --disable-autologin" 2>&1)
+out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users --disable-autologin" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok enrol || { bad enrol; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'printf "[General]\nDisplayServer=x11\n" | sudo tee /etc/sddm.conf.d/zz-vm-x11.conf >/dev/null; sudo systemctl start sddm'
 for _ in $(seq 40); do sleep 1; [[ $("${V[@]}" 'sudo journalctl -u sddm --no-pager -o cat | grep -c "Greeter session started successfully"') -ge 1 ]] && break; done; sleep 4
 shot 0-greeter
-"${V[@]}" 'sudo journalctl -u sddm --no-pager -o cat | grep -q "omarchy-identity"' && ok "greeter loaded the omarchy-identity theme" || bad "greeter did not load our theme"
+"${V[@]}" 'sudo journalctl -u sddm --no-pager -o cat | grep -q "monarchy-identity"' && ok "greeter loaded the monarchy-identity theme" || bad "greeter did not load our theme"
 
 echo "[directory user, allowed group]"
 login alice alice "$PW" 0 && [[ $(last_user) == alice ]] && ok "alice typed username+password at the greeter -> session started as alice" || bad "alice got no session"
@@ -80,6 +80,6 @@ login 5-tester tester tester 1 && [[ $(last_user) == tester ]] && ok "local user
 logout_graphical
 
 "${V[@]}" 'sudo systemctl stop sddm; sudo rm -f /etc/sddm.conf.d/zz-vm-x11.conf' >/dev/null 2>&1
-echo "$PW" | "${V[@]}" 'sudo /usr/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
-"${V[@]}" 'sudo pacman -R --noconfirm omarchy-identity' >/dev/null 2>&1   # leave the VM unpackaged, as other suites expect
+echo "$PW" | "${V[@]}" 'sudo /usr/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
+"${V[@]}" 'sudo pacman -R --noconfirm monarchy-identity' >/dev/null 2>&1   # leave the VM unpackaged, as other suites expect
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

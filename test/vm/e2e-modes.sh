@@ -8,8 +8,8 @@ ok() { printf '  PASS %s\n' "$1"; }; bad() { printf '  FAIL %s\n' "$1"; fail=1; 
 expect() { local out; out=$("${V[@]}" "sudo python3 -I ~/pamtest.py system-auth $3 '$4'" 2>&1); [[ $out == $2* ]] && ok "$1" || bad "$1 (got: $out)"; }
 scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 pamtest.py tester@127.0.0.1:/home/tester/
 ./deploy.sh --fixtures >/dev/null
-enrol() { echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
-  local out; out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator $*" 2>&1)
+enrol() { echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
+  local out; out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator $*" 2>&1)
   [[ $out == *"enrolled in"* ]] && ok "enrol $*" || { bad "enrol $*"; echo "$out" | sed 's/^/      /'; }
   "${V[@]}" 'for u in alice bob carol tester; do sudo faillock --user $u --reset 2>/dev/null; done'; }
 echo "[assigned: only alice]"; enrol --mode assigned --users alice
@@ -23,9 +23,9 @@ echo "[any: whole directory]"; enrol --mode any --offline-days 3
 expect "alice allowed" ALLOWED alice "$PW"
 expect "carol (no group) allowed under any" ALLOWED carol "$PW"
 expect "tester local still ok" ALLOWED tester tester
-out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --mode any --offline-days abc' 2>&1); [[ $out == *"invalid --offline-days"* ]] && ok "non-numeric --offline-days refused" || bad "offline-days validation: $out"
+out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --mode any --offline-days abc' 2>&1); [[ $out == *"invalid --offline-days"* ]] && ok "non-numeric --offline-days refused" || bad "offline-days validation: $out"
 echo "[safety: groups mode requires --groups; bad mode rejected]"
-out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --mode groups' 2>&1); [[ $out == *"needs --groups"* ]] && ok "groups without --groups refused (default deny)" || bad "groups w/o --groups: $out"
-out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --mode bogus' 2>&1); [[ $out == *"bad --mode"* ]] && ok "bogus mode refused" || bad "bogus mode: $out"
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --mode groups' 2>&1); [[ $out == *"needs --groups"* ]] && ok "groups without --groups refused (default deny)" || bad "groups w/o --groups: $out"
+out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --mode bogus' 2>&1); [[ $out == *"bad --mode"* ]] && ok "bogus mode refused" || bad "bogus mode: $out"
+echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

@@ -1,6 +1,6 @@
-# omarchy-identity-shell (omarchy-identity.status)
+# monarchy-identity-shell (monarchy-identity.status)
 
-Optional Omarchy bar widget that shows the output of `omarchy-identity status --json`:
+Optional Omarchy bar widget that shows the output of `monarchy-identity status --json`:
 
 - `not enrolled`: the machine is on the `local` provider.
 - `enrolled`: provider name, login mode, no warnings.
@@ -14,12 +14,12 @@ Click for the full posture panel; middle-click to refresh. Poll interval is
 
 The plugin lives in `~/.config/omarchy/plugins/`, which the user owns. It is a
 display only: it never runs a privileged command and enforces nothing. Real
-enforcement is the root-owned config in `/etc` managed by `omarchy-identity`.
+enforcement is the root-owned config in `/etc` managed by `monarchy-identity`.
 Hiding or editing this widget changes nothing about who can sign in.
 
 ## Requires
 
-The `omarchy-identity` package (provides `omarchy-identity` on `PATH`). Without
+The `monarchy-identity` package (provides `monarchy-identity` on `PATH`). Without
 it the widget shows `identity: unavailable` and the shell is unaffected.
 
 ## Files
