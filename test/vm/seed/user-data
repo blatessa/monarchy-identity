@@ -1,0 +1,16 @@
+#cloud-config
+users:
+  - name: tester
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [wheel]
+    lock_passwd: false
+    plain_text_passwd: tester
+    ssh_authorized_keys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGzegy8+lbXXmJVe9wqIL/DWmbDk73bGOYVxyI7RtL4E oi-test"]
+ssh_pwauth: true
+write_files:
+  - path: /etc/hosts.d-oi
+    content: |
+      10.0.2.2 dc.corp.test dc corp.test
+runcmd:
+  - [sh, -c, "cat /etc/hosts.d-oi >> /etc/hosts"]
+  - [pacman, -Sy, --noconfirm, --needed, sssd, krb5, samba, sudo]
