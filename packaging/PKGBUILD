@@ -1,4 +1,4 @@
-# Maintainer: Your Name <you@example.com>   (placeholder: set before publishing)
+# Maintainer: Monarchy contributors
 pkgbase=monarchy-identity
 pkgname=(monarchy-identity monarchy-identity-shell)
 pkgver=0.1.0
@@ -6,7 +6,7 @@ pkgrel=1
 pkgdesc='Provider-agnostic corporate identity (directory login, policy, posture) for Omarchy'
 arch=(any)
 url='https://example.invalid/monarchy-identity'
-license=(MIT)
+license=('MIT')
 options=(!strip)
 
 # Sources live in the repo this PKGBUILD sits in (packaging/..). No downloads.

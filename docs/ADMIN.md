@@ -3,6 +3,11 @@
 Audience: someone rolling `monarchy-identity` out to Omarchy laptops. Status: prototype, verified in a VM only
 (see [../HANDOFF.md](../HANDOFF.md) for what has and hasn't been tested on a real desktop).
 
+## Giving users documentation
+Hand employees the [user guide](user/USER-GUIDE.md) and [quick reference](user/QUICK-REFERENCE.md) (plain language, no admin
+knowledge needed; edit them to add your helpdesk contact and your password rules). Tell them what a red login screen
+can mean in your environment: it intentionally doesn't say which.
+
 ## Install
 Build from `packaging/PKGBUILD` (`makepkg -si`) or distribute the `.pkg.tar.zst` through your own repo.
 Installing changes nothing until you enrol. `monarchy-identity-shell` (status widget) is optional.
