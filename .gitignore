@@ -1,2 +1,4 @@
+*.pkg.tar.*
+__pycache__/
 vm/images/
 vm/keys/

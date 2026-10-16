@@ -1,0 +1,8 @@
+#!/bin/bash
+# Omarchy post-update hook: re-assert identity drop-ins that an update may have overwritten
+# (pam.d/system-auth, nsswitch.conf, sddm drop-ins, omarchy-lock-password).
+for d in /usr/share/omarchy-identity/hooks "$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"; do
+  [[ -x $d/reassert.sh ]] && exec "$d/reassert.sh"
+done
+logger -t omarchy-identity "reassert.sh not found" 2>/dev/null
+exit 0

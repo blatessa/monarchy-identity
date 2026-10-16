@@ -1,0 +1,14 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = pambase
+Target = sssd
+Target = filesystem
+Target = omarchy
+Target = omarchy-settings
+
+[Action]
+Description = Re-asserting omarchy-identity PAM/NSS/SDDM configuration...
+When = PostTransaction
+Exec = /usr/share/omarchy-identity/hooks/reassert.sh

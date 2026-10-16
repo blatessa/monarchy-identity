@@ -1,0 +1,10 @@
+#!/bin/bash
+# Idempotently re-apply our /etc edits (called after omarchy update / pambase upgrades).
+set -euo pipefail
+export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
+source "$OI_ROOT/providers/sssd/lib.sh"
+need_root
+[[ -f $ETC/sssd/sssd.conf ]] || die "sssd.conf missing; machine needs re-enrolment"
+nss_apply; pam_apply
+systemctl is-active --quiet sssd || systemctl restart sssd
+log "reasserted nsswitch + PAM"

@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT="${OMARCHY_IDENTITY_ROOT:-/usr/share/omarchy-identity}"
 [[ -d $ROOT/providers ]] || ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+export OI_ROOT="$ROOT"
 CONF="${OMARCHY_IDENTITY_CONF:-/etc/omarchy-identity/config.toml}"
 
 usage() {
@@ -13,6 +14,7 @@ Usage: omarchy-identity <command>
   status [--json]            Show enrolment and posture
   enroll <provider> [args]   Enrol with a directory provider
   leave                      Unenrol and restore previous config
+  reassert                   Re-apply managed /etc edits (run after updates; root)
   providers                  List available providers
 EOF
 }
@@ -40,9 +42,14 @@ cmd_status() {
   [[ $provider != local ]] && enrolled=true
   autologin_enabled && autologin=true
   local wheel; wheel=$(wheel_members)
+  local details="" k v
+  if [[ $enrolled == true && -x $ROOT/providers/$provider/status ]]; then
+    while IFS='=' read -r k v; do details+="${details:+,}\"$k\":\"$(json_escape "$v")\""; done \
+      < <("$ROOT/providers/$provider/status" 2>/dev/null)
+  fi
   if ((json)); then
-    printf '{"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"wheel_members":"%s"}\n' \
-      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(json_escape "$wheel")"
+    printf '{"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"wheel_members":"%s","details":{%s}}\n' \
+      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(json_escape "$wheel")" "$details"
   else
     echo "enrolled:      $enrolled"
     echo "provider:      $provider"
@@ -65,6 +72,7 @@ case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;
   enroll) shift; [[ $# -ge 1 ]] || { usage; exit 1; }; p=$1; shift; run_provider "$p" enroll "$@" ;;
+  reassert) run_provider "$(conf_get provider local)" reassert ;;
   leave) run_provider "$(conf_get provider local)" unenroll ;;
   -h|--help|"") usage ;;
   *) usage; exit 1 ;;

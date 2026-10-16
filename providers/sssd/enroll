@@ -1,0 +1,45 @@
+#!/bin/bash
+# omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator
+#   [--mode groups|assigned|any] [--groups a,b] [--users u1,u2]   (admin password on stdin)
+set -euo pipefail
+export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
+source "$OI_ROOT/providers/sssd/lib.sh"
+need_root
+
+realm="" server="" admin="Administrator" mode="groups" groups="" users=""
+while [[ $# -gt 0 ]]; do case $1 in
+  --realm) realm=$2; shift 2;; --server) server=$2; shift 2;; --admin) admin=$2; shift 2;;
+  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;;
+  *) die "unknown option $1";; esac; done
+[[ -n $realm && -n $server ]] || die "--realm and --server are required"
+case $mode in
+  groups)   [[ -n $groups ]] || die "--mode groups needs --groups (default is deny)";;
+  assigned) [[ -n $users ]]  || die "--mode assigned needs --users";;
+  any) ;; *) die "bad --mode";;
+esac
+for c in sssd net python3; do command -v $c >/dev/null || die "missing dependency: $c"; done
+IFS= read -r -s pw || die "admin password must be given on stdin"
+
+d=$(realm_lc "$realm"); host=$(hostname -s); fqdn="$host.$d"
+
+for f in "${MANAGED[@]}"; do backup_file "$f"; done
+rollback() { log "enrol failed - rolling back"; "$OI_ROOT/providers/sssd/unenroll" --quiet || true; }
+trap rollback ERR
+
+log "writing kerberos/samba config"
+write_krb5 "$realm" "$server"; write_smb "$realm"
+log "joining $realm via net ads join"
+printf '%s\n' "$pw" | net ads join -S "$server" -U "$admin" --no-dns-updates >/dev/null
+net ads keytab create -P >/dev/null 2>&1 || net ads keytab create -U "$admin" <<<"$pw" >/dev/null
+pw=""
+write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn"
+systemctl enable --now sssd
+nss_apply
+# verify directory lookups work BEFORE touching PAM (never lock out on a broken directory)
+timeout 30 bash -c "until getent group \"${groups%%,*}\" >/dev/null 2>&1 || [[ $mode != groups ]]; do sleep 1; done" || true
+if [[ $mode == groups ]]; then probe=${groups%%,*}; getent group "$probe" >/dev/null || \
+  die "group '$probe' not resolvable via sssd; refusing to modify PAM"; fi
+pam_apply
+conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users"
+trap - ERR
+log "enrolled in $realm (login mode: $mode)"

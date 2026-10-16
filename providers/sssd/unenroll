@@ -1,0 +1,14 @@
+#!/bin/bash
+# Restore pre-enrolment state. --quiet suppresses the summary.
+set -uo pipefail
+export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
+source "$OI_ROOT/providers/sssd/lib.sh"
+need_root
+pam_remove                     # PAM first: stop consulting sssd before anything else changes
+nss_remove
+systemctl disable --now sssd 2>/dev/null || true
+[[ -f $ETC/sssd/sssd.conf ]] && net ads leave -P >/dev/null 2>&1 || true
+for f in /etc/krb5.conf /etc/samba/smb.conf /etc/sssd/sssd.conf /etc/krb5.keytab; do restore_file "$f"; done
+rm -rf /var/lib/sss/db/* /var/lib/sss/mc/* 2>/dev/null || true
+conf_write provider=local login_mode=none
+[[ ${1:-} == --quiet ]] || log "left directory; local configuration restored"

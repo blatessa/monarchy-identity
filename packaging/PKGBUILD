@@ -1,0 +1,41 @@
+# Maintainer: brady <brady@latessa.net>
+pkgbase=omarchy-identity
+pkgname=(omarchy-identity omarchy-identity-shell)
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Provider-agnostic corporate identity (directory login, policy, posture) for Omarchy'
+arch=(any)
+url='https://example.invalid/omarchy-identity'
+license=(MIT)
+options=(!strip)
+
+# Sources live in the repo this PKGBUILD sits in (packaging/..). No downloads.
+_root="$startdir/.."
+
+package_omarchy-identity() {
+  depends=(bash python sssd samba krb5)
+  backup=(etc/omarchy-identity/config.toml)
+
+  install -Dm755 "$_root/bin/omarchy-identity" "$pkgdir/usr/bin/omarchy-identity"
+
+  install -d "$pkgdir/usr/share/omarchy-identity/providers"
+  cp -a "$_root/providers/." "$pkgdir/usr/share/omarchy-identity/providers/"
+
+  install -d "$pkgdir/usr/share/omarchy-identity/hooks/post-update.d"
+  install -m755 "$_root/hooks/reassert.sh" "$pkgdir/usr/share/omarchy-identity/hooks/reassert.sh"
+  install -m755 "$_root/hooks/post-update.d/"* "$pkgdir/usr/share/omarchy-identity/hooks/post-update.d/"
+
+  install -Dm644 "$_root/packaging/omarchy-identity.hook" \
+    "$pkgdir/usr/share/libalpm/hooks/omarchy-identity.hook"
+  install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/omarchy-identity/config.toml"
+  install -Dm644 "$_root/docs/DESIGN.md" "$pkgdir/usr/share/doc/omarchy-identity/DESIGN.md"
+}
+
+package_omarchy-identity-shell() {
+  pkgdesc='Optional Omarchy shell status widget for omarchy-identity (cosmetic, not a security boundary)'
+  depends=(omarchy-identity)
+
+  install -d "$pkgdir/usr/share/omarchy-identity/shell-plugin"
+  [[ -d $_root/shell-plugin ]] && cp -a "$_root/shell-plugin/." "$pkgdir/usr/share/omarchy-identity/shell-plugin/"
+  return 0
+}
