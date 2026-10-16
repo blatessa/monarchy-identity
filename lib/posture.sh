@@ -36,3 +36,8 @@ posture_screen_lock_seconds() { # idle.lock from the invoking user's Omarchy she
 
 posture_os() { ( . /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-unknown}" ); }
 posture_omarchy_version() { omarchy-version 2>/dev/null || echo unknown; }
+
+posture_time_sync() { # true | false | unknown -- is the clock NTP-synchronized? (Kerberos fails beyond ~5 min of skew)
+  local v; v=$(timedatectl show -p NTPSynchronized --value 2>/dev/null) || { echo unknown; return; }
+  case $v in yes) echo true;; no) echo false;; *) echo unknown;; esac
+}

@@ -23,7 +23,8 @@ Some fields are stronger when run as root (`details.domain_joined` is `unknown` 
         "firewall": "active|inactive|unknown",     // ufw / firewalld / nftables service
         "secure_boot": "enabled|disabled|no-efi|unknown",
         "tpm2": "present|absent",
-        "screen_lock_seconds": "300|unknown"       // invoking user's Omarchy idle.lock
+        "screen_lock_seconds": "300|unknown",      // invoking user's Omarchy idle.lock
+        "time_sync": "true|false|unknown"          // clock NTP-synchronized (Kerberos fails past ~5 min skew)
       }
     }
 

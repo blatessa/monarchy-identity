@@ -12,7 +12,7 @@ Provider-agnostic corporate identity for Omarchy (Arch + Hyprland). Read `HANDOF
 - Don't `pkill -f` (kills your own shell). Don't commit `test/vm/images`, `test/vm/keys`.
 
 ## Layout
-    bin/monarchy-identity        core CLI: status [--json] | enroll <provider> | leave [--admin U] | reassert | providers
+    bin/monarchy-identity        core CLI: status | enroll | leave | policy show/set | check | confirm | reassert | install-hooks/widget | providers
     providers/<name>/           detect enroll unenroll reassert status (+lib.sh). status prints key=value lines
     lib/common.sh, lib/posture.sh, lib/pamedit.py   shared helpers, read-only posture probes, idempotent BEGIN/END-marked PAM editor
     sddm-theme/monarchy-identity/    login theme = Omarchy's look + a username field (stock theme only logs in the last user)
@@ -42,6 +42,8 @@ Run e2e at least twice after touching enroll/unenroll: failures have been order-
 ## Conventions
 - Anything the CLI sources must also be installed by `packaging/PKGBUILD` (e2e-package.sh catches misses).
 - Bash with `set -euo pipefail`; quote everything; no new runtime deps without updating PKGBUILD.
+- Restart sssd ONLY via `sssd_restart` (systemd start-limit), never call `sssctl` without `</dev/null` + `timeout`, and every PAM rule we add must be `-`-prefixed and safe when `pam_sss.so` is missing (see lib/pamedit.py header).
+- Test inputs that go through ssh must be `printf %q`-quoted; use `grep -F` for computer names (`$` is a regex anchor).
 - Any new PAM edit goes through `lib/pamedit.py` (markers, computed skip counts) and needs a remove/idempotency check.
 - When you learn something non-obvious, add it to HANDOFF.md "Hard-won findings".
 - Commit trailers per the session attribution rules.

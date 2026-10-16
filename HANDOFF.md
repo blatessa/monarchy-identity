@@ -65,6 +65,15 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
 - Test-fixture traps hit while building it (all were test bugs, not product bugs): samba-tool `group addmembers a,b` rejects the whole call if any is already a member (seed per member, now verified loudly); a file created by one user in a shared dir isn't writable by another (mode 644; plus fs.protected_regular in sticky /tmp) - use a world-writable non-sticky dir; SDDM logs failed logins with `user ""`.
 - Always print diagnostics on a failing e2e step (diag() in e2e-greeter.sh): it turned a long guessing session into one run.
 
+## Review session (2026-10-16; full write-up in docs/REVIEW.md)
+- BRICKED THE VM ON PURPOSE-ish: with `pam_sss.so` missing, an `account ... default=bad` rule failed EVERY login (local, root, even sshd). Now `-account [... user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]`. If you ever brick the VM again: delete test/vm/images/client.qcow2 + OVMF_VARS.fd and rerun run.sh (cloud-init rebuilds it incl. sddm); e2e-resilience.sh has an in-VM restore timer for the module test.
+- systemd `start-limit-hit`: >5 sssd (re)starts in 10s leaves sssd FAILED (all directory users locked out). Always `sssd_restart` (reset-failed first).
+- `sssctl` prompts "Start SSSD now? (yes/no)" on a TTY when sssd is down and hangs: always `</dev/null` + `timeout`. A hung root process holding the CLI flock (/run/monarchy-identity.lock) blocks every later enroll/policy/reassert: look for stale processes by PID (`ps`), never `pkill -f`.
+- run.sh's cloud-init seed server (python http.server :8000) can be a STALE process from a renamed/deleted directory: the VM then silently provisions with defaults (hostname `archlinux`, no user). run.sh now replaces any listener on :8000.
+- `grep -x 'NAME$'` treats `$` as an anchor: use `grep -F`. `hostnamectl --transient` is ignored when a static hostname exists: simulate hostnames with `sysctl kernel.hostname=`.
+- The auto-revert timer's `leave` has no credentials, so it leaves the AD computer account behind; re-enrolling that name then needs `--replace-computer-account` (or delete the account).
+- The test VM's SSH private key was once committed (anchored .gitignore bug) and was purged from all history before publishing.
+
 ## Open items / next steps (priority order)
 1. Smoke-test on a real Omarchy install is NOT done: SDDM greeter login of an AD user, hyprlock unlock as AD user,
    `sudo` as AD user, home-dir creation via pam_mkhomedir in a graphical session. VM is stock Arch w/o SDDM/Hyprland.

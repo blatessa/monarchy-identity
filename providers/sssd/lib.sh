@@ -42,13 +42,14 @@ K
 # server_args: sets SARGS=(-S server) or () so samba tools use DNS discovery when no server is configured.
 server_args() { SARGS=(); [[ -n ${1:-} ]] && SARGS=(-S "$1"); return 0; }
 
-write_smb() { # realm
+write_smb() { # realm netbios-name
   local r=${1^^}
   mkdir -p "$ETC/samba"
   cat > "$ETC/samba/smb.conf" <<S
 [global]
   workgroup = ${r%%.*}
   realm = $r
+  netbios name = ${2:?netbios name required}
   security = ads
   kerberos method = secrets and keytab
   client use spnego = yes
@@ -128,4 +129,67 @@ validate_enroll_args() { # realm server admin groups users confirm_within
   [[ -z $4 ]] || valid_list "$4" || die "invalid --groups '$4' (comma-separated names; letters, digits, . _ - @ space)"
   [[ -z $5 ]] || valid_list "$5" || die "invalid --users '$5' (comma-separated names; letters, digits, . _ - @ space)"
   [[ $6 =~ ^[0-9]+$ ]] || die "invalid --confirm-within '$6' (whole minutes)"
+}
+
+# --- computer account naming and placement ------------------------------------------------------
+# A fleet's laptops each need a UNIQUE directory computer account. Joining with a name another machine already
+# owns silently takes that account over (and breaks the other machine), so names are checked up front.
+GENERIC_HOSTNAMES=(localhost localhost-localdomain archlinux omarchy arch)
+valid_computer_name() { [[ $1 =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,13}[A-Za-z0-9])?$ || $1 =~ ^[A-Za-z0-9]$ ]]; }
+pick_computer_name() { # pick_computer_name [override] -> echoes the NetBIOS name, or dies with a reason
+  local override=${1:-} h g
+  if [[ -n $override ]]; then
+    valid_computer_name "$override" || die "invalid --computer-name '$override' (1-15 letters, digits or hyphens; not starting/ending with a hyphen)"
+    echo "${override^^}"; return
+  fi
+  h=$(uname -n | cut -d. -f1)
+  for g in "${GENERIC_HOSTNAMES[@]}"; do
+    [[ ${h,,} == "$g" ]] && die "this machine's hostname is the generic '$h'; every laptop with that name would fight over one directory account. Set a unique hostname (hostnamectl set-hostname NAME) or pass --computer-name NAME"
+  done
+  (( ${#h} <= 15 )) || die "hostname '$h' is longer than 15 characters (the NetBIOS limit); two long hostnames would truncate to the same account. Use a shorter hostname or pass --computer-name NAME"
+  valid_computer_name "$h" || die "hostname '$h' is not usable as a computer account name; pass --computer-name NAME"
+  echo "${h^^}"
+}
+# --ou takes a DN (OU=Corp,OU=Laptops,DC=example,DC=com); samba's createcomputer= wants "Laptops/Corp" (top-down, no RDN keys).
+valid_ou_dn() { [[ $1 =~ ^((OU|CN)=[A-Za-z0-9\ _.-]+,)+DC=[A-Za-z0-9-]+(,DC=[A-Za-z0-9-]+)*$ ]]; }
+dn_to_createcomputer() {
+  local rdn i out="" parts=() rdns
+  IFS=, read -ra rdns <<<"$1"
+  for rdn in "${rdns[@]}"; do
+    case ${rdn^^} in OU=*|CN=*) parts+=("${rdn#*=}") ;; DC=*) ;; *) return 1 ;; esac
+  done
+  for ((i=${#parts[@]}-1; i>=0; i--)); do out+="${out:+/}${parts[i]}"; done
+  echo "$out"
+}
+
+# --- persisted state ----------------------------------------------------------------------------
+# sssd_save_state: writes /etc/monarchy-identity/config.toml from these globals:
+#   realm server mode groups users disable_autologin keep_theme sudo_groups offline_days nb ou
+sssd_save_state() {
+  conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" \
+    autologin_disabled="$([[ ${disable_autologin:-0} == 1 ]] && echo true || echo false)" \
+    login_theme="$([[ ${keep_theme:-0} == 1 ]] && echo stock || echo identity)" \
+    sudo_groups="$sudo_groups" offline_days="$offline_days" computer_name="$nb" ou="${ou:-}"
+}
+
+# sssd_restart: (re)start sssd without ever tripping systemd's start-rate limit. Several quick restarts in a
+# row (policy changes, reassert, restore paths; or an MDM looping over a fleet) hit "start-limit-hit" and leave
+# sssd FAILED, which locks out every directory user until someone runs `systemctl reset-failed sssd`.
+sssd_restart() {
+  systemctl reset-failed sssd 2>/dev/null || true
+  systemctl restart sssd
+}
+
+# wait_sssd_online DOMAIN [seconds]: after (re)starting sssd its backend needs a few seconds to reach the DC.
+# Group lookups can succeed from the cache while it is still offline, so poll the backend state itself.
+# Best effort: returns 1 on timeout (offline is a legitimate state, e.g. laptop away from the network).
+# NEVER let sssctl read the terminal: if sssd is down it asks "Start SSSD now? (yes/no)" and would hang forever.
+wait_sssd_online() {
+  local d=$1 n=${2:-30} i
+  for ((i=0; i<n; i++)); do
+    systemctl is-active --quiet sssd || return 1
+    timeout 5 sssctl domain-status "$d" </dev/null 2>/dev/null | grep -q 'Online status: Online' && return 0
+    sleep 1
+  done
+  return 1
 }

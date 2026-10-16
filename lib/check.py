@@ -11,6 +11,7 @@ silently weaken a policy). Rules (all optional; only listed rules are checked):
   require_firewall            = true
   require_secure_boot         = true
   require_tpm2                = true
+  require_time_sync           = true           # clock NTP-synchronized (Kerberos fails past ~5 min skew)
   forbid_autologin            = true
   allowed_wheel_members       = root,admin     # anyone else in wheel fails
   max_screen_lock_seconds     = 600            # unknown fails: the rule asks for proof
@@ -20,7 +21,7 @@ silently weaken a policy). Rules (all optional; only listed rules are checked):
 import json, re, sys
 
 BOOL = {"require_enrolled", "require_self_heal", "require_disk_encryption", "require_firewall",
-        "require_secure_boot", "require_tpm2", "forbid_autologin", "unknown_is_failure"}
+        "require_secure_boot", "require_tpm2", "require_time_sync", "forbid_autologin", "unknown_is_failure"}
 OTHER = {"allowed_wheel_members", "max_screen_lock_seconds", "required_login_mode"}
 
 
@@ -73,6 +74,8 @@ def evaluate(pol, st):
         tri("require_secure_boot", c.get("secure_boot", "unknown"), "enabled")
     if pol.get("require_tpm2") == "true":
         tri("require_tpm2", c.get("tpm2", "unknown"), "present")
+    if pol.get("require_time_sync") == "true":
+        tri("require_time_sync", c.get("time_sync", "unknown"), "true")
     if pol.get("forbid_autologin") == "true":
         rule("forbid_autologin", not st.get("autologin"), f"autologin={st.get('autologin')}")
     if "allowed_wheel_members" in pol:

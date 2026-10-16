@@ -18,7 +18,7 @@ company already runs. Directory users sign in at the normal Omarchy login screen
 |---|---|
 | **Using** a laptop that has it set up | [User guide](docs/user/USER-GUIDE.md), [quick reference](docs/user/QUICK-REFERENCE.md) |
 | **Administering** laptops | [Admin guide](docs/ADMIN.md), [posture report schema](docs/POSTURE.md) |
-| **Contributing** | [CLAUDE.md](CLAUDE.md) (rules, layout, dev loop), [design](docs/DESIGN.md), [TODO](TODO.md), [HANDOFF](HANDOFF.md) |
+| **Contributing** | [CLAUDE.md](CLAUDE.md) (rules, layout, dev loop), [design](docs/DESIGN.md), [review](docs/REVIEW.md), [TODO](TODO.md), [HANDOFF](HANDOFF.md) |
 
 ## What it does
 
@@ -31,6 +31,9 @@ company already runs. Directory users sign in at the normal Omarchy login screen
   enrolment selects a `monarchy-identity` theme: Omarchy's look plus a username line.
 - **Stays correct.** A root-owned systemd path unit repairs the PAM, nsswitch and SDDM edits within seconds if an
   update or a person overwrites them; a pacman hook and an optional `omarchy update` hook do the same.
+- **Fleet-safe.** Never takes over an existing computer account, refuses colliding hostnames, supports `--ou` and
+  `--computer-name`, and `policy set` changes who may sign in without re-joining. Broken sssd or a missing PAM module
+  never locks out local users.
 - **Safe to try.** Refuses to enrol without a local fallback account, rolls back (including the directory computer
   account) on any failure, and `--confirm-within N` auto-reverts unless you confirm. `leave` restores the original files.
 - **Reports and checks.** `monarchy-identity status --json` is a versioned posture report (identity plus disk
@@ -54,6 +57,10 @@ optional `monarchy-identity-shell` (a Quickshell bar widget showing posture; cos
 
 `test/run-all.sh` runs every suite (about 10 minutes). It needs Docker (a throwaway Samba AD) and QEMU/KVM (an Arch
 client VM); see [test/README.md](test/README.md) and [CLAUDE.md](CLAUDE.md). The unit tests (`test/unit/`) need nothing.
+
+## Contributing and security
+
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) (report vulnerabilities privately)
 
 ## License
 

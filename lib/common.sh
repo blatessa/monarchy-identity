@@ -11,7 +11,7 @@ need_root() { [[ $EUID -eq 0 ]] || die "must run as root"; }
 conf_get() { # conf_get key default
   local v=""
   [[ -r $OI_CONF ]] && v=$(sed -n "s/^$1[[:space:]]*=[[:space:]]*\"\?\([^\"]*\)\"\?$/\1/p" "$OI_CONF" | head -1)
-  echo "${v:-$2}"
+  echo "${v:-${2:-}}"
 }
 
 conf_write() { # conf_write key=value ... (rewrites whole file, root:root 0644)

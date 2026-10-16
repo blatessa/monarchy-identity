@@ -13,4 +13,4 @@ write_files:
       10.0.2.2 dc.corp.test dc corp.test
 runcmd:
   - [sh, -c, "cat /etc/hosts.d-oi >> /etc/hosts"]
-  - [pacman, -Sy, --noconfirm, --needed, sssd, krb5, samba, sudo]
+  - [pacman, -Sy, --noconfirm, --needed, sssd, krb5, samba, sudo, sddm, ttf-dejavu, xorg-xauth, rsync]

@@ -1,0 +1,66 @@
+#!/bin/bash
+# monarchy-identity policy show
+# monarchy-identity policy set [--mode groups|assigned|any] [--groups a,b] [--users u1,u2]
+#                              [--sudo-groups g1,g2 | -] [--offline-days N]
+#
+# Change WHO may sign in (and sudo / cache lifetime) on an already-enrolled machine: no re-join, no directory
+# credentials needed. Only the options you pass change; the rest keep their current values. `--sudo-groups -`
+# removes sudo access. Fails closed: a change that leaves mode=groups with no groups is refused, and if the new
+# configuration cannot resolve its group the previous one is restored.
+set -euo pipefail
+export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
+source "$OI_ROOT/providers/sssd/lib.sh"
+
+[[ $(conf_get provider local) == sssd ]] || die "this machine is not enrolled with the sssd provider"
+
+# current state
+realm=$(conf_get realm ""); server=$(conf_get server ""); mode=$(conf_get login_mode groups)
+groups=$(conf_get groups ""); users=$(conf_get users ""); sudo_groups=$(conf_get sudo_groups "")
+offline_days=$(conf_get offline_days 0); nb=$(conf_get computer_name ""); ou=$(conf_get ou "")
+disable_autologin=$([[ $(conf_get autologin_disabled false) == true ]] && echo 1 || echo 0)
+keep_theme=$([[ $(conf_get login_theme identity) == stock ]] && echo 1 || echo 0)
+[[ -n $nb ]] || nb=$(pick_computer_name "")   # enrolments made before computer_name was recorded
+
+cmd=${1:-}; shift || true
+case $cmd in
+  show)
+    echo "realm:         $realm"; echo "login mode:    $mode"; echo "groups:        ${groups:--}"
+    echo "users:         ${users:--}"; echo "sudo groups:   ${sudo_groups:--}"; echo "offline days:  $offline_days (0 = never)"
+    echo "computer:      $nb${ou:+ in $ou}"; exit 0 ;;
+  set) ;;
+  *) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac
+need_root
+
+while [[ $# -gt 0 ]]; do case $1 in
+  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;;
+  --sudo-groups) if [[ $2 == - ]]; then sudo_groups=""; else sudo_groups=$2; fi; shift 2;;
+  --offline-days) offline_days=$2; shift 2;;
+  *) die "unknown option $1";; esac; done
+
+[[ -z $sudo_groups ]] || valid_sudo_groups "$sudo_groups" || die "invalid --sudo-groups '$sudo_groups'"
+[[ $offline_days =~ ^[0-9]+$ ]] || die "invalid --offline-days '$offline_days'"
+[[ -z $groups ]] || valid_list "$groups" || die "invalid --groups '$groups'"
+[[ -z $users ]]  || valid_list "$users"  || die "invalid --users '$users'"
+case $mode in
+  groups)   [[ -n $groups ]] || die "--mode groups needs --groups (default is deny)";;
+  assigned) [[ -n $users ]]  || die "--mode assigned needs --users";;
+  any) ;; *) die "bad --mode '$mode' (groups|assigned|any)";;
+esac
+
+d=$(realm_lc "$realm"); fqdn="${nb,,}.$d"
+old=$(mktemp); cp -a "$ETC/sssd/sssd.conf" "$old"
+restore() { cp -a "$old" "$ETC/sssd/sssd.conf"; sssd_restart 2>/dev/null || true; wait_sssd_online "$d" 30 || true; }
+
+write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn" "$nb" "$offline_days"
+sssd_restart
+wait_sssd_online "$d" 30 || log "WARNING: sssd did not report online within 30s (directory unreachable?); policy is applied and will take effect when it reconnects"
+if [[ $mode == groups ]]; then
+  probe=${groups%%,*}
+  for _ in $(seq 30); do getent group "$probe" >/dev/null 2>&1 && break; sleep 1; done
+  getent group "$probe" >/dev/null 2>&1 || { restore; rm -f "$old"; die "group '$probe' is not resolvable; previous policy restored"; }
+fi
+if [[ -n $sudo_groups ]]; then sudoers_apply "$sudo_groups"; else sudoers_remove; fi
+sssd_save_state
+rm -f "$old"
+log "policy updated: mode=$mode groups=${groups:--} users=${users:--} sudo=${sudo_groups:--} offline_days=$offline_days"

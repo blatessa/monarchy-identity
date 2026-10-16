@@ -18,9 +18,12 @@ Usage: monarchy-identity <command>
   leave                      Unenrol and restore previous config
   check [--json]             Evaluate posture against /etc/monarchy-identity/policy.toml (exit 1 if non-compliant)
   confirm                    Cancel the pending auto-revert (after verifying login works; root)
+  policy show|set [opts]     Show or change who may sign in (no re-join): --mode --groups --users --sudo-groups --offline-days
   reassert                   Re-apply managed /etc edits (run after updates; root)
   install-hooks              Install the post-update hook for the current user (not root)
   remove-hooks               Remove that hook
+  install-widget [--enable]  Install the bar widget into ~/.config/omarchy/plugins (validated; not root)
+  remove-widget              Remove it
   providers                  List available providers
 EOF
 }
@@ -50,8 +53,8 @@ cmd_status() {
       "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(revert_pending && echo true || echo false)" "$selfheal" "$(json_escape "$wheel")" "$(json_escape "$(sddm_theme_effective)")" "$([[ $(sddm_theme_effective) == "$IDENTITY_THEME" ]] && echo true || echo false)" "$details"
     printf '"device":{"hostname":"%s","os":"%s","omarchy":"%s","kernel":"%s"},' \
       "$(json_escape "$(uname -n)")" "$(json_escape "$(posture_os)")" "$(json_escape "$(posture_omarchy_version)")" "$(json_escape "$(uname -r)")"
-    printf '"compliance":{"disk_encryption":"%s","firewall":"%s","secure_boot":"%s","tpm2":"%s","screen_lock_seconds":"%s"}}\n' \
-      "$(posture_disk_encryption)" "$(posture_firewall)" "$(posture_secure_boot)" "$(posture_tpm2)" "$(posture_screen_lock_seconds)"
+    printf '"compliance":{"disk_encryption":"%s","firewall":"%s","secure_boot":"%s","tpm2":"%s","screen_lock_seconds":"%s","time_sync":"%s"}}\n' \
+      "$(posture_disk_encryption)" "$(posture_firewall)" "$(posture_secure_boot)" "$(posture_tpm2)" "$(posture_screen_lock_seconds)" "$(posture_time_sync)"
   else
     echo "enrolled:      $enrolled"
     echo "provider:      $provider"
@@ -62,6 +65,7 @@ cmd_status() {
     echo "firewall:       $(posture_firewall)"
     echo "secure boot:    $(posture_secure_boot)"
     echo "tpm2:           $(posture_tpm2)"
+    echo "time sync:      $(posture_time_sync)"
   fi
 }
 
@@ -74,7 +78,7 @@ run_provider() { # run_provider <provider> <action> [args]
   "$s" "$@"
 }
 
-case "${1:-}" in enroll|leave|reassert|confirm) [[ $EUID -eq 0 ]] && oi_lock ;; esac
+case "${1:-}" in enroll|leave|reassert|confirm|policy) [[ $EUID -eq 0 ]] && oi_lock ;; esac
 case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;
@@ -85,13 +89,30 @@ case "${1:-}" in
     hook_dst="$HOME/.config/omarchy/hooks/post-update.d/$hook_name"
     if [[ $1 == install-hooks ]]; then
       [[ -f $hook_src ]] || { echo "hook source not found: $hook_src" >&2; exit 1; }
-      install -D -m 0755 "$hook_src" "$hook_dst"; echo "installed $hook_dst"
+      if command -v omarchy >/dev/null 2>&1; then omarchy hook install post-update "$hook_src"   # Omarchy's own installer
+      else install -D -m 0755 "$hook_src" "$hook_dst"; echo "installed $hook_dst"; fi
     else rm -f "$hook_dst"; echo "removed $hook_dst"; fi ;;
   check)
     shift; pol="${MONARCHY_IDENTITY_POLICY:-/etc/monarchy-identity/policy.toml}"
     [[ -r $pol ]] || { echo "no policy file at $pol (see docs/ADMIN.md)" >&2; exit 2; }
     cmd_status --json | python3 -I "$ROOT/lib/check.py" "$pol" "$@" ;;
+  install-widget|remove-widget)
+    [[ $EUID -ne 0 ]] || { echo "run as the desktop user, not root (Omarchy plugins live in ~/.config/omarchy/plugins)" >&2; exit 1; }
+    wsrc="$ROOT/shell-plugin"; [[ -f $wsrc/manifest.json ]] || { echo "widget not found at $wsrc (install the monarchy-identity-shell package)" >&2; exit 1; }
+    wid=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$wsrc/manifest.json")
+    wdst="$HOME/.config/omarchy/plugins/$wid"
+    if [[ $1 == remove-widget ]]; then
+      if command -v omarchy >/dev/null 2>&1; then omarchy plugin disable "$wid" >/dev/null 2>&1 || true; fi
+      rm -rf "$wdst"; echo "removed $wid"
+    else
+      if command -v omarchy >/dev/null 2>&1; then omarchy plugin validate "$wsrc" || exit 1; fi   # refuse what the shell would reject
+      rm -rf "$wdst"; install -d "$wdst"
+      for f in manifest.json Panel.qml Model.js README.md; do [[ -f $wsrc/$f ]] && install -m 0644 "$wsrc/$f" "$wdst/$f"; done
+      echo "installed $wid -> $wdst"
+      if [[ ${2:-} == --enable ]]; then omarchy plugin enable "$wid" --section right; else echo "enable it with: omarchy plugin enable $wid --section right"; fi
+    fi ;;
   confirm) [[ $EUID -eq 0 ]] || { echo "must run as root" >&2; exit 1; }; if revert_pending; then revert_cancel; log "enrolment confirmed; auto-revert cancelled"; else echo "no auto-revert pending"; fi ;;
+  policy) shift; run_provider "$(conf_get provider local)" policy "$@" ;;
   reassert) run_provider "$(conf_get provider local)" reassert ;;
   leave) shift; run_provider "$(conf_get provider local)" unenroll "$@" ;;
   -h|--help|"") usage ;;

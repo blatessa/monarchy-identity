@@ -32,6 +32,10 @@ for _ in $(seq 30); do sleep 5; [[ $(st) == *'"enrolled":false'* ]] && break; do
 [[ $(st) == *'"enrolled":false'* && $(st) == *'"revert_pending":false'* ]] && ok "auto-reverted to local" || bad "not reverted: $(st)"
 pam_stock && ok "PAM back to stock after auto-revert" || bad "PAM not stock after auto-revert"
 
+# The timer's `leave` has no directory credentials, so it cannot delete the computer account (it warns). An admin
+# would clear that account before re-enrolling the same name; enrolment now refuses to take it over silently.
+[[ $(docker exec oi-test-dc samba-tool computer list | grep -cxF 'OI-CLIENT$') -eq 1 ]] && ok "auto-revert left the computer account in the directory (no credentials to delete it)" || bad "expected a leftover computer account"
+docker exec oi-test-dc samba-tool computer delete 'OI-CLIENT$' >/dev/null 2>&1
 echo "[auto-revert: confirmed]"
 out=$(enrol --confirm-within 1); [[ $out == *"enrolled in"* ]] || bad "enrol: $out"
 out=$("${V[@]}" 'sudo ~/oi/bin/monarchy-identity confirm' 2>&1); [[ $out == *"auto-revert cancelled"* ]] && ok "confirm cancels the timer" || bad "confirm: $out"

@@ -6,7 +6,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 fail=0
 
 GOOD='{"enrolled":true,"self_heal":true,"autologin":false,"login_mode":"groups","wheel_members":"root,admin",
- "compliance":{"disk_encryption":"true","firewall":"active","secure_boot":"enabled","tpm2":"present","screen_lock_seconds":"300"}}'
+ "compliance":{"disk_encryption":"true","firewall":"active","secure_boot":"enabled","tpm2":"present","screen_lock_seconds":"300","time_sync":"true"}}'
 
 # t <expected exit> <description> <status-json> <policy text>
 t() {
@@ -23,6 +23,7 @@ require_disk_encryption = true
 require_firewall = true
 require_secure_boot = true
 require_tpm2 = true
+require_time_sync = true
 forbid_autologin = true
 allowed_wheel_members = root,admin
 max_screen_lock_seconds = 600
@@ -35,6 +36,7 @@ t 1 "no disk encryption fails"      "$(mod 'd["compliance"]["disk_encryption"]="
 t 1 "firewall inactive fails"       "$(mod 'd["compliance"]["firewall"]="inactive"')"   "require_firewall = true"
 t 1 "secure boot disabled fails"    "$(mod 'd["compliance"]["secure_boot"]="disabled"')" "require_secure_boot = true"
 t 1 "no tpm2 fails"                 "$(mod 'd["compliance"]["tpm2"]="absent"')"         "require_tpm2 = true"
+t 1 "clock not synchronized fails"  "$(mod 'd["compliance"]["time_sync"]="false"')" "require_time_sync = true"
 t 1 "autologin on fails"            "$(mod 'd["autologin"]=True')"                      "forbid_autologin = true"
 t 1 "extra wheel member fails"      "$(mod 'd["wheel_members"]="root,admin,mallory"')"  "allowed_wheel_members = root,admin"
 t 0 "wheel subset of allowed passes" "$(mod 'd["wheel_members"]="root"')"               "allowed_wheel_members = root,admin"

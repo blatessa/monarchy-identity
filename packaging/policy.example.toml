@@ -9,6 +9,7 @@ require_disk_encryption = true
 require_firewall        = true
 # require_secure_boot   = true
 # require_tpm2          = true
+require_time_sync       = true          # Kerberos sign-in fails when the clock is off by more than ~5 minutes
 forbid_autologin        = true
 required_login_mode     = groups
 allowed_wheel_members   = root          # anyone else in the wheel group fails

@@ -18,7 +18,7 @@ trap 'docker exec oi-test-dc samba-tool user setpassword alice --newpassword="$P
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok enrol || { bad enrol; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'for u in alice tester; do sudo faillock --user $u --reset; done' 2>/dev/null
-"${V[@]}" 'grep -c "^password.*pam_sss" /etc/pam.d/system-auth' | grep -qx 1 && ok "password stack has pam_sss" || bad "password stack edit missing"
+"${V[@]}" 'grep -c "^-password.*pam_sss" /etc/pam.d/system-auth' | grep -qx 1 && ok "password stack has pam_sss" || bad "password stack edit missing"
 
 echo "[directory user changes password]"
 expect PASSWORD-CHANGED "alice: passwd service changes the AD password" passwd alice "$PW" --chauthtok "$NEW"

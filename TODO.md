@@ -2,6 +2,14 @@
 
 Legend: [ ] open, size S/M/L. Update this file as you go; put lessons in HANDOFF.md.
 
+## From the 2026-10-16 review (see docs/REVIEW.md)
+- [ ] **Test against real Windows AD (L).** LDAP signing/channel binding, GPO, SPN/UPN quirks: the biggest untested assumption.
+- [ ] **Split config from state (S).** `/etc/monarchy-identity/config.toml` currently holds both admin intent and enrolment state.
+- [ ] **Publish the widget as its own repo (S)** so `omarchy plugin add <url>` works; keep `install-widget` for packaged installs.
+- [ ] **`monarchy` dispatcher (M)** mirroring `omarchy <group> <action>` once there is a second Monarchy component.
+- [ ] **Change-password step in the login theme (M)** so expired passwords can be fixed at the greeter.
+- [ ] **`su` / polkit-1 (S)** for directory users.
+
 ## P0 - before this touches a real machine
 - [~] **Omarchy-like test VM (M).** UPDATE: a REAL SDDM greeter now runs in the VM (X11 greeter, our theme, real PAM, packaged install) and is driven with typed keys: `test/vm/e2e-greeter.sh` (login, prefilled last user, denied user + red failed state, user switch after failure, local break-glass, home dir creation). STILL UNTESTED: Omarchy's actual greeter compositor (SDDM runs it inside Hyprland via `start-hyprland --config /usr/share/sddm/hyprland.lua`; the VM uses X11), the real Hyprland session, and the Quickshell lock screen. EARLIER: Omarchy's real PAM services (sddm, sudo, login, sshd, system-remote-login, lock) + SDDM conf fixtures, session open + home-dir creation tested (`test/vm/e2e-services.sh`). REMAINING: a truly graphical check (SDDM greeter + Hyprland + the Omarchy lock screen's Quickshell PamContext) needs a VM with a GPU/virtio-gpu display; only this proves the greeter/lock UX. Also `polkit-1` PAM service is absent on this Omarchy (falls to `other`): check polkit auth as AD user.
 - [x] **Autologin handling.** `--disable-autologin` writes `/etc/sddm.conf.d/zz-monarchy-identity.conf` (must sort AFTER Omarchy's `autologin.conf`); `status` reports the *effective* setting; `reassert` keeps it; `leave` restores. Tested.

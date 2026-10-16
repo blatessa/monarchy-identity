@@ -5,7 +5,11 @@ H="$(cd "$(dirname "$0")" && pwd)"
 IMG="$H/images/client.qcow2"
 [[ -f $IMG ]] || { qemu-img create -f qcow2 -F qcow2 -b "$H/images/Arch-Linux-x86_64-cloudimg.qcow2" "$IMG" 30G; }
 VARS="$H/images/OVMF_VARS.fd"; [[ -f $VARS ]] || cp /usr/share/edk2/x64/OVMF_VARS.4m.fd "$VARS"
-(cd "$H/seed" && python3 -m http.server 8000 --bind 127.0.0.1 >/dev/null 2>&1) & HTTP=$!
+# cloud-init seed server. A stale one (e.g. started from a since-renamed directory) serves nothing useful and
+# the VM silently provisions with defaults, so replace any existing listener on :8000 and serve an absolute path.
+OLD=$(ss -ltnp 2>/dev/null | sed -n '/:8000 /s/.*pid=\([0-9]*\).*/\1/p' | head -1); [[ -z $OLD ]] || kill "$OLD" 2>/dev/null || true
+sleep 0.3
+python3 -m http.server 8000 --bind 127.0.0.1 --directory "$H/seed" >/dev/null 2>&1 & HTTP=$!
 trap 'kill $HTTP 2>/dev/null' EXIT
 MON="$H/images/monitor.sock"; rm -f "$MON"
 # -vga std + a monitor socket let tests type keys (sendkey) and take screenshots (screendump) of the greeter

@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "monarchy-identity: this machine is not enrolled in a directory" >&2
+exit 1
