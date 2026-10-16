@@ -8,13 +8,17 @@ Legend: [ ] open, size S/M/L. Update this file as you go; put lessons in HANDOFF
 - [x] **Lockout safety net.** `enroll` refuses unless a local account with a usable password exists (`--allow-no-local-fallback` overrides); `--confirm-within N` schedules an auto-revert (systemd transient timer) until `omarchy-identity confirm`. Tested (`test/vm/e2e-safety.sh`).
 
 ## P1 - make it usable
-- [ ] **Hook installation (S).** `omarchy-identity install-hooks` (per-user `omarchy hook install post-update ...`); simulate a `pambase` upgrade (rewrite stock `system-auth`) in the VM and confirm the alpm hook repairs it.
-- [ ] **DNS discovery (M).** Make `--server` optional (SRV lookup, AD sites), production-style DNS instead of the lab's `/etc/hosts`.
-- [ ] **Non-interactive enrolment (S).** `--password-file` / env, JSON output, exit codes, so MDM/Ansible can run it. Document an Ansible role snippet.
-- [ ] **Config file parsing (S).** Replace flat sed parsing in `lib/common.sh` with a stricter reader (escaping, lists) or switch to a simple KEY=value env file.
-- [ ] **Password change + offline login (M).** `passwd` for AD users (PAM `password` stack edit), cached-credential behaviour when the DC is unreachable; add to e2e (block the DC port in the VM).
-- [ ] **GPO access control (M).** `ad_gpo_access_control = disabled` is a lab shortcut; support `enforcing`/`permissive` and the service-name mapping for sddm/hyprlock.
-- [ ] **Root-cause the fresh-account join quirk (M).** Why a first `net ads join` keytab is rejected by sssd (kvno/salt). Try `net ads join` + `net ads keytab create` ordering, `sync machine password to keytab`, or sssd's own join. Drop the double-join if fixed.
+- [x] **Hook/package test.** Real package built+installed in the VM; a `pambase` pacman transaction triggers the alpm hook and repairs PAM + nsswitch (`test/vm/e2e-package.sh`). NOTE: pacman keeps modified `backup=` files and writes `.pacnew`, so the realistic drift sources are `omarchy update` migrations and manual edits, not plain package upgrades.
+- [ ] **Per-user Omarchy hook install (S).** `omarchy-identity install-hooks` -> `omarchy hook install post-update ...` for each human user (Omarchy hooks live in `~/.config/omarchy/hooks`). Verify against a real `omarchy update` run (migrations that sed system-auth, e.g. increase-lockout-limit.sh).
+- [x] **DNS discovery.** `--server` optional; krb5/samba/sssd use SRV records (`test/vm/e2e-dns.sh`; lab DNS via `test/dc/fix-dns.sh`). Still TODO: AD sites, multiple DCs/failover test, DNS-update (`--no-dns-updates` is set).
+- [x] **Offline login.** Cached credentials work with the DC down; never-signed-in users are refused; recovery when the DC returns (`test/vm/e2e-offline.sh`). TODO: cache expiry policy (`offline_credentials_expiration`) as a config option.
+- [ ] **Non-interactive enrolment (S).** `--password-file` / `OI_ADMIN_PASSWORD_FILE` (refuse world-readable), machine-readable result (`--json`), documented exit codes, Ansible snippet. Today: password on stdin only.
+- [ ] **Config file parsing (S).** Replace flat sed parsing in `lib/common.sh` with a stricter reader (escaping, lists) or an env-style file.
+- [ ] **Password change (M).** `passwd` as a directory user (PAM `password` stack edit in pamedit.py), expired-password flow at login.
+- [ ] **GPO access control (M).** `ad_gpo_access_control = disabled` is a lab shortcut; support `enforcing`/`permissive` with service mapping for sddm/lock/sudo.
+- [ ] **sudo for directory users (M).** Today admin comes from local config; add sssd `sudo` provider / group->sudoers mapping option (MDM may own this instead - decide).
+- [ ] **Root-cause the fresh-account join quirk (M).** Why a first `net ads join` keytab is rejected by sssd (kvno/salt). Try `sync machine password to keytab`, or sssd-native join. Drop the double-join if fixed.
+- [ ] **`su` and polkit (S).** `su` uses pam_unix directly (directory users can't `su`); Omarchy has no `polkit-1` PAM service (falls to `other`) - check polkit auth as a directory user.
 
 ## P2 - more providers and profiles
 - [ ] **OIDC provider (L).** Entra ID / Okta / Google Workspace (candidates: `himmelblau` for Entra, `authd`); decide if packages come from AUR (conflicts with the no-AUR rule) and how to handle that.

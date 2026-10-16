@@ -2,7 +2,7 @@
 
 Corporate sign-in for [Omarchy](https://omarchy.org): enrol a laptop in a directory (Active Directory today; other providers pluggable), control who may log in, and report posture to whatever management tooling the company already runs.
 
-**Status:** prototype. Verified end to end in a VM (enrol, login policy, update-drift repair, leave). Not yet tested on a real Omarchy desktop session. Do not install on a machine you can't recover.
+**Status:** prototype. Verified end to end in a VM (enrol with or without `--server`, login policy, offline login, drift repair via pacman hook, autologin override, lockout safety, leave). Not yet tested on a real Omarchy desktop session. Do not install on a machine you can't recover.
 
 ## What it does
 - `omarchy-identity enroll sssd --realm CORP.EXAMPLE --server dc.corp.example --mode groups --groups laptop-users`
@@ -10,6 +10,7 @@ Corporate sign-in for [Omarchy](https://omarchy.org): enrol a laptop in a direct
 - **Login policy** (`--mode`): `groups` (members of listed groups), `assigned` (listed users), `any` (whole directory, explicit opt-in). Default deny. Local break-glass accounts always work.
 - `omarchy-identity status --json` reports enrolment, provider, policy, autologin, wheel members and PAM/NSS drift, for an MDM, osquery or Ansible to read.
 - `omarchy-identity reassert` re-applies the edits after `omarchy update` or a `pambase` upgrade overwrites them (also wired as a pacman hook).
+- `enroll --disable-autologin` overrides SDDM autologin; `enroll --confirm-within N` auto-reverts unless you run `omarchy-identity confirm`; enrolment refuses unless a local account with a password exists.
 - `omarchy-identity leave [--admin USER]` restores the pre-enrolment state and, with credentials, removes the computer account.
 
 ## What it deliberately does not do
