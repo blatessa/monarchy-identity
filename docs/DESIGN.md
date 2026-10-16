@@ -14,12 +14,15 @@ Provider-agnostic corporate identity for Omarchy.
 3. Optional UI package `omarchy-identity-shell` (`shell-plugin/`): Quickshell bar widget, cosmetic only.
    Depends on the CLI; the CLI never depends on it.
 
-## Security model
-- Enforcement lives in root-owned /etc (PAM, NSS, SDDM drop-ins, sssd.conf).
-- Managed mode: daily user is NOT in wheel; break-glass local admin; autologin disabled.
-- Boot chain (Secure Boot + TPM-bound LUKS + Limine password) is documented, applied separately.
-- Dev mode: same CLI, no lockdown.
-- Tamper-evident: `status` reports drift; post-update hook re-asserts drop-ins.
+## Scope and security model
+- This package owns: directory enrolment, login policy, posture reporting.
+- Privilege removal (no wheel), sudo rules, boot hardening belong to the org's MDM/config mgmt.
+- `omarchy-identity status --json` is the integration point: enrolled, provider, login.mode,
+  autologin off, drop-in drift, local wheel members. MDM/osquery/Ansible read it for compliance.
+- Optional `managed` profile (off by default) applies hardening for orgs with no MDM:
+  remove wheel, disable autologin, break-glass admin, boot-chain guidance.
+- Enforcement lives in root-owned /etc; the shell plugin is cosmetic, never a boundary.
+- Tamper-evident: status reports drift; post-update hook re-asserts drop-ins.
 
 ## Login policy (`login.mode`)
 - assigned: listed users only
