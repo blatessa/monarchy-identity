@@ -18,6 +18,12 @@ out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/omarchy-identity enroll sssd --realm
 st() { "${V[@]}" '/usr/bin/omarchy-identity status --json'; }
 [[ $(st) == *'"pam_system_auth":"true"'* ]] && ok "PAM edits present" || bad "PAM edits missing"
 
+echo "[compliance check with the packaged files]"
+"${V[@]}" 'test -f /usr/share/doc/omarchy-identity/policy.example.toml' && ok "example policy installed" || bad "example policy missing"
+"${V[@]}" 'printf "require_enrolled = true\nrequire_self_heal = true\n" | sudo tee /tmp/oi-pol-ok.toml >/dev/null; printf "require_firewall = true\nrequire_tpm2 = true\n" | sudo tee /tmp/oi-pol-bad.toml >/dev/null'
+"${V[@]}" 'OMARCHY_IDENTITY_POLICY=/tmp/oi-pol-ok.toml /usr/bin/omarchy-identity check' >/dev/null 2>&1 && ok "check exits 0 for a satisfied policy" || bad "check failed a satisfied policy"
+"${V[@]}" 'OMARCHY_IDENTITY_POLICY=/tmp/oi-pol-bad.toml /usr/bin/omarchy-identity check' >/dev/null 2>&1; [[ $? == 1 ]] && ok "check exits 1 for a violated policy (VM has no TPM / firewall)" || bad "check did not exit 1"
+"${V[@]}" 'OMARCHY_IDENTITY_POLICY=/nonexistent /usr/bin/omarchy-identity check' >/dev/null 2>&1; [[ $? == 2 ]] && ok "check exits 2 when the policy file is missing" || bad "missing policy exit code"
 echo "[watcher is quiet when nothing changes (no self-trigger loop)]"
 runs() { "${V[@]}" 'sudo journalctl -u omarchy-identity-reassert.service --no-pager -o cat | grep -c "Finished\|Succeeded"' ; }
 sleep 6; r1=$(runs); sleep 12; r2=$(runs)

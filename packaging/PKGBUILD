@@ -21,7 +21,7 @@ package_omarchy-identity() {
   install -d "$pkgdir/usr/share/omarchy-identity/providers"
   cp -a "$_root/providers/." "$pkgdir/usr/share/omarchy-identity/providers/"
   install -d "$pkgdir/usr/share/omarchy-identity/lib"
-  install -m755 "$_root/lib/pamedit.py" "$pkgdir/usr/share/omarchy-identity/lib/pamedit.py"
+  install -m755 "$_root/lib/pamedit.py" "$_root/lib/check.py" "$pkgdir/usr/share/omarchy-identity/lib/"
   install -m644 "$_root/lib/common.sh" "$_root/lib/posture.sh" "$pkgdir/usr/share/omarchy-identity/lib/"
 
   install -d "$pkgdir/usr/share/omarchy-identity/hooks/post-update.d"
@@ -39,6 +39,7 @@ package_omarchy-identity() {
   install -Dm644 "$_root/packaging/omarchy-identity-reassert.path" "$pkgdir/usr/lib/systemd/system/omarchy-identity-reassert.path"
   install -Dm644 "$_root/packaging/omarchy-identity-reassert.service" "$pkgdir/usr/lib/systemd/system/omarchy-identity-reassert.service"
   install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/omarchy-identity/config.toml"
+  install -Dm644 "$_root/packaging/policy.example.toml" "$pkgdir/usr/share/doc/omarchy-identity/policy.example.toml"
   install -Dm644 "$_root/docs/DESIGN.md" "$pkgdir/usr/share/doc/omarchy-identity/DESIGN.md"
 }
 

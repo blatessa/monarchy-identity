@@ -68,6 +68,14 @@ Exit status is 0 on success and non-zero on any failure; a failed enrolment roll
 mode, effective autologin, self-heal state, per-file drift, plus disk-encryption / firewall / Secure Boot / TPM2 / lock
 timeout. Feed it to osquery, your MDM's custom-attribute hook, or a cron job. `unknown` means "could not determine".
 
+## Compliance check (for your MDM)
+Write `/etc/omarchy-identity/policy.toml` (an annotated example ships in `/usr/share/doc/omarchy-identity/policy.example.toml`),
+then run `omarchy-identity check [--json]`. It prints PASS/FAIL per rule and exits **0** compliant, **1** violations,
+**2** bad policy (unknown keys, bad values, missing file: a typo never silently weakens a policy). Use it directly as a
+custom compliance script in Intune/Ansible/osquery. Rules: enrolled, self-heal, disk encryption, firewall, Secure Boot,
+TPM2, no autologin, allowed `wheel` members, maximum screen-lock timeout, required login mode. Values the tool cannot
+determine count as failures unless `unknown_is_failure = false`.
+
 ## What keeps it correct
 - A root-owned systemd path unit (`omarchy-identity-reassert.path`) repairs the PAM, nsswitch and SDDM edits within
   seconds if an update or a person overwrites them. A pacman hook does the same after relevant package upgrades.

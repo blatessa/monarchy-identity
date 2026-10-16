@@ -23,6 +23,8 @@ Legend: [ ] open, size S/M/L. Update this file as you go; put lessons in HANDOFF
 - [ ] **Fresh-account join quirk (S, low priority).** Investigated: the only attribute change between join 1 and join 2 is `pwdLastSet` (msDS-SupportedEncryptionTypes=28 both times), so it's about how/when the new account's keys become usable by sssd on the *Samba* KDC, not a missing attribute. The double join is harmless. Still to try: `net ads changetrustpw -S srv` instead of a second join; check whether a real Windows AD DC shows the quirk at all (it may be Samba-only).
 - [ ] **`su` and polkit (S).** `su` uses pam_unix directly (directory users can't `su`); Omarchy has no `polkit-1` PAM service (falls to `other`) - check polkit auth as a directory user.
 
+- [x] **Compliance check.** `omarchy-identity check [--json]` evaluates `/etc/omarchy-identity/policy.toml` against the posture (exit 0/1/2), strict parser (typos are errors); 25 unit tests (`test/unit/check.sh`) + packaged test. REMAINING: more rules (pending updates, password age, local accounts with no password, fingerprint/smartcard policy), per-rule severity, signed/centrally pulled policies.
+
 ## P2 - more providers and profiles
 - [ ] **OIDC provider (L).** Entra ID / Okta / Google Workspace (candidates: `himmelblau` for Entra, `authd`); decide if packages come from AUR (conflicts with the no-AUR rule) and how to handle that.
 - [ ] **FreeIPA / generic LDAP+Kerberos provider (M).** Reuse most of the sssd provider; add a FreeIPA container to `test/dc`.

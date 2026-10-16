@@ -16,6 +16,7 @@ Usage: omarchy-identity <command>
   status [--json]            Show enrolment and posture
   enroll <provider> [args]   Enrol with a directory provider
   leave                      Unenrol and restore previous config
+  check [--json]             Evaluate posture against /etc/omarchy-identity/policy.toml (exit 1 if non-compliant)
   confirm                    Cancel the pending auto-revert (after verifying login works; root)
   reassert                   Re-apply managed /etc edits (run after updates; root)
   install-hooks              Install the post-update hook for the current user (not root)
@@ -86,6 +87,10 @@ case "${1:-}" in
       [[ -f $hook_src ]] || { echo "hook source not found: $hook_src" >&2; exit 1; }
       install -D -m 0755 "$hook_src" "$hook_dst"; echo "installed $hook_dst"
     else rm -f "$hook_dst"; echo "removed $hook_dst"; fi ;;
+  check)
+    shift; pol="${OMARCHY_IDENTITY_POLICY:-/etc/omarchy-identity/policy.toml}"
+    [[ -r $pol ]] || { echo "no policy file at $pol (see docs/ADMIN.md)" >&2; exit 2; }
+    cmd_status --json | python3 -I "$ROOT/lib/check.py" "$pol" "$@" ;;
   confirm) [[ $EUID -eq 0 ]] || { echo "must run as root" >&2; exit 1; }; if revert_pending; then revert_cancel; log "enrolment confirmed; auto-revert cancelled"; else echo "no auto-revert pending"; fi ;;
   reassert) run_provider "$(conf_get provider local)" reassert ;;
   leave) shift; run_provider "$(conf_get provider local)" unenroll "$@" ;;

@@ -5,6 +5,7 @@ suites=(
   "bash hooks/test-reassert.sh"
   "bash shell-plugin/tests/run.sh"
   "test/unit/validation.sh"
+  "test/unit/check.sh"
   "test/vm/e2e.sh"
   "test/vm/e2e-modes.sh"
   "test/vm/e2e-services.sh"

@@ -12,6 +12,7 @@ Corporate sign-in for [Omarchy](https://omarchy.org): enrol a laptop in a direct
 - `omarchy-identity reassert` re-applies the edits after `omarchy update` or a `pambase` upgrade overwrites them (also wired as a pacman hook).
 - `enroll --disable-autologin` overrides SDDM autologin; `enroll --confirm-within N` auto-reverts unless you run `omarchy-identity confirm`; enrolment refuses unless a local account with a password exists.
 - A root-owned systemd path unit repairs the edits within seconds if an update or a person overwrites them. `status --json` reports `self_heal`, `revert_pending`, autologin, wheel members and per-file drift.
+- `omarchy-identity check` evaluates a policy file against that posture (exit 0/1/2): a ready-made compliance script for MDMs.
 - Automation: `--password-file`/`OI_ADMIN_PASSWORD_FILE`, no TTY needed.
 - `omarchy-identity leave [--admin USER]` restores the pre-enrolment state and, with credentials, removes the computer account.
 
