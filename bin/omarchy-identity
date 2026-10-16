@@ -6,6 +6,7 @@ ROOT="${OMARCHY_IDENTITY_ROOT:-/usr/share/omarchy-identity}"
 [[ -d $ROOT/providers ]] || ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 export OI_ROOT="$ROOT"
 source "$ROOT/lib/common.sh"
+source "$ROOT/lib/posture.sh"
 CONF="$OI_CONF"
 
 usage() {
@@ -43,14 +44,23 @@ cmd_status() {
       < <("$ROOT/providers/$provider/status" 2>/dev/null)
   fi
   if ((json)); then
-    printf '{"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"revert_pending":%s,"self_heal":%s,"wheel_members":"%s","details":{%s}}\n' \
-      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(revert_pending && echo true || echo false)" "$(watch_active && echo true || echo false)" "$(json_escape "$wheel")" "$details"
+    local selfheal; selfheal=$(watch_active && echo true || echo false)
+    printf '{"schema":1,"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"revert_pending":%s,"self_heal":%s,"wheel_members":"%s","details":{%s},' \
+      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(revert_pending && echo true || echo false)" "$selfheal" "$(json_escape "$wheel")" "$details"
+    printf '"device":{"hostname":"%s","os":"%s","omarchy":"%s","kernel":"%s"},' \
+      "$(json_escape "$(uname -n)")" "$(json_escape "$(posture_os)")" "$(json_escape "$(posture_omarchy_version)")" "$(json_escape "$(uname -r)")"
+    printf '"compliance":{"disk_encryption":"%s","firewall":"%s","secure_boot":"%s","tpm2":"%s","screen_lock_seconds":"%s"}}\n' \
+      "$(posture_disk_encryption)" "$(posture_firewall)" "$(posture_secure_boot)" "$(posture_tpm2)" "$(posture_screen_lock_seconds)"
   else
     echo "enrolled:      $enrolled"
     echo "provider:      $provider"
     echo "login mode:    $mode"
     echo "autologin:     $autologin"
     echo "wheel members: ${wheel:-none}"
+    echo "disk encrypted: $(posture_disk_encryption)"
+    echo "firewall:       $(posture_firewall)"
+    echo "secure boot:    $(posture_secure_boot)"
+    echo "tpm2:           $(posture_tpm2)"
   fi
 }
 
