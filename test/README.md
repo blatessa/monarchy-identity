@@ -14,3 +14,6 @@ VM guest resolves dc.corp.test -> 10.0.2.2 via /etc/hosts.
 Findings:
 - sssd, samba, krb5 are in Arch `extra`; adcli and oddjob are AUR-only.
   => sssd provider joins with `net ads join` and uses pam_mkhomedir, no AUR dependency.
+
+Scripts: vm/deploy.sh [--fixtures], vm/e2e.sh, vm/e2e-modes.sh, vm/trylogin.sh USER PW, vm/pamtest.py SERVICE USER PW.
+See ../HANDOFF.md for status and findings.

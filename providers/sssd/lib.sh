@@ -39,7 +39,7 @@ write_smb() { # realm
 S
 }
 
-write_sssd() { # realm server mode "groups" "users" hostfqdn
+write_sssd() { # realm server mode "groups" "users" hostfqdn netbios
   local r=${1^^} d; d=$(realm_lc "$1")
   local access="" mode=$3
   case $mode in
@@ -64,6 +64,7 @@ ad_domain = $d
 krb5_realm = $r
 ad_server = $2
 ad_hostname = $6
+ldap_sasl_authid = ${7}\$
 ad_gpo_access_control = disabled
 dyndns_update = false
 use_fully_qualified_names = False

@@ -20,7 +20,7 @@ esac
 for c in sssd net python3; do command -v $c >/dev/null || die "missing dependency: $c"; done
 IFS= read -r -s pw || die "admin password must be given on stdin"
 
-d=$(realm_lc "$realm"); host=$(hostname -s); fqdn="$host.$d"
+d=$(realm_lc "$realm"); host=$(uname -n | cut -d. -f1); fqdn="$host.$d"
 
 for f in "${MANAGED[@]}"; do backup_file "$f"; done
 rollback() { log "enrol failed - rolling back"; "$OI_ROOT/providers/sssd/unenroll" --quiet || true; }
@@ -29,14 +29,25 @@ trap rollback ERR
 log "writing kerberos/samba config"
 write_krb5 "$realm" "$server"; write_smb "$realm"
 log "joining $realm via net ads join"
-printf '%s\n' "$pw" | net ads join -S "$server" -U "$admin" --no-dns-updates >/dev/null
-net ads keytab create -P >/dev/null 2>&1 || net ads keytab create -U "$admin" <<<"$pw" >/dev/null
+# Join TWICE. On a brand-new computer account the first join yields a machine key sssd's ldap_child
+# is rejected with ("Preauthentication failed") although `kinit -k` accepts it; a second join (password
+# reset, as already happens for pre-existing accounts) fixes it. Verified in test/vm/e2e.sh.
+for _ in 1 2; do
+  printf '%s\n' "$pw" | net ads join -S "$server" -U "$admin" --no-dns-updates >/dev/null
+done
+# Build the keytab with ADMIN credentials. `-P` (machine creds) produced keytabs the KDC rejected
+# ("Preauthentication failed") on fresh accounts; -S is needed so samba can find the DC for kvno/salt.
+rm -f "$ETC/krb5.keytab"   # join already wrote one; appending mixes kvnos and kinit picks a bad entry
+printf '%s\n' "$pw" | net ads keytab create -S "$server" -U "$admin" >/dev/null 2>&1 || die "could not create machine keytab"
+nb=${host^^}; nb=${nb:0:15}   # samba netbios name
+kinit -k "$nb\$@${realm^^}" 2>/dev/null || die "machine keytab does not authenticate (kvno mismatch?)"
+kdestroy 2>/dev/null || true
 pw=""
-write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn"
+write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn" "$nb"
 systemctl enable --now sssd
 nss_apply
 # verify directory lookups work BEFORE touching PAM (never lock out on a broken directory)
-timeout 30 bash -c "until getent group \"${groups%%,*}\" >/dev/null 2>&1 || [[ $mode != groups ]]; do sleep 1; done" || true
+timeout 60 bash -c "until getent group \"${groups%%,*}\" >/dev/null 2>&1 || [[ $mode != groups ]]; do sleep 1; done" || true
 if [[ $mode == groups ]]; then probe=${groups%%,*}; getent group "$probe" >/dev/null || \
   die "group '$probe' not resolvable via sssd; refusing to modify PAM"; fi
 pam_apply

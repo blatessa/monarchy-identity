@@ -4,11 +4,19 @@ set -uo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/sssd/lib.sh"
 need_root
+quiet=0 admin=""
+while [[ $# -gt 0 ]]; do case $1 in --quiet) quiet=1; shift;; --admin) admin=$2; shift 2;; *) die "unknown option $1";; esac; done
 pam_remove                     # PAM first: stop consulting sssd before anything else changes
 nss_remove
 systemctl disable --now sssd 2>/dev/null || true
-[[ -f $ETC/sssd/sssd.conf ]] && net ads leave -P >/dev/null 2>&1 || true
+if [[ -f $ETC/sssd/sssd.conf ]]; then
+  if [[ -n $admin ]] && IFS= read -r -s pw; then
+    printf '%s\n' "$pw" | net ads leave -S "$(conf_get server)" -U "$admin" >/dev/null 2>&1 || log "WARNING: could not delete computer account in directory"
+  elif ! net ads leave -S "$(conf_get server)" -P >/dev/null 2>&1; then
+    log "WARNING: computer account left in the directory; have a directory admin remove it (or rerun: leave --admin USER, password on stdin)"
+  fi
+fi
 for f in /etc/krb5.conf /etc/samba/smb.conf /etc/sssd/sssd.conf /etc/krb5.keytab; do restore_file "$f"; done
 rm -rf /var/lib/sss/db/* /var/lib/sss/mc/* 2>/dev/null || true
 conf_write provider=local login_mode=none
-[[ ${1:-} == --quiet ]] || log "left directory; local configuration restored"
+((quiet)) || log "left directory; local configuration restored"

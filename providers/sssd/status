@@ -6,4 +6,4 @@ chk() { "$@" >/dev/null 2>&1 && echo true || echo false; }
 echo "sssd_active=$(chk systemctl is-active --quiet sssd)"
 echo "nss_sss=$(chk grep -qE '^passwd:.*\bsss\b' "$ETC/nsswitch.conf")"
 for f in "${PAM_FILES[@]}"; do echo "pam_${f//-/_}=$(chk python3 -I "$PAMEDIT" check "$ETC/pam.d/$f")"; done
-echo "domain_joined=$(chk net ads testjoin)"
+if [[ $EUID -eq 0 ]]; then echo "domain_joined=$(chk net ads testjoin)"; else echo "domain_joined=unknown"; fi

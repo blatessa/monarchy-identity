@@ -73,7 +73,7 @@ case "${1:-}" in
   providers) cmd_providers ;;
   enroll) shift; [[ $# -ge 1 ]] || { usage; exit 1; }; p=$1; shift; run_provider "$p" enroll "$@" ;;
   reassert) run_provider "$(conf_get provider local)" reassert ;;
-  leave) run_provider "$(conf_get provider local)" unenroll ;;
+  leave) shift; run_provider "$(conf_get provider local)" unenroll "$@" ;;
   -h|--help|"") usage ;;
   *) usage; exit 1 ;;
 esac
