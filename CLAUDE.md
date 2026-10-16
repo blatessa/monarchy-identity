@@ -32,6 +32,8 @@ Provider-agnostic corporate identity for Omarchy (Arch + Hyprland). Read `HANDOF
     test/vm/deploy.sh                 # push repo to VM (add --fixtures to reset PAM to stock Omarchy)
     test/run-all.sh        # every suite (~12 min); or run test/vm/e2e*.sh individually, each prints RESULT: ALL PASS
     # suites: e2e (enrol/policy/drift/leave) modes services dns offline package safety
+    # e2e-greeter.sh drives the REAL SDDM greeter (X11) in the VM: qmon.py = QEMU monitor sendkey/screendump;
+    #   needs the VM started by the current run.sh (-vga std + monitor socket); install-package.sh builds+installs the real package
     # DNS lab: test/dc/fix-dns.sh points the DC's A record at 10.0.2.2 (QEMU host address)
     bash hooks/test-reassert.sh; bash shell-plugin/tests/run.sh
 VM: `ssh -i test/vm/keys/id_oi -p 2222 tester@127.0.0.1`. Lab creds (throwaway, loopback): Administrator/alice/bob/carol, password `Passw0rd!Test`.

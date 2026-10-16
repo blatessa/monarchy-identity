@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run every suite and summarize. Needs the DC and VM up (see ../CLAUDE.md). ~6 minutes.
+# Run every suite and summarize. Needs the DC and VM up (see ../CLAUDE.md). ~10 minutes.
 cd "$(dirname "$0")/.."
 suites=(
   "bash hooks/test-reassert.sh"
@@ -18,7 +18,9 @@ suites=(
   "test/vm/e2e-package.sh"
   "test/vm/e2e-failure.sh"
   "test/vm/e2e-safety.sh"
+  "test/vm/e2e-greeter.sh"
 )
+echo "lab: verifying directory users/groups"; test/dc/seed-users.sh >/dev/null || { echo "lab directory is not in the expected state"; exit 1; }
 rc=0; summary=()
 for s in "${suites[@]}"; do
   log=$(mktemp); start=$(date +%s)

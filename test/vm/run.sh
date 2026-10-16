@@ -7,7 +7,9 @@ IMG="$H/images/client.qcow2"
 VARS="$H/images/OVMF_VARS.fd"; [[ -f $VARS ]] || cp /usr/share/edk2/x64/OVMF_VARS.4m.fd "$VARS"
 (cd "$H/seed" && python3 -m http.server 8000 --bind 127.0.0.1 >/dev/null 2>&1) & HTTP=$!
 trap 'kill $HTTP 2>/dev/null' EXIT
-exec qemu-system-x86_64 -enable-kvm -cpu host -smp 4 -m 4096 -nographic \
+MON="$H/images/monitor.sock"; rm -f "$MON"
+# -vga std + a monitor socket let tests type keys (sendkey) and take screenshots (screendump) of the greeter
+exec qemu-system-x86_64 -enable-kvm -cpu host -smp 4 -m 4096 -nographic -vga std -monitor unix:"$MON",server,nowait \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
   -drive if=pflash,format=raw,file="$VARS" \
   -drive file="$IMG",if=virtio \

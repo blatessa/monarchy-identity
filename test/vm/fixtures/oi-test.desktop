@@ -1,0 +1,4 @@
+[Desktop Entry]
+Name=OI Test Session
+Exec=/usr/local/bin/oi-test-session
+Type=Application

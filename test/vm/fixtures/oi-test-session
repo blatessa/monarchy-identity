@@ -1,0 +1,8 @@
+#!/bin/sh
+# NOTE: /run/oi-test is world-writable but NOT sticky: in sticky /tmp, fs.protected_regular stops one user
+# appending to a file another user created.
+# Trivial desktop session for tests: record who got a session, then idle until told to log out
+# (touch /run/oi-test/logout). Exiting normally lets SDDM return to the greeter, like a real logout.
+echo "$(id -un) $(id -u) $HOME $(date +%s)" >> /run/oi-test/session.log
+while [ ! -e /run/oi-test/logout ]; do sleep 1; done
+exit 0

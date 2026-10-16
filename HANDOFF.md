@@ -61,6 +61,10 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
 - Greeter: Omarchy's SDDM theme has no username field -> `sddm-theme/omarchy-identity` (selected by enroll). Test mode render: `sddm-greeter-qt6 --test-mode --theme DIR` + `grim` works on the host without touching system config.
 - Anything the CLI sources must be installed by PKGBUILD (posture.sh was missed once; e2e-package.sh catches it).
 
+- Real greeter testing: Omarchy's SDDM greeter runs inside Hyprland; the VM uses SDDM's X11 greeter instead (same theme QML, same daemon, same PAM). `test/vm/qmon.py` (HMP socket: sendkey, screendump->PNG) + `e2e-greeter.sh`. `loginctl terminate-session` makes SDDM treat the helper as crashed and NOT restart the greeter: end test sessions by letting the session script exit.
+- Test-fixture traps hit while building it (all were test bugs, not product bugs): samba-tool `group addmembers a,b` rejects the whole call if any is already a member (seed per member, now verified loudly); a file created by one user in a shared dir isn't writable by another (mode 644; plus fs.protected_regular in sticky /tmp) - use a world-writable non-sticky dir; SDDM logs failed logins with `user ""`.
+- Always print diagnostics on a failing e2e step (diag() in e2e-greeter.sh): it turned a long guessing session into one run.
+
 ## Open items / next steps (priority order)
 1. Smoke-test on a real Omarchy install is NOT done: SDDM greeter login of an AD user, hyprlock unlock as AD user,
    `sudo` as AD user, home-dir creation via pam_mkhomedir in a graphical session. VM is stock Arch w/o SDDM/Hyprland.
