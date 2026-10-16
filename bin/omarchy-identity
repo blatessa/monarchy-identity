@@ -5,7 +5,8 @@ set -euo pipefail
 ROOT="${OMARCHY_IDENTITY_ROOT:-/usr/share/omarchy-identity}"
 [[ -d $ROOT/providers ]] || ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 export OI_ROOT="$ROOT"
-CONF="${OMARCHY_IDENTITY_CONF:-/etc/omarchy-identity/config.toml}"
+source "$ROOT/lib/common.sh"
+CONF="$OI_CONF"
 
 usage() {
   cat <<EOF
@@ -19,18 +20,9 @@ Usage: omarchy-identity <command>
 EOF
 }
 
-conf_get() { # conf_get key default  (flat key = "value" lookup)
-  local v=""
-  [[ -r $CONF ]] && v=$(sed -n "s/^$1[[:space:]]*=[[:space:]]*\"\?\([^\"]*\)\"\?$/\1/p" "$CONF" | head -1)
-  echo "${v:-$2}"
-}
-
 json_escape() { local s=${1//\\/\\\\}; s=${s//\"/\\\"}; printf '%s' "$s"; }
 
-autologin_enabled() {
-  grep -qsE '^\s*User=.+' /etc/sddm.conf.d/*.conf 2>/dev/null &&
-    grep -qsE '^\[Autologin\]' /etc/sddm.conf.d/*.conf 2>/dev/null
-}
+autologin_enabled() { [[ -n $(sddm_autologin_user) ]]; }
 
 wheel_members() { getent group wheel | cut -d: -f4; }
 

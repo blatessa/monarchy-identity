@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """pamtest.py SERVICE USER PASSWORD  - run authenticate + acct_mgmt via libpam (no pamtester on Arch)."""
 import ctypes, ctypes.util, sys
-svc, user, pw = sys.argv[1:4]
+args=[a for a in sys.argv[1:] if a!="--session"]; want_session="--session" in sys.argv
+svc, user, pw = args[:3]
 libpam = ctypes.CDLL(ctypes.util.find_library("pam")); libc = ctypes.CDLL(ctypes.util.find_library("c"))
 class Msg(ctypes.Structure): _fields_ = [("style", ctypes.c_int), ("msg", ctypes.c_char_p)]
 class Resp(ctypes.Structure): _fields_ = [("resp", ctypes.c_char_p), ("retcode", ctypes.c_int)]
@@ -22,4 +23,9 @@ assert libpam.pam_start(svc.encode(), user.encode(), ctypes.byref(c), ctypes.byr
 for name in ("pam_authenticate", "pam_acct_mgmt"):
     rc = getattr(libpam, name)(h, 0)
     if rc: print(f"DENIED {svc}/{user}: {name}: {libpam.pam_strerror(h, rc).decode()}"); sys.exit(1)
+if want_session:
+    libpam.pam_setcred(h, 2)   # PAM_ESTABLISH_CRED
+    rc = libpam.pam_open_session(h, 0)
+    if rc: print(f"DENIED {svc}/{user}: pam_open_session: {libpam.pam_strerror(h, rc).decode()}"); sys.exit(1)
+    libpam.pam_close_session(h, 0)
 print(f"ALLOWED {svc}/{user}")

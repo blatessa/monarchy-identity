@@ -32,3 +32,31 @@ restore_file() {
   local f=$1 b="$OI_STATE/backup/$(echo "$1" | tr / _)"
   if [[ -e $b ]]; then cp -a "$b" "$f"; elif [[ -e $b.absent ]]; then rm -f "$f"; fi
 }
+
+# --- SDDM autologin ---------------------------------------------------------------------------
+# SDDM merges $SDDM_CONF_D/*.conf in C-locale name order; the LAST [Autologin] User= wins. Omarchy's
+# autologin.conf sorts after "99-...", so our override must sort after it: zz-omarchy-identity.conf.
+SDDM_CONF_D="${OMARCHY_IDENTITY_SDDM_CONF_D:-/etc/sddm.conf.d}"
+SDDM_OVERRIDE="$SDDM_CONF_D/zz-omarchy-identity.conf"
+
+sddm_autologin_user() { # prints the effective autologin user ("" if none)
+  local f user="" sect="" line
+  while IFS= read -r f; do
+    sect=""
+    while IFS= read -r line; do
+      line="${line%%#*}"; line="${line//[[:space:]]/}"
+      case $line in
+        \[*\]) sect=$line ;;
+        User=*) [[ $sect == "[Autologin]" ]] && user=${line#User=} ;;
+      esac
+    done < "$f"
+  done < <(LC_ALL=C ls -1 "$SDDM_CONF_D"/*.conf 2>/dev/null | LC_ALL=C sort)
+  echo "$user"
+}
+
+sddm_autologin_disable() {
+  install -d -m 0755 "$SDDM_CONF_D"
+  printf '# managed by omarchy-identity: disables autologin on managed machines\n[Autologin]\nUser=\nSession=\n' > "$SDDM_OVERRIDE"
+  chmod 0644 "$SDDM_OVERRIDE"
+}
+sddm_autologin_restore() { rm -f "$SDDM_OVERRIDE"; }

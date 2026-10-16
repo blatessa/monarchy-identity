@@ -6,5 +6,6 @@ source "$OI_ROOT/providers/sssd/lib.sh"
 need_root
 [[ -f $ETC/sssd/sssd.conf ]] || die "sssd.conf missing; machine needs re-enrolment"
 nss_apply; pam_apply
+[[ $(conf_get autologin_disabled false) == true ]] && sddm_autologin_disable
 systemctl is-active --quiet sssd || systemctl restart sssd
 log "reasserted nsswitch + PAM"

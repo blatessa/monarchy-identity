@@ -1,15 +1,15 @@
 #!/bin/bash
 # omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator
-#   [--mode groups|assigned|any] [--groups a,b] [--users u1,u2]   (admin password on stdin)
+#   [--mode groups|assigned|any] [--groups a,b] [--users u1,u2] [--disable-autologin]   (admin password on stdin)
 set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/sssd/lib.sh"
 need_root
 
-realm="" server="" admin="Administrator" mode="groups" groups="" users=""
+disable_autologin=0 realm="" server="" admin="Administrator" mode="groups" groups="" users=""
 while [[ $# -gt 0 ]]; do case $1 in
   --realm) realm=$2; shift 2;; --server) server=$2; shift 2;; --admin) admin=$2; shift 2;;
-  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;;
+  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;; --disable-autologin) disable_autologin=1; shift;;
   *) die "unknown option $1";; esac; done
 [[ -n $realm && -n $server ]] || die "--realm and --server are required"
 case $mode in
@@ -51,6 +51,7 @@ timeout 60 bash -c "until getent group \"${groups%%,*}\" >/dev/null 2>&1 || [[ $
 if [[ $mode == groups ]]; then probe=${groups%%,*}; getent group "$probe" >/dev/null || \
   die "group '$probe' not resolvable via sssd; refusing to modify PAM"; fi
 pam_apply
-conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users"
+((disable_autologin)) && sddm_autologin_disable
+conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" autologin_disabled="$([[ $disable_autologin == 1 ]] && echo true || echo false)"
 trap - ERR
 log "enrolled in $realm (login mode: $mode)"
