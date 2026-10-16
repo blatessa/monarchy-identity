@@ -17,6 +17,8 @@ echo "[enrol]"
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok enrol || { bad "enrol"; echo "$out" | sed 's/^/      /'; }
+# reset AFTER enrol: before it, directory users don't resolve and the reset is a silent no-op
+"${V[@]}" 'for u in alice bob carol tester; do sudo faillock --user $u --reset; done' 2>/dev/null
 echo "[policy: groups=oi-laptop-users]"
 for svc in system-auth omarchy-lock-password; do
   expect "$svc alice (allowed group) right pw" ALLOWED $svc alice "$PW"

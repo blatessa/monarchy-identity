@@ -31,7 +31,7 @@ Provider-agnostic corporate identity for Omarchy.
 Default deny. Local break-glass admin always allowed.
 
 ## Drop-ins (survive `omarchy update`)
-- /etc/sddm.conf.d/50-identity.conf (overrides autologin.conf)
+- /etc/sddm.conf.d/zz-omarchy-identity.conf (overrides autologin.conf)
 - /etc/sssd/conf.d/*.conf
 - /etc/omarchy-identity/config.toml (root:root 0644)
 
