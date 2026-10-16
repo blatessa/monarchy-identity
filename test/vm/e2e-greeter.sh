@@ -81,4 +81,5 @@ logout_graphical
 
 "${V[@]}" 'sudo systemctl stop sddm; sudo rm -f /etc/sddm.conf.d/zz-vm-x11.conf' >/dev/null 2>&1
 echo "$PW" | "${V[@]}" 'sudo /usr/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+"${V[@]}" 'sudo pacman -R --noconfirm omarchy-identity' >/dev/null 2>&1   # leave the VM unpackaged, as other suites expect
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"
