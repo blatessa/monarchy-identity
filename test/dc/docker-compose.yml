@@ -16,6 +16,8 @@ services:
       - oi-dc-data:/var/lib/samba
       - oi-dc-etc:/etc/samba/external
     ports:
+      - "127.0.0.1:53:53/udp"
+      - "127.0.0.1:53:53"
       - "127.0.0.1:88:88"
       - "127.0.0.1:88:88/udp"
       - "127.0.0.1:389:389"

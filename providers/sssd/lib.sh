@@ -7,9 +7,10 @@ MANAGED=(/etc/nsswitch.conf /etc/krb5.conf /etc/samba/smb.conf /etc/sssd/sssd.co
 
 realm_lc() { echo "$1" | tr 'A-Z' 'a-z'; }
 
-write_krb5() { # realm server
+write_krb5() { # realm [server]   (no server => DNS SRV discovery of KDCs)
   local r=${1^^} d; d=$(realm_lc "$1")
-  cat > "$ETC/krb5.conf" <<K
+  if [[ -n ${2:-} ]]; then
+    cat > "$ETC/krb5.conf" <<K
 [libdefaults]
   default_realm = $r
   dns_lookup_realm = false
@@ -24,7 +25,22 @@ write_krb5() { # realm server
   .$d = $r
   $d = $r
 K
+  else
+    cat > "$ETC/krb5.conf" <<K
+[libdefaults]
+  default_realm = $r
+  dns_lookup_realm = true
+  dns_lookup_kdc = true
+  rdns = false
+[domain_realm]
+  .$d = $r
+  $d = $r
+K
+  fi
 }
+
+# server_args: sets SARGS=(-S server) or () so samba tools use DNS discovery when no server is configured.
+server_args() { SARGS=(); [[ -n ${1:-} ]] && SARGS=(-S "$1"); return 0; }
 
 write_smb() { # realm
   local r=${1^^}
@@ -48,6 +64,7 @@ write_sssd() { # realm server mode "groups" "users" hostfqdn netbios
     any)      access="access_provider = permit" ;;
     *) die "unknown login mode '$mode' (assigned|groups|any)" ;;
   esac
+  local adsrv=""; [[ -n $2 ]] && adsrv="ad_server = $2"
   install -d -m 0711 "$ETC/sssd"
   umask 077
   cat > "$ETC/sssd/sssd.conf" <<S
@@ -62,7 +79,7 @@ chpass_provider = ad
 $access
 ad_domain = $d
 krb5_realm = $r
-ad_server = $2
+$adsrv
 ad_hostname = $6
 ldap_sasl_authid = ${7}\$
 ad_gpo_access_control = disabled
