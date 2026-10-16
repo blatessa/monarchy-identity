@@ -18,7 +18,7 @@ Legend: [ ] open, size S/M/L. Update this file as you go; put lessons in HANDOFF
 - [x] **Input validation.** realm/server/admin/groups/users/confirm validated before they reach sssd.conf/smb.conf/krb5.conf (`test/unit/validation.sh`). REMAINING: conf_write value escaping for the flat config file.
 - [ ] **GPO access control (M).** `ad_gpo_access_control = disabled` is a lab shortcut; support `enforcing`/`permissive` with service mapping for sddm/lock/sudo.
 - [ ] **sudo for directory users (M).** Today admin comes from local config; add sssd `sudo` provider / group->sudoers mapping option (MDM may own this instead - decide).
-- [ ] **Root-cause the fresh-account join quirk (M).** Why a first `net ads join` keytab is rejected by sssd (kvno/salt). Try `sync machine password to keytab`, or sssd-native join. Drop the double-join if fixed.
+- [ ] **Fresh-account join quirk (S, low priority).** Investigated: the only attribute change between join 1 and join 2 is `pwdLastSet` (msDS-SupportedEncryptionTypes=28 both times), so it's about how/when the new account's keys become usable by sssd on the *Samba* KDC, not a missing attribute. The double join is harmless. Still to try: `net ads changetrustpw -S srv` instead of a second join; check whether a real Windows AD DC shows the quirk at all (it may be Samba-only).
 - [ ] **`su` and polkit (S).** `su` uses pam_unix directly (directory users can't `su`); Omarchy has no `polkit-1` PAM service (falls to `other`) - check polkit auth as a directory user.
 
 ## P2 - more providers and profiles
