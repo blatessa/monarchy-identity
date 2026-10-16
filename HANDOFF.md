@@ -1,3 +1,5 @@
+
+> New here? Start with CLAUDE.md (rules + dev loop), then TODO.md. This file is the running log of state and findings.
 # HANDOFF - read this first when resuming
 
 Project: provider-agnostic corporate identity for Omarchy. Design in docs/DESIGN.md. Test env in test/README.md.
