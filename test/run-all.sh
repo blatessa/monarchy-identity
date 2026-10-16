@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run every suite and summarize. Needs the DC and VM up (see ../CLAUDE.md). ~12 minutes.
+# Run every suite and summarize. Needs the DC and VM up (see ../CLAUDE.md). ~6 minutes.
 cd "$(dirname "$0")/.."
 suites=(
   "bash hooks/test-reassert.sh"
@@ -8,6 +8,7 @@ suites=(
   "test/vm/e2e-modes.sh"
   "test/vm/e2e-services.sh"
   "test/vm/e2e-dns.sh"
+  "test/vm/e2e-noninteractive.sh"
   "test/vm/e2e-offline.sh"
   "test/vm/e2e-package.sh"
   "test/vm/e2e-safety.sh"

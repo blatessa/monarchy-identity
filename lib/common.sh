@@ -93,3 +93,20 @@ WATCH_UNIT="omarchy-identity-reassert.path"
 watch_enable()  { systemctl cat "$WATCH_UNIT" >/dev/null 2>&1 && systemctl enable --now "$WATCH_UNIT" >/dev/null 2>&1 || true; }
 watch_disable() { systemctl disable --now "$WATCH_UNIT" >/dev/null 2>&1 || true; }
 watch_active()  { systemctl is-active --quiet "$WATCH_UNIT" 2>/dev/null; }
+
+# --- admin credential input ---------------------------------------------------------------------
+# read_admin_password [file]: sets $pw from FILE (or $OI_ADMIN_PASSWORD_FILE), else first line of stdin.
+# A password file must be a regular file owned by root or the caller with no group/other permissions.
+read_admin_password() {
+  local f=${1:-${OI_ADMIN_PASSWORD_FILE:-}}
+  if [[ -n $f ]]; then
+    [[ -f $f && ! -L $f ]] || die "password file '$f' is not a regular file"
+    local mode owner; mode=$(stat -c %a "$f"); owner=$(stat -c %u "$f")
+    (( (8#$mode & 8#077) == 0 )) || die "password file '$f' is accessible by group/other (mode $mode); chmod 600 it"
+    [[ $owner -eq 0 || $owner -eq $EUID ]] || die "password file '$f' must be owned by root or the invoking user"
+    IFS= read -r pw < "$f" || [[ -n ${pw:-} ]] || die "password file '$f' is empty"
+  else
+    IFS= read -r -s pw || die "admin password must be given on stdin, --password-file, or OI_ADMIN_PASSWORD_FILE"
+  fi
+  [[ -n $pw ]] || die "empty admin password"
+}

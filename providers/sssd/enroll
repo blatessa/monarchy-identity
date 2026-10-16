@@ -2,6 +2,7 @@
 # omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator
 #   (--server optional: omit to use DNS SRV discovery)
 #   [--mode groups|assigned|any] [--groups a,b] [--users u1,u2] [--disable-autologin]
+#   [--password-file FILE]      admin password from a 0600 file instead of stdin (or $OI_ADMIN_PASSWORD_FILE)
 #   [--confirm-within MINUTES]  auto-leave unless `omarchy-identity confirm` is run in time
 #   [--allow-no-local-fallback] skip the "a local user with a password must exist" safety check   (admin password on stdin)
 set -euo pipefail
@@ -9,10 +10,10 @@ export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)
 source "$OI_ROOT/providers/sssd/lib.sh"
 need_root
 
-confirm_within=0 allow_no_fallback=0 disable_autologin=0 realm="" server="" admin="Administrator" mode="groups" groups="" users=""
+pwfile="" confirm_within=0 allow_no_fallback=0 disable_autologin=0 realm="" server="" admin="Administrator" mode="groups" groups="" users=""
 while [[ $# -gt 0 ]]; do case $1 in
   --realm) realm=$2; shift 2;; --server) server=$2; shift 2;; --admin) admin=$2; shift 2;;
-  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;; --disable-autologin) disable_autologin=1; shift;; --confirm-within) confirm_within=$2; shift 2;; --allow-no-local-fallback) allow_no_fallback=1; shift;;
+  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;; --disable-autologin) disable_autologin=1; shift;; --confirm-within) confirm_within=$2; shift 2;; --password-file) pwfile=$2; shift 2;; --allow-no-local-fallback) allow_no_fallback=1; shift;;
   *) die "unknown option $1";; esac; done
 [[ -n $realm ]] || die "--realm is required (--server is optional: omit it to discover DCs through DNS)"
 case $mode in
@@ -26,7 +27,7 @@ if ((!allow_no_fallback)); then
   [[ -n $fb ]] || die "no local account with a usable password exists; if the directory breaks you would be locked out. Create one (or pass --allow-no-local-fallback)"
   log "local fallback accounts: $fb"
 fi
-IFS= read -r -s pw || die "admin password must be given on stdin"
+read_admin_password "$pwfile"
 
 server_args "$server"
 d=$(realm_lc "$realm"); host=$(uname -n | cut -d. -f1); fqdn="$host.$d"
