@@ -17,10 +17,13 @@ expect "alice (assigned) allowed" ALLOWED alice "$PW"
 expect "bob (in group but NOT assigned) denied" DENIED bob "$PW"
 expect "carol denied" DENIED carol "$PW"
 expect "tester local still ok" ALLOWED tester tester
-echo "[any: whole directory]"; enrol --mode any
+echo "[any: whole directory]"; enrol --mode any --offline-days 3
+"${V[@]}" 'sudo grep -A1 "^\[pam\]" /etc/sssd/sssd.conf' | grep -q "offline_credentials_expiration = 3" && ok "--offline-days 3 written to [pam]" || bad "offline_credentials_expiration missing"
+"${V[@]}" 'sudo sssctl config-check' >/dev/null 2>&1 && ok "sssctl config-check exits 0 for the generated sssd.conf" || { bad "sssctl config-check failed"; "${V[@]}" 'sudo sssctl config-check 2>&1' | head -5 | sed "s/^/      /"; }
 expect "alice allowed" ALLOWED alice "$PW"
 expect "carol (no group) allowed under any" ALLOWED carol "$PW"
 expect "tester local still ok" ALLOWED tester tester
+out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --mode any --offline-days abc' 2>&1); [[ $out == *"invalid --offline-days"* ]] && ok "non-numeric --offline-days refused" || bad "offline-days validation: $out"
 echo "[safety: groups mode requires --groups; bad mode rejected]"
 out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --mode groups' 2>&1); [[ $out == *"needs --groups"* ]] && ok "groups without --groups refused (default deny)" || bad "groups w/o --groups: $out"
 out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --mode bogus' 2>&1); [[ $out == *"bad --mode"* ]] && ok "bogus mode refused" || bad "bogus mode: $out"

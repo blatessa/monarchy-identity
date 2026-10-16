@@ -55,7 +55,7 @@ write_smb() { # realm
 S
 }
 
-write_sssd() { # realm server mode "groups" "users" hostfqdn netbios
+write_sssd() { # realm server mode "groups" "users" hostfqdn netbios [offline_days]
   local r=${1^^} d; d=$(realm_lc "$1")
   local access="" mode=$3
   case $mode in
@@ -91,6 +91,9 @@ ldap_id_mapping = True
 cache_credentials = True
 krb5_store_password_if_offline = True
 S
+  if [[ ${8:-0} =~ ^[1-9][0-9]*$ ]]; then
+    printf '\n[pam]\noffline_credentials_expiration = %s\n' "$8" >> "$ETC/sssd/sssd.conf"
+  fi
   chmod 0600 "$ETC/sssd/sssd.conf"
 }
 

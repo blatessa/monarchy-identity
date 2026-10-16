@@ -4,6 +4,7 @@
 #   [--mode groups|assigned|any] [--groups a,b] [--users u1,u2] [--disable-autologin]
 #   [--password-file FILE]      admin password from a 0600 file instead of stdin (or $OI_ADMIN_PASSWORD_FILE)
 #   [--sudo-groups g1,g2]       directory groups that get sudo (visudo-validated drop-in)
+#   [--offline-days N]          cached credentials stop working after N days offline (default: never)
 #   [--keep-login-theme]        do not switch SDDM to the theme with a username field
 #   [--confirm-within MINUTES]  auto-leave unless `omarchy-identity confirm` is run in time
 #   [--allow-no-local-fallback] skip the "a local user with a password must exist" safety check   (admin password on stdin)
@@ -12,13 +13,14 @@ export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)
 source "$OI_ROOT/providers/sssd/lib.sh"
 need_root
 
-sudo_groups="" keep_theme=0 pwfile="" confirm_within=0 allow_no_fallback=0 disable_autologin=0 realm="" server="" admin="Administrator" mode="groups" groups="" users=""
+offline_days=0 sudo_groups="" keep_theme=0 pwfile="" confirm_within=0 allow_no_fallback=0 disable_autologin=0 realm="" server="" admin="Administrator" mode="groups" groups="" users=""
 while [[ $# -gt 0 ]]; do case $1 in
   --realm) realm=$2; shift 2;; --server) server=$2; shift 2;; --admin) admin=$2; shift 2;;
-  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;; --disable-autologin) disable_autologin=1; shift;; --confirm-within) confirm_within=$2; shift 2;; --password-file) pwfile=$2; shift 2;; --keep-login-theme) keep_theme=1; shift;; --sudo-groups) sudo_groups=$2; shift 2;; --allow-no-local-fallback) allow_no_fallback=1; shift;;
+  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;; --disable-autologin) disable_autologin=1; shift;; --confirm-within) confirm_within=$2; shift 2;; --password-file) pwfile=$2; shift 2;; --keep-login-theme) keep_theme=1; shift;; --sudo-groups) sudo_groups=$2; shift 2;; --offline-days) offline_days=$2; shift 2;; --allow-no-local-fallback) allow_no_fallback=1; shift;;
   *) die "unknown option $1";; esac; done
 [[ -n $realm ]] || die "--realm is required (--server is optional: omit it to discover DCs through DNS)"
 [[ -z $sudo_groups ]] || valid_sudo_groups "$sudo_groups" || die "invalid --sudo-groups '$sudo_groups' (letters, digits, . _ - only; no spaces)"
+[[ $offline_days =~ ^[0-9]+$ ]] || die "invalid --offline-days '$offline_days' (whole days; 0 = never expire)"
 validate_enroll_args "$realm" "$server" "$admin" "$groups" "$users" "$confirm_within"
 case $mode in
   groups)   [[ -n $groups ]] || die "--mode groups needs --groups (default is deny)";;
@@ -71,7 +73,7 @@ printf '%s\n' "$pw" | net ads keytab create "${SARGS[@]}" -U "$admin" >/dev/null
 nb=${host^^}; nb=${nb:0:15}   # samba netbios name
 kinit -k "$nb\$@${realm^^}" 2>/dev/null || die "machine keytab does not authenticate (kvno mismatch?)"
 kdestroy 2>/dev/null || true
-write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn" "$nb"
+write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn" "$nb" "$offline_days"
 systemctl enable --now sssd
 nss_apply
 # verify directory lookups work BEFORE touching PAM (never lock out on a broken directory)
@@ -84,7 +86,7 @@ pam_apply
 if ((!keep_theme)); then
   sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the omarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"
 fi
-conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" autologin_disabled="$([[ $disable_autologin == 1 ]] && echo true || echo false)" login_theme="$([[ $keep_theme == 1 ]] && echo stock || echo identity)" sudo_groups="$sudo_groups"
+conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" autologin_disabled="$([[ $disable_autologin == 1 ]] && echo true || echo false)" login_theme="$([[ $keep_theme == 1 ]] && echo stock || echo identity)" sudo_groups="$sudo_groups" offline_days="$offline_days"
 enrolled_ok=1; trap - EXIT; pw=""
 watch_enable   # self-heal: root-owned path unit re-asserts our edits if anything overwrites them
 ((confirm_within > 0)) && { revert_schedule "$confirm_within"; log "AUTO-REVERT in ${confirm_within} min unless you run: omarchy-identity confirm"; }

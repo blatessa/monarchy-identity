@@ -26,7 +26,7 @@ c = Conv(CONV(conv), None); h = ctypes.c_void_p()
 libpam.pam_start.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(Conv), ctypes.POINTER(ctypes.c_void_p)]
 libpam.pam_strerror.restype = ctypes.c_char_p
 assert libpam.pam_start(svc.encode(), user.encode(), ctypes.byref(c), ctypes.byref(h)) == 0
-for name in ("pam_authenticate", "pam_acct_mgmt"):
+for name in (() if newpw else ("pam_authenticate", "pam_acct_mgmt")):
     rc = getattr(libpam, name)(h, 0)
     if rc: print(f"DENIED {svc}/{user}: {name}: {libpam.pam_strerror(h, rc).decode()}"); sys.exit(1)
 if newpw:

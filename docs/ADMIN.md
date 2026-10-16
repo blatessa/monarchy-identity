@@ -32,6 +32,7 @@ Login policy (`--mode`, default deny):
 | `assigned` | only the listed users                             | `--users u1,u2`  |
 | `any`      | everyone in the directory (explicit opt-in)       | -                |
 
+`--offline-days N` makes cached credentials stop working after N days without reaching the DC (default: never expire).
 Local accounts are never governed by this policy, so the break-glass admin keeps working.
 
 **Admin rights:** `--sudo-groups g1,g2` gives those directory groups sudo through a visudo-validated drop-in
@@ -94,7 +95,8 @@ can't sign in at the greeter). Autologin is a separate switch: `--disable-autolo
 ## Known limits
 - Tested against Samba AD; real Windows AD, FreeIPA and Entra ID/OIDC are untested or not implemented.
 - `su` uses pam_unix directly (directory users can't `su`). Sudo is opt-in via `--sudo-groups` (whole-group, ALL commands only).
-- Password-expiry-at-login prompts, GPO-based access control (currently disabled) and smart cards are not handled.
+- **Expired / must-change passwords:** login is refused with "new authentication token required" (tested on every service). SSH and a text login can prompt for a new password, but the **graphical login screen has no change-password dialog**: a user flagged "must change at next logon" must change it first on a TTY (Ctrl+Alt+F3) or over SSH, or an admin should avoid that flag for laptop users.
+- GPO-based access control (currently disabled) and smart cards are not handled.
 - Not yet verified in a real SDDM/Hyprland session; the lock screen uses the same PAM stack that the tests cover.
 
 ## Troubleshooting
