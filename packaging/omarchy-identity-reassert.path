@@ -6,6 +6,7 @@ PathChanged=/etc/pam.d/system-auth
 PathChanged=/etc/pam.d/omarchy-lock-password
 PathChanged=/etc/nsswitch.conf
 PathChanged=/etc/sddm.conf.d
+PathChanged=/etc/sudoers.d
 Unit=omarchy-identity-reassert.service
 
 [Install]

@@ -7,6 +7,7 @@ need_root
 [[ -f $ETC/sssd/sssd.conf ]] || die "sssd.conf missing; machine needs re-enrolment"
 nss_apply; pam_apply
 [[ $(conf_get autologin_disabled false) == true ]] && sddm_autologin_disable
+[[ -z $(conf_get sudo_groups "") ]] || sudoers_apply "$(conf_get sudo_groups "")"
 [[ $(conf_get login_theme identity) == identity ]] && { sddm_theme_enable || true; }
 systemctl is-active --quiet sssd || systemctl restart sssd
 log "reasserted nsswitch + PAM"

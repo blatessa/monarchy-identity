@@ -128,3 +128,21 @@ sddm_theme_enable() { # idempotent; returns 1 if the theme package files are mis
   printf '%s' "$want" > "$SDDM_THEME_CONF"; chmod 0644 "$SDDM_THEME_CONF"
 }
 sddm_theme_restore() { rm -f "$SDDM_THEME_CONF"; }
+
+# --- sudo for directory groups --------------------------------------------------------------------
+# Optional: map directory groups to sudo via a sudoers drop-in. Validated with visudo BEFORE install
+# (a broken sudoers file can lock out root access). Names are restricted so no escaping is needed.
+SUDOERS_FILE="${OMARCHY_IDENTITY_SUDOERS:-/etc/sudoers.d/50-omarchy-identity}"
+valid_sudo_groups() { local g IFS=,; [[ -n $1 ]] || return 1; for g in $1; do [[ $g =~ ^[A-Za-z0-9._-]{1,64}$ ]] || return 1; done; }
+sudoers_apply() { # sudoers_apply "g1,g2"  -- idempotent: untouched file => no write (a path unit watches this dir)
+  valid_sudo_groups "$1" || die "invalid --sudo-groups '$1' (letters, digits, . _ - only; no spaces)"
+  local want g IFS=,
+  want="# managed by omarchy-identity: directory groups with sudo"
+  for g in $1; do want+=$'\n'"%$g ALL=(ALL:ALL) ALL"; done
+  [[ -f $SUDOERS_FILE && $(cat "$SUDOERS_FILE") == "$want" && $(stat -c %a "$SUDOERS_FILE") == 440 ]] && return 0
+  local tmp; tmp=$(mktemp "${SUDOERS_FILE}.XXXXXX") || die "cannot create temp sudoers file"
+  printf '%s\n' "$want" > "$tmp"; chmod 0440 "$tmp"
+  if command -v visudo >/dev/null 2>&1 && ! visudo -cf "$tmp" >/dev/null 2>&1; then rm -f "$tmp"; die "generated sudoers failed validation; not installed"; fi
+  mv -f "$tmp" "$SUDOERS_FILE"
+}
+sudoers_remove() { rm -f "$SUDOERS_FILE"; }

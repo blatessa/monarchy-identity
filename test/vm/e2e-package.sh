@@ -13,11 +13,15 @@ scp -q "${SSHO[@]}" -P 2222 "$PKG" tester@127.0.0.1:/home/tester/oi.pkg.tar.zst
 ./deploy.sh --fixtures >/dev/null
 "${V[@]}" 'sudo pacman -U --noconfirm oi.pkg.tar.zst' >/dev/null 2>&1 && ok "package installs" || bad "package install"
 "${V[@]}" 'sudo rm -rf ~/oi; /usr/bin/omarchy-identity providers' | grep -q sssd && ok "packaged CLI finds providers (no repo checkout)" || bad "packaged layout"
-out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
+out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/omarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users --sudo-groups oi-admins" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok "enrol using packaged files" || { bad "enrol"; echo "$out" | sed 's/^/      /'; }
 st() { "${V[@]}" '/usr/bin/omarchy-identity status --json'; }
 [[ $(st) == *'"pam_system_auth":"true"'* ]] && ok "PAM edits present" || bad "PAM edits missing"
 
+echo "[watcher is quiet when nothing changes (no self-trigger loop)]"
+runs() { "${V[@]}" 'sudo journalctl -u omarchy-identity-reassert.service --no-pager -o cat | grep -c "Finished\|Succeeded"' ; }
+sleep 6; r1=$(runs); sleep 12; r2=$(runs)
+[[ $r1 == "$r2" ]] && ok "no reassert runs during 12s of idle (runs: $r2)" || bad "reassert storm: $r1 -> $r2"
 echo "[login theme with a username field]"
 "${V[@]}" 'test -f /usr/share/sddm/themes/omarchy-identity/Main.qml && test -L /usr/share/sddm/themes/omarchy-identity/logo.png' && ok "theme files installed (Main.qml + asset symlinks)" || bad "theme files missing"
 "${V[@]}" 'grep -q "^Current=omarchy-identity" /etc/sddm.conf.d/zz-omarchy-identity-theme.conf' && ok "enrol selects the identity theme via zz- drop-in" || bad "theme drop-in missing"

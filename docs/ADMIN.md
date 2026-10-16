@@ -34,6 +34,10 @@ Login policy (`--mode`, default deny):
 
 Local accounts are never governed by this policy, so the break-glass admin keeps working.
 
+**Admin rights:** `--sudo-groups g1,g2` gives those directory groups sudo through a visudo-validated drop-in
+(`/etc/sudoers.d/50-omarchy-identity`, 0440; names limited to letters, digits, `.`, `_`, `-`). Off by default; if your MDM
+owns privilege, leave it off. Removed by `leave`, repaired by the watcher.
+
 ## Automation (MDM, Ansible, cloud-init)
 No TTY is needed. Put the join account's password in a root-owned 0600 file (`--password-file`, or env
 `OI_ADMIN_PASSWORD_FILE`; group/other-readable files and symlinks are refused):
@@ -81,7 +85,7 @@ can't sign in at the greeter). Autologin is a separate switch: `--disable-autolo
 
 ## Known limits
 - Tested against Samba AD; real Windows AD, FreeIPA and Entra ID/OIDC are untested or not implemented.
-- `su` uses pam_unix directly (directory users can't `su`); `sudo` rights for directory users are not managed here.
+- `su` uses pam_unix directly (directory users can't `su`). Sudo is opt-in via `--sudo-groups` (whole-group, ALL commands only).
 - Password-expiry-at-login prompts, GPO-based access control (currently disabled) and smart cards are not handled.
 - Not yet verified in a real SDDM/Hyprland session; the lock screen uses the same PAM stack that the tests cover.
 

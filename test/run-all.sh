@@ -11,6 +11,7 @@ suites=(
   "test/vm/e2e-dns.sh"
   "test/vm/e2e-noninteractive.sh"
   "test/vm/e2e-passwd.sh"
+  "test/vm/e2e-sudo.sh"
   "test/vm/e2e-offline.sh"
   "test/vm/e2e-package.sh"
   "test/vm/e2e-safety.sh"
