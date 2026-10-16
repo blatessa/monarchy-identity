@@ -57,6 +57,10 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
 - pam_sss refuses password changes initiated by root ("Password reset by root is not supported"): test as the user. Real `passwd` is setuid-root with the caller's real uid.
 - Lab DNS: `test/dc/fix-dns.sh` (A record -> 10.0.2.2); VM resolves ~corp.test via systemd-resolved drop-in (set by e2e-dns.sh). DNS-discovery enrol works without --server.
 
+- Rollback bug fixed: `enroll` rolled back via an ERR trap, but `die` calls `exit` (ERR never fires), so verification failures left sssd running + nsswitch edited. Now an EXIT trap with an `enrolled_ok` flag; it also deletes the just-created AD computer account (admin password is kept until success). `test/vm/e2e-failure.sh` snapshots PAM/nsswitch/services/config and proves failed enrolments change nothing.
+- Greeter: Omarchy's SDDM theme has no username field -> `sddm-theme/omarchy-identity` (selected by enroll). Test mode render: `sddm-greeter-qt6 --test-mode --theme DIR` + `grim` works on the host without touching system config.
+- Anything the CLI sources must be installed by PKGBUILD (posture.sh was missed once; e2e-package.sh catches it).
+
 ## Open items / next steps (priority order)
 1. Smoke-test on a real Omarchy install is NOT done: SDDM greeter login of an AD user, hyprlock unlock as AD user,
    `sudo` as AD user, home-dir creation via pam_mkhomedir in a graphical session. VM is stock Arch w/o SDDM/Hyprland.

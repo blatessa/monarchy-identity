@@ -15,6 +15,7 @@ suites=(
   "test/vm/e2e-sudo.sh"
   "test/vm/e2e-offline.sh"
   "test/vm/e2e-package.sh"
+  "test/vm/e2e-failure.sh"
   "test/vm/e2e-safety.sh"
 )
 rc=0; summary=()
