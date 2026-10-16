@@ -79,6 +79,17 @@ def apply(lines):
         skip = count_rules(lines, "account", first, u)
         lines[first:first] = block(
             f"account    [success={skip} default=bad user_unknown=ignore]  pam_sss.so")
+    # --- password: same pattern as auth (pam_sss first; unknown/local users are ignored and fall through)
+    first = None
+    for pat in (r"pam_systemd_home\.so", r"pam_unix\.so"):
+        i = find(lines, "password", pat)
+        if i is not None and (first is None or i < first):
+            first = i
+    u = find(lines, "password", r"pam_unix\.so")
+    if first is not None and u is not None:
+        skip = count_rules(lines, "password", first, u)
+        lines[first:first] = block(
+            f"password   [success={skip} default=ignore]  pam_sss.so")
     # --- session: at the top of the session block
     s = None
     for i, ln in enumerate(lines):

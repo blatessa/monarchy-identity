@@ -52,6 +52,11 @@ DONE and verified in the VM (run `test/vm/e2e.sh` and `test/vm/e2e-modes.sh`, bo
 - e2e tests share faillock state in the VM; reset faillock AFTER enrol (before enrol, directory users don't resolve and the reset is a silent no-op).
 - Tooling gotcha: when patching scripts with python `s.index(...)`, make sure you match the intended occurrence (a duplicate-match once duplicated a whole test file).
 
+- Self-heal: `omarchy-identity-reassert.path` (packaged in /usr/lib/systemd/system, enabled by enroll, disabled FIRST by leave) + flock in the CLI prevent the watcher from re-adding edits during leave. Plain pacman upgrades keep modified `backup=` files (.pacnew), so real drift comes from migrations/manual edits.
+- `omarchy-hook` runs as the invoking USER from ~/.config/omarchy/hooks; `omarchy update` keeps sudo alive, so the hook uses `sudo -n`. Users can delete it: the path unit is the tamper-resistant mechanism.
+- pam_sss refuses password changes initiated by root ("Password reset by root is not supported"): test as the user. Real `passwd` is setuid-root with the caller's real uid.
+- Lab DNS: `test/dc/fix-dns.sh` (A record -> 10.0.2.2); VM resolves ~corp.test via systemd-resolved drop-in (set by e2e-dns.sh). DNS-discovery enrol works without --server.
+
 ## Open items / next steps (priority order)
 1. Smoke-test on a real Omarchy install is NOT done: SDDM greeter login of an AD user, hyprlock unlock as AD user,
    `sudo` as AD user, home-dir creation via pam_mkhomedir in a graphical session. VM is stock Arch w/o SDDM/Hyprland.

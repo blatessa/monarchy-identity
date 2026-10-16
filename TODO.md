@@ -14,7 +14,8 @@ Legend: [ ] open, size S/M/L. Update this file as you go; put lessons in HANDOFF
 - [x] **Offline login.** Cached credentials work with the DC down; never-signed-in users are refused; recovery when the DC returns (`test/vm/e2e-offline.sh`). TODO: cache expiry policy (`offline_credentials_expiration`) as a config option.
 - [x] **Non-interactive enrolment.** `--password-file` / `OI_ADMIN_PASSWORD_FILE` (0600, regular file, owned by root/caller) for enroll and leave (`test/vm/e2e-noninteractive.sh`). REMAINING: `--json` result, documented exit codes, an Ansible role snippet in docs/.
 - [ ] **Config file parsing (S).** Replace flat sed parsing in `lib/common.sh` with a stricter reader (escaping, lists) or an env-style file.
-- [ ] **Password change (M).** `passwd` as a directory user (PAM `password` stack edit in pamedit.py), expired-password flow at login.
+- [x] **Password change.** `password` stack edit; directory user changes AD password via `passwd` (must run as the user: pam_sss refuses root resets), local users unaffected (`test/vm/e2e-passwd.sh`). REMAINING: expired-password-at-login flow; password policy messages.
+- [x] **Input validation.** realm/server/admin/groups/users/confirm validated before they reach sssd.conf/smb.conf/krb5.conf (`test/unit/validation.sh`). REMAINING: conf_write value escaping for the flat config file.
 - [ ] **GPO access control (M).** `ad_gpo_access_control = disabled` is a lab shortcut; support `enforcing`/`permissive` with service mapping for sddm/lock/sudo.
 - [ ] **sudo for directory users (M).** Today admin comes from local config; add sssd `sudo` provider / group->sudoers mapping option (MDM may own this instead - decide).
 - [ ] **Root-cause the fresh-account join quirk (M).** Why a first `net ads join` keytab is rejected by sssd (kvno/salt). Try `sync machine password to keytab`, or sssd-native join. Drop the double-join if fixed.

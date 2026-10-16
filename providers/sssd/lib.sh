@@ -104,3 +104,25 @@ nss_remove() { sed -i -E '/^(passwd|group|shadow):/ s/[[:space:]]+sss\b//' "$ETC
 
 pam_apply()  { local f; for f in "${PAM_FILES[@]}"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" apply "$ETC/pam.d/$f"; done; return 0; }
 pam_remove() { local f; for f in "${PAM_FILES[@]}"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" remove "$ETC/pam.d/$f"; done; return 0; }
+
+# --- input validation ---------------------------------------------------------------------------
+# These values are written into sssd.conf / smb.conf / krb5.conf. Reject anything that could inject
+# extra config lines or shell metacharacters; names are restricted to what directories really use.
+valid_host()  { [[ $1 =~ ^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$ ]]; }
+valid_realm() { [[ $1 =~ ^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$ && $1 == *.* ]]; }
+valid_admin() { [[ $1 =~ ^[A-Za-z0-9._@\\-]{1,128}$ ]]; }
+valid_list()  { # comma-separated names; letters digits . _ - @ space \ ; no leading/trailing space, no empties
+  local item IFS=,; [[ -n $1 ]] || return 1
+  for item in $1; do
+    [[ $item =~ ^[A-Za-z0-9._@\\-]([A-Za-z0-9._@\\ -]{0,126}[A-Za-z0-9._@\\-])?$ ]] || return 1
+  done
+  [[ $1 != *,, && $1 != ,* && $1 != *,  ]]
+}
+validate_enroll_args() { # realm server admin groups users confirm_within
+  valid_realm "$1" || die "invalid --realm '$1' (expected a DNS name like corp.example.com)"
+  [[ -z $2 ]] || valid_host "$2" || die "invalid --server '$2'"
+  valid_admin "$3" || die "invalid --admin '$3'"
+  [[ -z $4 ]] || valid_list "$4" || die "invalid --groups '$4' (comma-separated names; letters, digits, . _ - @ space)"
+  [[ -z $5 ]] || valid_list "$5" || die "invalid --users '$5' (comma-separated names; letters, digits, . _ - @ space)"
+  [[ $6 =~ ^[0-9]+$ ]] || die "invalid --confirm-within '$6' (whole minutes)"
+}
