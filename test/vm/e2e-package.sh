@@ -18,12 +18,26 @@ out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/omarchy-identity enroll sssd --realm
 st() { "${V[@]}" '/usr/bin/omarchy-identity status --json'; }
 [[ $(st) == *'"pam_system_auth":"true"'* ]] && ok "PAM edits present" || bad "PAM edits missing"
 
-echo "[pacman hook: drift repaired by a package transaction]"
+echo "[self-heal: root-owned path unit repairs drift with no manual step]"
+"${V[@]}" 'systemctl is-active omarchy-identity-reassert.path' | grep -qx active && ok "watcher active after enrol" || bad "watcher not active"
+[[ $(st) == *'"self_heal":true'* ]] && ok "status reports self_heal:true" || bad "self_heal flag"
+"${V[@]}" 'sudo python3 -I /usr/share/omarchy-identity/lib/pamedit.py remove /etc/pam.d/system-auth'
+for _ in $(seq 15); do sleep 1; [[ $(st) == *'"pam_system_auth":"true"'* ]] && break; done
+[[ $(st) == *'"pam_system_auth":"true"'* ]] && ok "PAM edit auto-repaired within seconds" || bad "PAM not auto-repaired"
+"${V[@]}" 'sudo sed -i -E "/^(passwd|group|shadow):/ s/[[:space:]]+sss\b//" /etc/nsswitch.conf'
+for _ in $(seq 15); do sleep 1; [[ $(st) == *'"nss_sss":"true"'* ]] && break; done
+[[ $(st) == *'"nss_sss":"true"'* ]] && ok "nsswitch auto-repaired" || bad "nsswitch not auto-repaired"
+echo "[pacman hook: drift repaired by a package transaction (watcher paused so the hook is what we test)]"
+"${V[@]}" 'sudo systemctl stop omarchy-identity-reassert.path'
 "${V[@]}" 'sudo python3 -I /usr/share/omarchy-identity/lib/pamedit.py remove /etc/pam.d/system-auth; sudo sed -i -E "/^(passwd|group|shadow):/ s/[[:space:]]+sss\b//" /etc/nsswitch.conf'
 [[ $(st) == *'"pam_system_auth":"false"'* && $(st) == *'"nss_sss":"false"'* ]] && ok "drift introduced (PAM + nsswitch)" || bad "could not introduce drift"
 "${V[@]}" 'sudo pacman -S --noconfirm pambase' >/dev/null 2>&1
 [[ $(st) == *'"pam_system_auth":"true"'* && $(st) == *'"nss_sss":"true"'* ]] && ok "hook repaired PAM + nsswitch after pambase transaction" || bad "hook did not repair: $(st)"
 "${V[@]}" 'sudo journalctl -t omarchy-identity --no-pager -o cat | tail -3' | grep -q reasserted && ok "hook logged to journal" || bad "no journal entry"
 echo "$PW" | "${V[@]}" 'sudo /usr/bin/omarchy-identity leave --admin Administrator' >/dev/null 2>&1
+sleep 6
+pam_stock() { for f in system-auth omarchy-lock-password; do "${V[@]}" "cat /etc/pam.d/$f" | diff -q - fixtures/pam.d/$f >/dev/null || return 1; done; }
+pam_stock && ok "after leave: PAM stock and NOT re-added by the watcher (no race)" || bad "watcher re-added edits after leave"
+"${V[@]}" 'systemctl is-active omarchy-identity-reassert.path' | grep -qx inactive && ok "watcher stopped by leave" || bad "watcher still active after leave"
 "${V[@]}" 'sudo pacman -R --noconfirm omarchy-identity' >/dev/null 2>&1 && ok "package removes cleanly" || bad "package removal"
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

@@ -63,5 +63,6 @@ pam_apply
 ((disable_autologin)) && sddm_autologin_disable
 conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" autologin_disabled="$([[ $disable_autologin == 1 ]] && echo true || echo false)"
 trap - ERR
+watch_enable   # self-heal: root-owned path unit re-asserts our edits if anything overwrites them
 ((confirm_within > 0)) && { revert_schedule "$confirm_within"; log "AUTO-REVERT in ${confirm_within} min unless you run: omarchy-identity confirm"; }
 log "enrolled in $realm (login mode: $mode)"

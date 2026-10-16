@@ -30,6 +30,8 @@ package_omarchy-identity() {
 
   install -Dm644 "$_root/packaging/omarchy-identity.hook" \
     "$pkgdir/usr/share/libalpm/hooks/omarchy-identity.hook"
+  install -Dm644 "$_root/packaging/omarchy-identity-reassert.path" "$pkgdir/usr/lib/systemd/system/omarchy-identity-reassert.path"
+  install -Dm644 "$_root/packaging/omarchy-identity-reassert.service" "$pkgdir/usr/lib/systemd/system/omarchy-identity-reassert.service"
   install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/omarchy-identity/config.toml"
   install -Dm644 "$_root/docs/DESIGN.md" "$pkgdir/usr/share/doc/omarchy-identity/DESIGN.md"
 }

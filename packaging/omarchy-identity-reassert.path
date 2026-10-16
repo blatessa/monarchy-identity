@@ -1,0 +1,12 @@
+[Unit]
+Description=Watch files managed by omarchy-identity and repair them if overwritten
+
+[Path]
+PathChanged=/etc/pam.d/system-auth
+PathChanged=/etc/pam.d/omarchy-lock-password
+PathChanged=/etc/nsswitch.conf
+PathChanged=/etc/sddm.conf.d
+Unit=omarchy-identity-reassert.service
+
+[Install]
+WantedBy=multi-user.target

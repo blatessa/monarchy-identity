@@ -1,6 +1,7 @@
 #!/bin/bash
 # Test reassert.sh with stub omarchy-identity on PATH. No system changes.
 set -u
+export OI_SUDO=env   # real hook uses `sudo -n`; tests run an unprivileged stub on PATH
 H="$(cd "$(dirname "$0")" && pwd)"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin"; CALLS="$T/calls"

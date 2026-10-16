@@ -54,10 +54,11 @@ sddm_autologin_user() { # prints the effective autologin user ("" if none)
   echo "$user"
 }
 
-sddm_autologin_disable() {
+sddm_autologin_disable() { # idempotent: only writes when content differs (a path unit watches this dir)
+  local want=$'# managed by omarchy-identity: disables autologin on managed machines\n[Autologin]\nUser=\nSession=\n'
   install -d -m 0755 "$SDDM_CONF_D"
-  printf '# managed by omarchy-identity: disables autologin on managed machines\n[Autologin]\nUser=\nSession=\n' > "$SDDM_OVERRIDE"
-  chmod 0644 "$SDDM_OVERRIDE"
+  [[ -f $SDDM_OVERRIDE && $(cat "$SDDM_OVERRIDE") == "${want%$'\n'}" ]] && return 0
+  printf '%s' "$want" > "$SDDM_OVERRIDE"; chmod 0644 "$SDDM_OVERRIDE"
 }
 sddm_autologin_restore() { rm -f "$SDDM_OVERRIDE"; }
 
@@ -81,3 +82,14 @@ revert_schedule() { # minutes
 }
 revert_cancel()  { systemctl stop "$REVERT_UNIT.timer" "$REVERT_UNIT.service" 2>/dev/null || true; }
 revert_pending() { systemctl is-active --quiet "$REVERT_UNIT.timer" 2>/dev/null; }
+
+# --- serialization + self-heal watcher ----------------------------------------------------------
+# Every state-changing command takes this lock, so the path-triggered reassert can never interleave
+# with enroll/leave (it would otherwise re-add edits that leave is removing).
+OI_LOCK="${OMARCHY_IDENTITY_LOCK:-/run/omarchy-identity.lock}"
+oi_lock() { exec 9>"$OI_LOCK" && flock 9; }
+
+WATCH_UNIT="omarchy-identity-reassert.path"
+watch_enable()  { systemctl cat "$WATCH_UNIT" >/dev/null 2>&1 && systemctl enable --now "$WATCH_UNIT" >/dev/null 2>&1 || true; }
+watch_disable() { systemctl disable --now "$WATCH_UNIT" >/dev/null 2>&1 || true; }
+watch_active()  { systemctl is-active --quiet "$WATCH_UNIT" 2>/dev/null; }

@@ -24,7 +24,9 @@ if ! command -v omarchy-identity >/dev/null 2>&1; then
 fi
 
 log "re-asserting provider '$provider'"
-if omarchy-identity reassert; then
+run=(omarchy-identity reassert)
+if [[ $EUID -ne 0 ]]; then read -ra _sudo <<<"${OI_SUDO:-sudo -n}"; run=("${_sudo[@]}" omarchy-identity reassert); fi   # omarchy update keeps sudo alive; hooks run as the user
+if "${run[@]}"; then
   log "done"
 else
   rc=$?

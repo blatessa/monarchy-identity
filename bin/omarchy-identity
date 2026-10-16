@@ -41,8 +41,8 @@ cmd_status() {
       < <("$ROOT/providers/$provider/status" 2>/dev/null)
   fi
   if ((json)); then
-    printf '{"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"revert_pending":%s,"wheel_members":"%s","details":{%s}}\n' \
-      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(revert_pending && echo true || echo false)" "$(json_escape "$wheel")" "$details"
+    printf '{"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"revert_pending":%s,"self_heal":%s,"wheel_members":"%s","details":{%s}}\n' \
+      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(revert_pending && echo true || echo false)" "$(watch_active && echo true || echo false)" "$(json_escape "$wheel")" "$details"
   else
     echo "enrolled:      $enrolled"
     echo "provider:      $provider"
@@ -61,6 +61,7 @@ run_provider() { # run_provider <provider> <action> [args]
   "$s" "$@"
 }
 
+case "${1:-}" in enroll|leave|reassert|confirm) [[ $EUID -eq 0 ]] && oi_lock ;; esac
 case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;

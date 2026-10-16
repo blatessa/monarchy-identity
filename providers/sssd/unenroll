@@ -7,6 +7,7 @@ need_root
 server_args "$(conf_get server)"
 quiet=0 admin=""
 while [[ $# -gt 0 ]]; do case $1 in --quiet) quiet=1; shift;; --admin) admin=$2; shift 2;; *) die "unknown option $1";; esac; done
+watch_disable   # first: otherwise the watcher would re-add the edits we are removing
 sddm_autologin_restore
 pam_remove                     # PAM first: stop consulting sssd before anything else changes
 nss_remove

@@ -1,0 +1,6 @@
+[Unit]
+Description=Re-assert omarchy-identity managed configuration
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/omarchy-identity reassert
