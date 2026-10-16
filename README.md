@@ -22,4 +22,5 @@ Remove admin rights, push sudo rules, or harden boot (Secure Boot, TPM-bound LUK
 `omarchy-identity` (CLI, providers, hooks; `packaging/PKGBUILD`) and optional `omarchy-identity-shell` (a Quickshell bar widget showing posture; cosmetic only).
 
 ## Develop / test
-See [CLAUDE.md](CLAUDE.md) for the dev loop and [test/README.md](test/README.md) for the lab (Samba AD in Docker + Arch VM under QEMU/KVM). [TODO.md](TODO.md) lists next work; [HANDOFF.md](HANDOFF.md) holds state and findings.
+Admins: [docs/ADMIN.md](docs/ADMIN.md) (install, enrol, automation, troubleshooting) and [docs/POSTURE.md](docs/POSTURE.md).
+Developers: see [CLAUDE.md](CLAUDE.md) for the dev loop and [test/README.md](test/README.md) for the lab (Samba AD in Docker + Arch VM under QEMU/KVM). [TODO.md](TODO.md) lists next work; [HANDOFF.md](HANDOFF.md) holds state and findings.
