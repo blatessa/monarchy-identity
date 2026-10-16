@@ -2,11 +2,17 @@
 
 Provider-agnostic corporate identity for Omarchy.
 
+## Packaging
+- `omarchy-identity` (PKGBUILD in `packaging/`): CLI, providers, /etc defaults, post-update hook. Root-installed,
+  works without the Omarchy shell (SDDM, SSH, headless enrolment).
+- `omarchy-identity-shell`: optional status widget.
+
 ## Layers
 1. Provider adapters (`providers/<name>/`): manifest.toml + detect, enroll, unenroll, status.
 2. Core CLI (`bin/omarchy-identity`): enroll | status | leave. Applies adapter, writes
    root-owned drop-ins in /etc (never edits /usr/share/omarchy), backs up, supports rollback.
-3. Plugin (`plugin/`): Quickshell bar widget, cosmetic only - not a security boundary.
+3. Optional UI package `omarchy-identity-shell` (`shell-plugin/`): Quickshell bar widget, cosmetic only.
+   Depends on the CLI; the CLI never depends on it.
 
 ## Security model
 - Enforcement lives in root-owned /etc (PAM, NSS, SDDM drop-ins, sssd.conf).
