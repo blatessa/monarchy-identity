@@ -65,6 +65,9 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 - Test inputs that go through ssh must be `printf %q`-quoted; use `grep -F` for computer names (`$` is a regex anchor).
 - Match the surrounding code's style and comment density. Small, focused commits; explain why in the message.
 
+## Skills (project procedures, load on demand)
+`.claude/skills/`: `lab-e2e` (run and debug the lab), `pam-change` (checklist for any system-config edit), `new-provider`, `release`.
+
 ## Workflow
 Branch from `main`, open a PR, let CI run; releases are cut by tagging `vX.Y.Z` (see the testing/releasing page; the tag must match `pkgver`).
 Security issues: private advisory (see `SECURITY.md`), not a public issue.
