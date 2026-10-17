@@ -59,8 +59,8 @@ nav:
       - Overview: providers/index.md
       - sssd (Active Directory): providers/sssd.md
       - Writing a provider: providers/writing-a-provider.md
-  - Evidence from the lab: evidence.md
   - Status and limits: status.md
+  - Test evidence: evidence.md
   - Development:
       - Architecture: dev/architecture.md
       - Testing: dev/testing.md

@@ -18,7 +18,7 @@ Enforcement happens in the PAM account stage through `pam_sss`. Every service th
 gets the same decision (tested: `sddm`, `sudo`, `login`, `sshd`, `system-remote-login`). The lock screen uses its own
 PAM service, `omarchy-lock-password`, which is edited the same way.
 
-A user who authenticates correctly but is not permitted is refused at the account stage. The lab evidence shows a
+A user who authenticates correctly but is not permitted is refused at the account stage. The [test evidence](../evidence.md) shows a
 correct password being accepted by `pam_sss(auth)` and the sign-in then refused by `pam_sss(account)`
 ([Evidence](../evidence.md)).
 

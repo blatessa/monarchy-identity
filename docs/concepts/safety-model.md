@@ -8,7 +8,7 @@ limits the damage.
 - **Default deny.** No mode admits the whole directory unless `--mode any` is given.
 - **Local accounts first.** The `pam_sss` rules fall through to `pam_unix` for any user sssd does not know.
 - **Fail closed for the directory, open for local users.** With sssd stopped, directory users are refused (about
-  three seconds in the lab) and local users are unaffected. With `pam_sss.so` removed, directory users are refused
+  three seconds in testing) and local users are unaffected. With `pam_sss.so` removed, directory users are refused
   and local users are unaffected.
 - **Enforcement is root-owned.** The policy lives in `/etc`. The shell widget is a display, not a boundary.
 - **Verify before PAM.** `enroll` confirms the directory works (keytab authenticates, sssd online, the group
@@ -29,7 +29,7 @@ limits the damage.
 
 ## Behaviour under failure
 
-Observed in the lab:
+Observed in testing:
 
 | Situation | Local users | Directory users |
 |---|---|---|

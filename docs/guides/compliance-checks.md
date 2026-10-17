@@ -18,7 +18,7 @@ Ansible or cron job can act on.
 
 ![check output](../img/check.png)
 
-The example is from a lab VM that is not hardened, so several rules fail.
+The example is from a test VM that is not hardened, so several rules fail.
 
 | Exit | Meaning |
 |---|---|

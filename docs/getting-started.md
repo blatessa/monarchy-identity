@@ -1,23 +1,47 @@
 # Getting started
 
-Enroll one Omarchy machine in an Active Directory domain and confirm that a directory user can sign in. Do this on a
-virtual machine or a spare laptop first: it edits PAM.
+By the end of this page one Omarchy laptop is joined to your Active Directory domain, and a directory user can sign in
+on it. It takes about 15 minutes. Use a spare laptop or a virtual machine first: this tool edits the login (PAM)
+configuration. A safety timer reverts the change if you don't confirm it, and you keep a local account that always works.
 
-## Prerequisites
+The example values below are `CORP.EXAMPLE.COM` (your domain), `joinuser` (an account that may join computers),
+`laptop-users` (the group allowed to sign in) and `alice` (a member of that group). Replace them with yours.
 
-| Requirement | Why |
-|---|---|
-| Omarchy (Arch Linux), root access | The package edits `/etc` and manages systemd units. |
-| A reachable domain controller | By default DCs are found through DNS SRV records. Pass `--server HOST` if DNS discovery is not available. |
-| An account that may join computers | Its password is read from stdin or a file. |
-| A directory group for permitted users | The default policy is deny; `--mode groups` needs `--groups`. |
-| A unique hostname of at most 15 characters | The hostname becomes the computer account. Generic names (`localhost`, `archlinux`, `omarchy`, `arch`) and longer names are refused; use `--computer-name` to override. |
-| A local account with a password | Enrollment refuses without one, so a directory failure cannot lock you out. |
-| A correct clock | Kerberos fails when the clock is off by more than about five minutes. |
+## 1. Prepare the directory (once, on a domain controller or admin workstation)
 
-## Install
+You need two things in the directory:
 
-From a release: download the `.pkg.tar.zst` files and `SHA256SUMS` from the
+1. **A group of people who may sign in**, here `laptop-users`. The default policy is deny: nobody can sign in unless
+   they are in a group you name. Add `alice` to it.
+2. **An account that may join computers**, here `joinuser`. It should be able to create computer objects, not be a
+   Domain Admin. For a first test, an existing administrator account is fine.
+
+On Samba AD:
+
+```bash
+samba-tool group add laptop-users
+samba-tool group addmembers laptop-users alice
+```
+
+On Windows AD (not yet tested with this tool), the same in PowerShell: `New-ADGroup laptop-users -GroupScope Global`
+and `Add-ADGroupMember laptop-users alice`.
+
+## 2. Check the laptop
+
+On the laptop, run these and fix anything that's off:
+
+```bash
+hostnamectl hostname        # must be unique, at most 15 characters; not "omarchy" or "archlinux"
+timedatectl                 # "System clock synchronized: yes" (Kerberos fails if the clock is off by 5+ minutes)
+getent hosts corp.example.com   # the laptop's DNS must resolve your domain
+```
+
+If the hostname is wrong: `sudo hostnamectl set-hostname laptop-0042`. The hostname becomes the computer's name in
+the directory. You also need a local user with a password (you probably have one: it's your normal account).
+
+## 3. Install
+
+Download the two `.pkg.tar.zst` files and `SHA256SUMS` from the
 [releases page](https://github.com/blatessa/monarchy-identity/releases), then:
 
 ```bash
@@ -25,17 +49,10 @@ sha256sum -c --ignore-missing SHA256SUMS
 sudo pacman -U monarchy-identity-*.pkg.tar.zst
 ```
 
-From source:
+(Or build it: `git clone https://github.com/blatessa/monarchy-identity && cd monarchy-identity/packaging && makepkg -si`.)
+Installing changes nothing yet.
 
-```bash
-git clone https://github.com/blatessa/monarchy-identity
-cd monarchy-identity/packaging && makepkg -si
-```
-
-The package depends on `bash`, `python`, `sssd`, `samba` and `krb5`. Installing changes nothing until you enroll.
-`monarchy-identity-shell` is an optional status widget for the Omarchy bar.
-
-## Enroll
+## 4. Enroll
 
 ```bash
 sudo monarchy-identity enroll sssd \
@@ -44,11 +61,24 @@ sudo monarchy-identity enroll sssd \
   --disable-autologin --confirm-within 10
 ```
 
-The command reads `joinuser`'s password from stdin. `--confirm-within 10` schedules an automatic `leave` in ten
-minutes unless you confirm, so a bad enrollment undoes itself. On any failure `enroll` rolls the machine back and
-deletes the computer account it created. See [Enroll safely](guides/enroll-safely.md).
+It asks for `joinuser`'s password, joins the domain, and configures sign-in. If anything fails, it undoes everything
+and removes the computer account it created. When it finishes it prints `enrolled in CORP.EXAMPLE.COM`.
 
-## Verify
+`--confirm-within 10` starts a 10-minute timer. If you do nothing, the laptop **leaves the domain by itself**. That is
+your safety net while you test; step 6 cancels it.
+
+## 5. Sign in as a directory user
+
+Don't test from the session you enrolled in. Open a text console with **Ctrl+Alt+F3** and log in as `alice` with her
+directory password. (Ctrl+Alt+F1 or F2 returns to the graphical screen.) The first login takes a few seconds because
+her home directory is created.
+
+The Omarchy login screen works too: it now has a username box above the password box.
+
+Check that the policy is enforced: log in as a directory user who is **not** in `laptop-users`. The login must fail.
+Your local account must still work.
+
+You can also look at the state any time, no root needed:
 
 ```bash
 monarchy-identity status
@@ -56,27 +86,25 @@ monarchy-identity status
 
 ![status output after enrollment](img/status.png)
 
-`enrolled: true` and the expected `login mode` mean the configuration is in place. Then check an actual sign-in as a
-directory user from a second session (a text console with Ctrl+Alt+F3, or SSH), not the session you enrolled from:
+`enrolled: true` and `login mode: groups` mean it's in place.
 
-```bash
-getent passwd alice          # resolves through sssd
-ssh alice@this-laptop        # directory password
-```
+## 6. Confirm
 
-A user outside the permitted group must be refused. [Evidence from the lab](evidence.md) shows both outcomes.
-
-## Confirm
-
-When a directory user can sign in, cancel the pending revert:
+When `alice` could sign in and a non-member couldn't, cancel the revert timer:
 
 ```bash
 sudo monarchy-identity confirm
 ```
 
-## Next
+Done: the laptop is enrolled. If something went wrong instead, wait for the timer, or undo it now with
+`sudo monarchy-identity leave --admin joinuser`.
 
-- [Plan a rollout](guides/rollout-planning.md) before touching more than one machine.
-- [Change who may sign in](guides/change-policy.md) without re-joining.
-- [Compliance checks](guides/compliance-checks.md) to evaluate posture.
-- To undo everything: [Leave and uninstall](guides/leave-and-uninstall.md).
+## What now
+
+| You want to | Read |
+|---|---|
+| Do this for many laptops | [Plan a rollout](guides/rollout-planning.md), then [Automate enrollment](guides/automation.md) |
+| Change who may sign in later | [Change who may sign in](guides/change-policy.md) |
+| Report or check laptop security settings | [Compliance checks](guides/compliance-checks.md) |
+| Something didn't work | [Troubleshooting](guides/troubleshooting.md) |
+| Remove it | [Leave and uninstall](guides/leave-and-uninstall.md) |

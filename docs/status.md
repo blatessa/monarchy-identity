@@ -1,11 +1,11 @@
 # Status and limits
 
 monarchy-identity is a prototype (version 0.1.0). Behaviour listed under "Verified" is covered by automated suites
-in the test lab; everything else is untested.
+in our test environment; everything else is untested.
 
 ## Verified
 
-Against Samba AD in the lab (Arch VM with Omarchy's PAM and SDDM files as fixtures):
+Against Samba AD in testing (Arch VM with Omarchy's PAM and SDDM files as fixtures):
 
 - Enrollment with and without `--server` (DNS SRV discovery), `--ou`, `--computer-name`, `--replace-computer-account`,
   `--sudo-groups`, `--offline-days`, `--password-file`, `--if-needed`, `--confirm-within`.

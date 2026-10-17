@@ -31,10 +31,10 @@ chain, or manage fleet inventory. Use your MDM or configuration management for t
 
 | If you want to | Read |
 |---|---|
-| Enroll one machine and check that it works | [Getting started](getting-started.md) |
+| Enroll one machine in your directory | [Getting started](getting-started.md) |
 | Roll it out to a fleet | [Plan a rollout](guides/rollout-planning.md), then [Automate enrollment](guides/automation.md) |
 | Look up a flag or a file | [CLI](reference/cli.md), [Files, units and variables](reference/files.md) |
-| See the lab evidence that it authenticates against a directory | [Evidence from the lab](evidence.md) |
+| See proof that it authenticates against a directory | [Test evidence](evidence.md) |
 | Work on the code | [Architecture](dev/architecture.md), [Testing](dev/testing.md) |
 
 Source: <https://github.com/blatessa/monarchy-identity>. MIT licensed.
