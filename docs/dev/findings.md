@@ -5,7 +5,7 @@ something.
 
 ## Omarchy
 - The lock screen uses its own PAM service `/etc/pam.d/omarchy-lock-password` (not package-owned). It must be edited too.
-- Omarchy ships `etc-overrides/nsswitch.conf`; updates may reset `sss`. Reassert re-adds it.
+- Omarchy ships `etc-overrides/nsswitch.conf`; updates may reset `sss`. The pacman hook's reassert re-adds it.
 - SDDM drop-ins merge in C-locale filename order, last wins. Omarchy's `autologin.conf` sorts after `99-*`, so ours is `zz-*`.
 - Omarchy's SDDM greeter runs inside Hyprland; the VM uses SDDM's X11 greeter (same theme QML, daemon, PAM).
 - `omarchy-hook` runs as the invoking USER from `~/.config/omarchy/hooks`; `omarchy update` keeps sudo alive, so hooks use `sudo -n`.
@@ -30,9 +30,10 @@ something.
 - Fresh computer account quirk: after the first `net ads join`, sssd gets "Preauthentication failed" although `kinit -k`
   works; a second join fixes it, so enroll joins twice. Cause unknown (only `pwdLastSet` differs). Keytab must be built
   with `net ads keytab create -S srv -U admin` (NOT `-P`) after `rm -f /etc/krb5.keytab`.
-- `net ads leave` needs admin creds + `-S` to delete the computer account. The auto-revert timer's `leave` has no
-  credentials, so it leaves the account behind; re-enrolling needs `--replace-computer-account`.
-- `enroll` rolls back through an EXIT trap with an `enrolled_ok` flag (an ERR trap never fires because `die` calls `exit`).
+- `net ads leave` needs admin creds + `-S` to delete the computer account; without them the account stays behind and
+  re-enrolling that name needs `--replace-computer-account`.
+- `net ads search -U admin` checks the password, DC reachability and group names in one go, before anything is joined.
+  An empty result still exits 0 ("Got 0 replies"): match the attribute line, not the exit code.
 
 ## Test lab
 - `deploy.sh` WITHOUT `--fixtures` keeps the current PAM files; WITH it resets `/etc/pam.d` to stock Omarchy (undoes edits).
@@ -46,5 +47,10 @@ something.
 - The VM's SSH private key was once committed (anchored `.gitignore` bug) and purged from history. Never commit `test/vm/images`, `test/vm/keys`.
 
 ## Conventions that came from these
-- Anything the CLI sources must also be installed by `packaging/PKGBUILD` (`e2e-package.sh` catches misses; `posture.sh` was missed once).
+- Anything the CLI sources must also be installed by `packaging/PKGBUILD` (`e2e-package.sh` catches misses).
 - Removing the package while enrolled runs `leave` (pre_remove) so PAM edits never outlive the tool.
+
+## Scope
+- A self-heal file watcher, an auto-revert timer, a local-fallback precondition, byte-exact backups and a device
+  compliance checker were all built and then removed (Oct 2026): they were MDM or undo machinery, not authentication.
+  The PAM design already keeps local users working; the rest belongs to whoever deploys this.

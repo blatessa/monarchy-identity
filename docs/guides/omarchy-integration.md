@@ -1,50 +1,46 @@
 # Omarchy integration
 
-How enrollment fits into the parts of Omarchy people see and the parts that update underneath you.
+How enrollment fits the parts of Omarchy people see, and the updates that happen underneath.
 
 ## Login screen
 
-Omarchy's stock login screen signs in whoever used it last and has no username box, so a directory user couldn't type
-their name. Enrollment switches the login screen to the `monarchy-identity` theme: Omarchy's own look plus one line for
-the username. It follows Omarchy's artwork, so theme changes carry over.
+Omarchy's stock login screen signs in whoever used it last and has no username box. Enrollment switches to the
+`monarchy-identity` theme: Omarchy's own look plus a username line. It uses Omarchy's artwork, so it keeps matching.
 
-Pass `--keep-login-theme` to opt out; directory users then can't sign in at the login screen (terminals and `ssh`
-still work). `status --json` reports `login_theme` and `username_field`.
-
-## Autologin
-
-By default Omarchy signs the first user in automatically at boot on an encrypted disk: the disk passphrase is the
-login. If people sign in with their company account, the login screen should appear instead, so enrolling turns
-autologin off. Pass `--keep-autologin` to keep it. `monarchy-identity status` shows the effective setting, and the
-[compliance policy](compliance-checks.md) can require it off (`forbid_autologin`). `leave` restores the previous setting.
+`--keep-login-theme` keeps the stock screen; directory users then can't sign in there (terminals and `ssh` still work).
 
 ## Lock screen
 
-Omarchy's lock screen has its own sign-in configuration. Enrollment updates it too, so directory users unlock with
-their directory password.
+Directory users unlock with their directory password.
+
+## Autologin
+
+Enrollment turns off Omarchy's automatic sign-in at boot so the login screen appears. `--keep-autologin` keeps it, and
+`leave` turns it back on. `monarchy-identity status` shows the current setting.
 
 ## Updates
 
-Omarchy updates and migrations can rewrite sign-in configuration. A watcher repairs it automatically
-([Staying correct](../concepts/self-healing.md)). If you also want a repair right after `omarchy update`, install the
-optional hook as the desktop user:
+Omarchy updates and migrations can overwrite the sign-in configuration. After any pacman transaction that touches the
+relevant packages, monarchy-identity puts its part back automatically. Nothing to set up.
+
+For an extra repair right after `omarchy update`, install Omarchy's post-update hook as the desktop user:
 
 ```bash
 monarchy-identity install-hooks
 monarchy-identity remove-hooks
 ```
 
-It is a convenience; the watcher does not depend on it.
+You can also run the repair yourself at any time: `sudo monarchy-identity reassert`. It's safe to run repeatedly, so an
+MDM can schedule it if you want to be sure.
 
 ## Status widget
 
-`monarchy-identity-shell` adds an optional widget to the Omarchy bar showing enrollment, login mode and warnings
-(autologin on, local admins present):
+The optional `monarchy-identity-shell` package adds a widget to the Omarchy bar that shows whether the laptop is
+enrolled, and warns when autologin is on:
 
 ```bash
 monarchy-identity install-widget --enable    # as the desktop user
 monarchy-identity remove-widget
 ```
 
-The widget is a display only: it runs no privileged command and enforces nothing, so hiding it changes nothing about who
-can sign in. It has not been loaded in a live Omarchy shell yet.
+The widget only displays status; hiding it changes nothing about who can sign in.

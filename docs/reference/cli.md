@@ -4,23 +4,19 @@
 monarchy-identity <command> [options]
 ```
 
-Commands marked *root* must run as root. Commands marked *user* must not run as root. State-changing commands
-(`enroll`, `leave`, `reassert`, `confirm`, `policy`) serialise on `/run/monarchy-identity.lock` when run as root.
-
-| Command | Privilege | Purpose |
+| Command | Run as | Purpose |
 |---|---|---|
-| [`status`](#status) | any | Show enrollment and posture |
-| [`enroll`](#enroll) | root | Enroll with a provider |
-| [`leave`](#leave) | root | Unenroll and restore the previous configuration |
-| [`policy`](#policy) | `show`: any, `set`: root | Show or change who may sign in |
-| [`check`](#check) | any | Evaluate posture against the policy file |
-| [`confirm`](#confirm) | root | Cancel a pending auto-revert |
-| [`reassert`](#reassert) | root | Re-apply managed `/etc` edits |
-| [`install-hooks`, `remove-hooks`](#install-hooks-remove-hooks) | user | Omarchy post-update hook |
-| [`install-widget`, `remove-widget`](#install-widget-remove-widget) | user | Bar widget |
-| [`providers`](#providers) | any | List providers |
+| [`status`](#status) | anyone | Show whether the laptop is enrolled and how sign-in is set up |
+| [`enroll`](#enroll) | root | Join the directory and set who may sign in |
+| [`policy`](#policy) | `show`: anyone, `set`: root | Show or change who may sign in |
+| [`leave`](#leave) | root | Leave the directory and remove directory sign-in |
+| [`reassert`](#reassert) | root | Put the sign-in configuration back if something overwrote it |
+| [`install-hooks`, `remove-hooks`](#install-hooks-remove-hooks) | desktop user | Omarchy post-update hook |
+| [`install-widget`, `remove-widget`](#install-widget-remove-widget) | desktop user | Bar widget |
+| [`providers`](#providers) | anyone | List the available directory providers |
 
-`-h`, `--help` or no command prints usage and exits 0. An unknown command prints usage and exits 1.
+Every command exits 0 on success and 1 on failure, with the reason on standard error and in the journal
+(`journalctl -t monarchy-identity`). `-h` or `--help` prints usage.
 
 ## status
 
@@ -28,9 +24,8 @@ Commands marked *root* must run as root. Commands marked *user* must not run as 
 monarchy-identity status [--json]
 ```
 
-Read-only. Without `--json` it prints `enrolled`, `provider`, `login mode`, `autologin`, `wheel members`,
-`disk encrypted`, `firewall`, `secure boot`, `tpm2` and `time sync`. With `--json` it prints the
-[posture report](posture.md). Some values (`domain_joined`) need root to be determined.
+Shows whether the laptop is enrolled, the provider, the login mode and whether autologin is on. `--json` prints the
+same and more for scripts: see [Status output](status-output.md).
 
 ## enroll
 
@@ -38,53 +33,51 @@ Read-only. Without `--json` it prints `enrolled`, `provider`, `login mode`, `aut
 monarchy-identity enroll --realm REALM (--groups A,B | --users U1,U2 | --mode any) [options]
 ```
 
-Joins the directory and sets who may sign in. `sssd` (Active Directory) is the only provider, so it is the default;
-`enroll sssd ...` and `enroll --help` also work. The join account's password is prompted for at a terminal, or read from
-`--password-file`, `OI_ADMIN_PASSWORD_FILE`, or the first line of stdin. Running it at a terminal also starts a safety
-timer (see below).
+Joins the directory and turns on directory sign-in. The join account's password is asked for at a terminal, or read
+from `--password-file`, `OI_ADMIN_PASSWORD_FILE` or standard input. `enroll --help` lists every option.
+
+Before it joins, `enroll` checks the password and that the groups you named exist, so typos fail without changing
+anything.
 
 **Directory**
 
 | Option | Default | Description |
 |---|---|---|
-| `--realm R` | required | AD or Samba AD realm, a DNS name containing a dot (`corp.example.com`). |
-| `--server HOST` | DNS discovery | Pin a domain controller. When omitted, krb5, samba and sssd discover DCs through SRV records. |
-| `--admin USER` | `Administrator` | Account used to join. Letters, digits and `. _ @ \ -`, up to 128 characters. |
-| `--password-file FILE` | stdin | File holding the password. Must be a regular file owned by root or the caller, with no group or other permissions. |
-| `--computer-name NAME` | hostname | Computer account name: 1-15 letters, digits or hyphens, not starting or ending with a hyphen. Upper-cased. |
-| `--ou DN` | directory default | Create the account in this OU, e.g. `OU=Laptops,DC=corp,DC=example,DC=com`. Must be `OU=`/`CN=` parts followed by `DC=` parts. |
-| `--replace-computer-account` | off | Allow joining with a name that already exists in the directory. |
+| `--realm R` | required | The directory's domain, such as `corp.example.com`. |
+| `--admin USER` | `Administrator` | The join account. |
+| `--password-file FILE` | standard input | File holding the join password; must be readable only by its owner. |
+| `--server HOST` | found through DNS | Use this domain controller. Leave it off in production. |
+| `--computer-name NAME` | hostname | The laptop's name in the directory: up to 15 letters, digits or hyphens. |
+| `--ou DN` | directory default | Where the laptop goes, such as `OU=Laptops,DC=corp,DC=example,DC=com`. |
+| `--replace-computer-account` | off | Take over an existing computer account with this name (a reinstalled laptop). |
 
-**Login policy** (see [Login policy](../concepts/login-policy.md))
+**Who may sign in** (see [Who may sign in](../concepts/login-policy.md)). One is required.
 
-| Option | Default | Description |
-|---|---|---|
-| `--groups a,b` | | Members of these directory groups may sign in. |
-| `--users u1,u2` | | Only these users may sign in. |
-| `--mode any` | | Everyone in the directory. Must be asked for. |
+| Option | Description |
+|---|---|
+| `--groups a,b` | Members of these directory groups. |
+| `--users u1,u2` | Only these people. |
+| `--mode any` | Everyone in the directory. |
 
-One of the three is required: nobody can sign in by default. `--groups` or `--users` on its own implies the mode;
-`--mode groups` and `--mode assigned` are accepted for clarity.
-
-**Optional features**
+**Other options**
 
 | Option | Default | Description |
 |---|---|---|
-| `--sudo-groups g1,g2` | none | Give these directory groups full sudo through `/etc/sudoers.d/50-monarchy-identity`. Letters, digits, `. _ -`. |
-| `--offline-days N` | `0` (never) | Cached credentials expire after N days without reaching a DC. |
-| `--keep-autologin` | off | Keep Omarchy's automatic sign-in at boot. By default enrolling turns it off so the login screen appears. (`--disable-autologin` is accepted and is now the default.) |
-| `--keep-login-theme` | off | Do not switch SDDM to the `monarchy-identity` theme. |
+| `--sudo-groups g1,g2` | none | Members of these directory groups get `sudo`. |
+| `--offline-days N` | never | Cached sign-in stops working after N days without reaching the directory. |
+| `--keep-autologin` | off | Keep Omarchy's automatic sign-in at boot. |
+| `--keep-login-theme` | off | Keep Omarchy's stock login screen (it has no username box). |
+| `--if-needed` | off | If already enrolled in this realm, update the policy instead of joining again. See [Automate enrollment](../guides/automation.md). |
 
-**Safety and automation**
+## policy
 
-| Option | Default | Description |
-|---|---|---|
-| `--confirm-within MINUTES` | `10` at a terminal, `0` for scripts | Run `leave` after this many minutes unless `confirm` is run. Default is 10 when run by a person at a terminal (not with `--password-file`, `--if-needed`, piped input or no TTY); `0` disables. |
-| `--allow-no-local-fallback` | off | Skip the check that a local account with a usable password exists. |
-| `--if-needed` | off | If already enrolled in the same realm, converge the policy without re-joining. Fails for a different realm. See [Automate enrollment](../guides/automation.md). |
+```text
+monarchy-identity policy show
+monarchy-identity policy set [--groups a,b | --users u1,u2 | --mode any] [--sudo-groups g1,g2 | -] [--offline-days N]
+```
 
-Unknown options are an error. Exit status is 0 on success, 1 on failure. A failure after the machine was modified
-triggers a rollback.
+`show` prints the realm, who may sign in, `sudo` groups, offline days and the computer name. `set` changes only the
+options you pass; `--sudo-groups -` removes `sudo`. See [Change who may sign in](../guides/change-policy.md).
 
 ## leave
 
@@ -92,37 +85,8 @@ triggers a rollback.
 monarchy-identity leave [--admin USER] [--password-file FILE] [--quiet]
 ```
 
-Runs the provider's `unenroll`. With `--admin`, deletes the computer account using the supplied credentials;
-otherwise tries machine credentials and warns if the account remains. `--quiet` suppresses the summary. On a machine
-that is not enrolled (provider `local`) it does nothing.
-
-## policy
-
-```text
-monarchy-identity policy show
-monarchy-identity policy set [--groups a,b | --users u1,u2 | --mode any] [--sudo-groups g1,g2|-] [--offline-days N]
-```
-
-`show` prints realm, login mode, groups, users, sudo groups, offline days and the computer name. `set` changes only
-the options given; `--sudo-groups -` removes sudo access. See [Change who may sign in](../guides/change-policy.md).
-Fails if the machine is not enrolled with the sssd provider.
-
-## check
-
-```text
-monarchy-identity check [--json]
-```
-
-Evaluates `status --json` against `/etc/monarchy-identity/policy.toml` (override with `MONARCHY_IDENTITY_POLICY`).
-Exit 0 compliant, 1 violations, 2 bad policy or input. See [Compliance policy file](policy-file.md).
-
-## confirm
-
-```text
-monarchy-identity confirm
-```
-
-Cancels the pending auto-revert timer. Prints `no auto-revert pending` if there is none.
+Leaves the directory and removes directory sign-in. With `--admin`, also deletes the laptop's computer account. See
+[Leave and uninstall](../guides/leave-and-uninstall.md).
 
 ## reassert
 
@@ -130,9 +94,8 @@ Cancels the pending auto-revert timer. Prints `no auto-revert pending` if there 
 monarchy-identity reassert
 ```
 
-Re-applies the managed nsswitch, PAM, autologin, sudoers and theme edits from the saved configuration and starts
-sssd if it is stopped. Called by the path unit, the pacman hook and the Omarchy hook. See
-[Self-healing](../concepts/self-healing.md).
+Puts the sign-in configuration back if an update or a person overwrote it, and starts the directory service if it has
+stopped. Runs automatically after package updates; safe to run any time.
 
 ## install-hooks, remove-hooks
 
@@ -141,8 +104,7 @@ monarchy-identity install-hooks
 monarchy-identity remove-hooks
 ```
 
-Install or remove the Omarchy `post-update` hook `10-monarchy-identity-reassert` for the current user. Refuse to
-run as root.
+Adds or removes an Omarchy post-update hook that runs `reassert` after `omarchy update`. Run as the desktop user.
 
 ## install-widget, remove-widget
 
@@ -151,8 +113,8 @@ monarchy-identity install-widget [--enable]
 monarchy-identity remove-widget
 ```
 
-Install the Quickshell bar widget into `~/.config/omarchy/plugins/monarchy-identity.status/` (needs the
-`monarchy-identity-shell` package), or remove it. `--enable` also runs `omarchy plugin enable`. Refuse to run as root.
+Adds or removes the Omarchy bar widget (needs the `monarchy-identity-shell` package). `--enable` also shows it in the
+bar. Run as the desktop user.
 
 ## providers
 
@@ -160,4 +122,4 @@ Install the Quickshell bar widget into `~/.config/omarchy/plugins/monarchy-ident
 monarchy-identity providers
 ```
 
-Lists the directories under `providers/`.
+Lists the directory providers installed. See [Providers](../providers/index.md).

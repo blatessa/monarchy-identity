@@ -1,13 +1,12 @@
 # Providers
 
-A provider is the directory-specific part of monarchy-identity: a directory of executables under
-`providers/<name>/` that the core CLI dispatches to.
+A provider connects monarchy-identity to one kind of directory.
 
-| Provider | State | Notes |
+| Provider | Directory | State |
 |---|---|---|
-| [`sssd`](sssd.md) | Implemented | Active Directory and Samba AD, via `net ads join` and sssd. |
-| `local` | Built in | Not enrolled. Every action is a no-op; `policy` fails. |
-| FreeIPA / generic LDAP + Kerberos | Planned | Would reuse most of the sssd provider. |
-| OIDC (Entra ID, Okta, Google) | Planned | Undecided: candidate packages may require the AUR, which this project avoids. |
+| [`sssd`](sssd.md) | Active Directory, Samba AD | Available (the default) |
+| FreeIPA / LDAP + Kerberos | | Planned |
+| OIDC | Entra ID, Okta, Google Workspace | Under consideration |
 
-`monarchy-identity providers` lists what is installed. To add one, see [Writing a provider](writing-a-provider.md).
+`monarchy-identity providers` lists what's installed. Adding a provider is covered in the developer docs:
+[Writing a provider](../dev/writing-a-provider.md).
