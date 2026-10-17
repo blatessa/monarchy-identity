@@ -1,0 +1,5 @@
+#!/bin/bash
+# Stand-in for the omarchy CLI: records the call; `hook install post-update SRC` drops SRC into the hooks dir like the real one.
+echo "omarchy $*" >> "$STUB_LOG"
+if [[ "$1 $2 $3" == "hook install post-update" ]]; then install -D -m 0755 "$4" "$HOME/.config/omarchy/hooks/post-update.d/$(basename "$4")"; fi
+exit 0

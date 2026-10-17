@@ -1,0 +1,4 @@
+#!/bin/bash
+echo "sssctl $*" >> "$STUB_LOG"
+[[ $1 == domain-status ]] && echo "Online status: Online"
+exit 0

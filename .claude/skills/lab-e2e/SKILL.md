@@ -5,6 +5,11 @@ description: Bring up the Samba AD + Arch VM lab, deploy the repo into it, run a
 
 # Running the lab
 
+The lab is the slow layer. Logic (validation, refusals, generated config, PAM/nsswitch/SDDM edits, `status --json`) is
+tested first in `test/unit/` against a temp `/etc` with stub commands (`test/unit/run.sh`, seconds, no lab). Reach for
+the lab when a change needs real sssd, PAM or a directory, or before claiming a PAM/sssd/SDDM change works. If a lab
+failure is really logic, reproduce it in `test/unit/` first.
+
 Never run these steps against the host's `/etc`. Everything below targets the QEMU VM.
 
 1. `test/lab-check.sh`. It lists what's missing with the exact fix. Ready = exit 0.
@@ -12,7 +17,7 @@ Never run these steps against the host's `/etc`. Everything below targets the QE
 3. VM (background it, never `pkill -f`): `cd test/vm && ./fetch-image.sh` once, then
    `(setsid ./run.sh </dev/null >vm.log 2>&1 &)`. First boot ~1 min (cloud-init). It makes `keys/id_oi` itself.
 4. Push code: `test/vm/deploy.sh`. Add `--fixtures` to reset PAM/SDDM to stock Omarchy, uninstall the package and delete stale computer accounts. Suites call it themselves when they need to.
-5. Run one suite: `test/vm/e2e.sh` (core: every sign-in service, passwords, repair, sssd down, leave), or others (`ls test/vm/e2e*.sh`). Each ends with `RESULT: ALL PASS`. Full run: `test/run-all.sh`.
+5. Run one suite: `test/vm/e2e.sh` (core: every sign-in service, passwords, repair, policies and sudo, sssd down, leave, directory refusals and enroll options), or others (`ls test/vm/e2e*.sh`). Each ends with `RESULT: ALL PASS`. Default run: `test/run-all.sh` (fast layer plus the lab suites except the greeter). `test/vm/e2e-greeter.sh` is its own run, for login-screen changes.
 6. Suites are independent (each starts with `fresh`). If a failure only shows up after another suite, that's leftover state: fix the reset or add an explicit check, don't re-run until it passes.
 
 VM access: `ssh -i test/vm/keys/id_oi -p 2222 tester@127.0.0.1`. Lab credentials (throwaway, loopback): Administrator/alice/bob/carol, password `Passw0rd!Test`. alice and bob are allowed, carol is directory-only and must be denied.
@@ -25,4 +30,4 @@ VM access: `ssh -i test/vm/keys/id_oi -p 2222 tester@127.0.0.1`. Lab credentials
 - Stale cloud-init seed server on :8000 makes the VM boot with defaults; `run.sh` replaces any listener there.
 
 ## Writing a test
-Source `test/vm/lib.sh` (`fresh`, `enroll`, `expect`, `check`, `scli`, `result`). Each suite pays for its own deploy/enroll/leave, so add checks to the suite that already has the right enrollment rather than starting a new one. Quote ssh inputs with `q`/`printf %q`; `grep -F` for computer names; any new PAM edit needs a remove/idempotency check. A new suite goes in `test/run-all.sh`.
+Logic goes in `test/unit/` (source `test/unit/lib.sh`: `sandbox`, `enroll`, `oi`, `refused`, `called`; stubs in `test/unit/stubs/`). Lab suites: source `test/vm/lib.sh` (`fresh`, `enroll`, `expect`, `check`, `scli`, `result`). Each suite pays for its own deploy/enroll/leave, so add checks to the suite that already has the right enrollment rather than starting a new one. Quote ssh inputs with `q`/`printf %q`; `grep -F` for computer names; any new PAM edit needs a remove/idempotency check. A new suite goes in `test/run-all.sh`.

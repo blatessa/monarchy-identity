@@ -19,6 +19,7 @@ expect ALLOWED "dave signs in with the new password" --session sddm dave "$NEW"
 echo "[domain controller down]"
 expect ALLOWED "alice signs in once while online (fills the cache)" system-auth alice "$PW"
 docker stop oi-test-dc >/dev/null; sleep 3
+[[ $(enroll --groups oi-laptop-users) == *"could not search the directory"* ]] && ok "enroll refused while the DC is down (before changing anything)" || bad "DC down: enroll not refused"
 expect ALLOWED "alice (cached) signs in offline" system-auth alice "$PW"
 expect DENIED  "alice, wrong password, refused offline" system-auth alice wrong
 expect DENIED  "bob (never signed in here) refused offline" system-auth bob "$PW"

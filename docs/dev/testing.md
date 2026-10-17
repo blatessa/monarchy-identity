@@ -8,16 +8,43 @@ as fixtures; it is not a full Omarchy install.
 Agents and contributors: the working rules and definition of done are in
 [AGENTS.md](https://github.com/blatessa/monarchy-identity/blob/main/AGENTS.md).
 
-## Tests that need no lab
+## Two layers
+
+| Layer | Runs | Needs | Covers |
+|---|---|---|---|
+| Fast (`test/unit/`) | seconds, every PR in CI | bash, python3, `unshare -r` | Logic: input validation, refusals, generated `sssd.conf`/sudoers, policy changes, enroll options, PAM/nsswitch/SDDM edits, `leave`, `status --json` |
+| Lab (`test/vm/`) | minutes, locally | the VM and the DC | What only real sssd, PAM and a directory can show: the join, sign-in through the PAM stack, offline cache, the package |
+
+Put a check in the fast layer unless it needs real sssd, PAM or a directory. The fast layer is always required; the lab
+is required when a change touches enroll/join, the PAM stack's behaviour, sssd, the package, or (`e2e-greeter`) the login
+screen.
+
+## The fast layer
 
 ```bash
-bash test/unit/validation.sh      # input validation
-bash test/unit/naming.sh          # computer names, OU conversion
+test/unit/run.sh                  # all of it
+bash test/unit/pam.sh             # or one suite
 bash hooks/test-reassert.sh       # reassert hook wrapper
 bash shell-plugin/tests/run.sh    # widget manifest, Model.js (needs node), qmllint when installed
 ```
 
-These also run in CI.
+`test/unit/lib.sh` builds a sandbox per suite: a temp `/etc` seeded with the lab's Omarchy PAM and SDDM fixtures
+(`test/vm/fixtures`), the real `bin/monarchy-identity` run as fake root (`unshare -r`), and stub commands
+(`test/unit/stubs/`: `net`, `systemctl`, `getent`, `sssctl`, `visudo`, `kinit`, `uname`, `omarchy`, ...) first on `PATH`.
+Paths come from the `MONARCHY_IDENTITY_*` overrides. Knobs are `STUB_*` variables (`STUB_GROUPS`,
+`STUB_COMPUTERS`, `STUB_HOSTNAME`, `STUB_DC_DOWN`, `STUB_VISUDO_FAIL`, ...); `called` greps what the stubs saw.
+
+| Suite | Covers |
+|---|---|
+| `refused` | Everything `enroll` must refuse before sign-in changes: bad input, wrong password, unknown group, DC down, colliding or generic names, unsafe password files. Each refusal leaves the temp `/etc` unchanged. |
+| `policy` | Implied modes, `policy set` changing only what's passed, refusals, `--if-needed`, generated `sssd.conf` and sudoers, autologin |
+| `enroll` | `--computer-name`, `--ou`, password sources, `--replace-computer-account`, re-running a half-finished enrollment, login theme, hook and widget installers |
+| `pam` | PAM/nsswitch/SDDM edits on Omarchy's real files: apply, remove, idempotent, skip counts; `leave` removes only marked files; autologin merge order |
+| `status` | `status --json` shape and that its checks follow reality |
+| `validation`, `naming` | Input validators, computer names and OU conversion |
+
+A stub that mirrors real tool output cites where it was observed in `findings.md`. When a lab run shows a stub
+was wrong, fix the stub and the note. These also run in CI.
 
 ## The lab
 
@@ -58,11 +85,12 @@ allowed and in `oi-admins`, `bob` is allowed, `carol` exists in the directory on
 Each new provider brings its own lab directory: a container where one exists (FreeIPA), otherwise a test tenant or
 a documented stand-in, chosen in the provider's issue. The client VM, `lib.sh` and the core suites are shared.
 
-## Running the suites
+## Running the lab suites
 
 ```bash
-test/run-all.sh          # every suite; each prints RESULT: ALL PASS
+test/run-all.sh          # the fast layer plus the default lab suites
 test/vm/e2e.sh           # or one suite
+test/vm/e2e-greeter.sh   # login-screen changes only; not part of the default run
 ```
 
 Each suite is built around as few enrollments as possible. Add a check to the suite that already has the enrollment
@@ -70,21 +98,18 @@ you need before writing a new one; a new suite pays for its own deploy, enroll a
 
 | Suite | Covers |
 |---|---|
-| `e2e` | The core: every Omarchy PAM service (allowed, refused, wrong password, local), home creation, `passwd`, repair with `reassert`, local users with sssd stopped and `pam_sss.so` missing, `leave` |
-| `e2e-policy` | Implied modes, groups/assigned/any, `--sudo-groups`, `--offline-days`, autologin, `policy set` without re-joining, refused changes, systemd start limit, `--if-needed` |
-| `e2e-enroll` | `--computer-name`, `--ou`, password file and variable, `--replace-computer-account`, re-running a half-finished enrollment, hooks and widget installers |
-| `e2e-refused` | Everything `enroll` must refuse before sign-in changes (bad input, wrong password, unknown group, DC down, colliding or generic names, unsafe password files). Never enrolls. |
-| `e2e-offline` | Expired password, cached sign-in with the DC down, recovery |
+| `e2e` | The core: the directory's refusals (wrong password, unknown group), every Omarchy PAM service (allowed, refused, wrong password, local), home creation, `passwd`, repair with `reassert`, who-may-sign-in policies and sudo as sssd enforces them, local users with sssd stopped and `pam_sss.so` missing, `leave`; then `--computer-name`, `--ou`, `--password-file`, an existing computer account (refused, then `--replace-computer-account`) and re-running a half-finished enrollment |
+| `e2e-offline` | Enroll refused with the DC down, expired password, cached sign-in with the DC down, recovery |
 | `e2e-dns` | Enrolling without `--server` (DNS SRV discovery) |
 | `e2e-package` | The real package: install, pacman hook repair, removal while enrolled |
-| `e2e-greeter` | The real SDDM greeter (X11), driven with typed keys |
+| `e2e-greeter` | The real SDDM greeter (X11), driven with typed keys. Separate run: only for login-screen changes |
 
 Suites share `test/vm/lib.sh`: `fresh` (deploy and reset), `enroll`/`leave`, `expect` (run a PAM service), `check`,
 `cli`/`scli` (the CLI as tester/root) and `result`.
 
 Suites don't depend on each other or on order: each starts with `fresh` (stock PAM, not enrolled, stale lab
 computer accounts deleted). Behaviour that depends on leftover state, such as an existing computer account, gets an
-explicit check (`e2e-enroll`, `e2e-refused`) instead of relying on a second run.
+explicit check (`e2e`, `unit/refused`) instead of relying on a second run.
 
 ## Helpers
 
@@ -101,7 +126,8 @@ explicit check (`e2e-enroll`, `e2e-refused`) instead of relying on a second run.
 - Quote inputs that go through ssh with `q` (`printf %q`); use `grep -F` for computer names (`$` is a regex anchor).
 - Reset faillock after enrollment, not before: before it, directory users do not resolve and the reset silently does
   nothing.
-- A new PAM edit needs a remove and idempotency check.
+- A new PAM edit needs a remove and idempotency check (`test/unit/pam.sh`).
+- Logic goes in `test/unit/`; a lab suite is for what stubs cannot show.
 - Print diagnostics on a failing step (`diag()` in `e2e-greeter.sh`).
 
 ## Continuous integration
@@ -109,7 +135,7 @@ explicit check (`e2e-enroll`, `e2e-refused`) instead of relying on a second run.
 `.github/workflows/ci.yml` runs on pushes to `main` and on pull requests (skipped for documentation-only changes; a
 newer push cancels the run in progress):
 
-- **Unit tests and lint**: shellcheck (errors only), Python syntax, the unit tests, the hook test, the widget test.
+- **Unit tests and lint**: shellcheck (errors only), Python syntax, the fast layer (`test/unit/run.sh`), the hook test, the widget test.
 - **Build the Arch package**: `makepkg` in an `archlinux:base-devel` container and a check of the package contents.
 
 The lab suites need KVM and Docker and run locally.

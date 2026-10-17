@@ -1,19 +1,15 @@
 #!/bin/bash
-# Run every suite and summarize. Needs the lab (test/lab-check.sh).
+# Run the fast layer, then the default lab suites, and summarize. Needs the lab (test/lab-check.sh).
+# The login-screen suite (test/vm/e2e-greeter.sh) is its own run: do it when the SDDM theme or greeter changed.
 cd "$(dirname "$0")/.."
 suites=(
   "bash hooks/test-reassert.sh"
   "bash shell-plugin/tests/run.sh"
-  "test/unit/validation.sh"
-  "test/unit/naming.sh"
+  "test/unit/run.sh"
   "test/vm/e2e.sh"
-  "test/vm/e2e-policy.sh"
-  "test/vm/e2e-enroll.sh"
-  "test/vm/e2e-refused.sh"
   "test/vm/e2e-offline.sh"
   "test/vm/e2e-dns.sh"
   "test/vm/e2e-package.sh"
-  "test/vm/e2e-greeter.sh"
 )
 echo "lab: verifying directory users/groups"; test/dc/seed-users.sh >/dev/null || { echo "lab directory is not in the expected state"; exit 1; }
 rc=0; summary=()
