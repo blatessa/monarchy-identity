@@ -31,7 +31,7 @@ discovery. Site-aware DC selection is not implemented.
 **Clock.** Run NTP. Kerberos fails beyond about five minutes of skew. `status --json` reports `time_sync`, and
 [`require_time_sync`](../reference/policy-file.md) can enforce it.
 
-**Local fallback account.** Every laptop needs a local user with a password for break-glass use. Enrolment refuses
+**Local fallback account.** Every laptop needs a local user with a password for break-glass use. Enrollment refuses
 without one.
 
 ## Omarchy decisions
@@ -41,7 +41,7 @@ directory sign-in you normally want `--disable-autologin`; the alternative is to
 lock screen. The forbid_autologin rule in a [compliance policy](../reference/policy-file.md) can enforce the choice.
 See [Omarchy integration](omarchy-integration.md).
 
-**Login theme.** Enrolment switches SDDM to the `monarchy-identity` theme because Omarchy's stock theme has no
+**Login theme.** Enrollment switches SDDM to the `monarchy-identity` theme because Omarchy's stock theme has no
 username box. `--keep-login-theme` opts out, and directory users then cannot sign in at the login screen.
 
 **Sudo.** `--sudo-groups` is optional and maps whole directory groups to full sudo. If your MDM owns privilege,
@@ -51,10 +51,10 @@ leave it off.
 
 Build `packaging/PKGBUILD` with `makepkg`, or use the package from a
 [release](https://github.com/blatessa/monarchy-identity/releases), and publish it to a pacman repository you control
-(`repo-add`, signed) so the fleet installs and updates it with `pacman`. Installing does nothing until enrolment.
+(`repo-add`, signed) so the fleet installs and updates it with `pacman`. Installing does nothing until enrollment.
 
 ## Order of work
 
-1. Enrol a virtual machine against a test OU. Run `leave` and enrol again.
+1. Enroll a virtual machine against a test OU. Run `leave` and enroll again.
 2. Pilot on a few machines with `--confirm-within`.
-3. Script the rollout ([Automate enrolment](automation.md)) and add a [compliance check](compliance-checks.md).
+3. Script the rollout ([Automate enrollment](automation.md)) and add a [compliance check](compliance-checks.md).

@@ -1,4 +1,4 @@
-# What enrolment changes
+# What enrollment changes
 
 `monarchy-identity enroll sssd` performs these steps in order. Everything before step 4 happens without touching the
 machine's authentication.

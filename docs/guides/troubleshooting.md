@@ -29,7 +29,7 @@ Rapid restarts hit systemd's start limit; monarchy-identity's own commands reset
 
 | Message contains | Cause and fix |
 |---|---|
-| `a computer account 'NAME$' already exists` | See [Enrol safely](enrol-safely.md): `--computer-name` or `--replace-computer-account`. |
+| `a computer account 'NAME$' already exists` | See [Enroll safely](enroll-safely.md): `--computer-name` or `--replace-computer-account`. |
 | `the generic '...'` | Set a unique hostname or pass `--computer-name`. |
 | `longer than 15 characters` | Shorten the hostname or pass `--computer-name`. |
 | `no local account with a usable password exists` | Create a local user with a password (or `--allow-no-local-fallback`, not recommended). |

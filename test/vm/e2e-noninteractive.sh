@@ -16,13 +16,13 @@ out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --password-file 
 [[ $out == *"accessible by group/other"* ]] && ok "world-readable password file refused" || bad "not refused: $out"
 [[ $(st) == *'"enrolled":false'* ]] && ok "nothing changed after refusal" || bad "state changed"
 out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --password-file /root/oi.pw </dev/null" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok "enrol via --password-file, stdin closed" || { bad "enrol via file"; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok "enroll via --password-file, stdin closed" || { bad "enroll via file"; echo "$out" | sed 's/^/      /'; }
 out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity leave --admin Administrator --password-file /root/oi.pw </dev/null" 2>&1)
 [[ $(docker exec oi-test-dc samba-tool computer list | grep -c OI-CLIENT) -eq 0 ]] && ok "leave --password-file removed the computer account" || bad "computer account left: $out"
 
 echo "[environment variable]"
 out=$("${V[@]}" "sudo OI_ADMIN_PASSWORD_FILE=/root/oi.pw ~/oi/bin/monarchy-identity enroll sssd $A </dev/null" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok "enrol via OI_ADMIN_PASSWORD_FILE" || { bad "enrol via env"; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok "enroll via OI_ADMIN_PASSWORD_FILE" || { bad "enroll via env"; echo "$out" | sed 's/^/      /'; }
 out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A </dev/null" 2>&1)
 "${V[@]}" "sudo OI_ADMIN_PASSWORD_FILE=/root/oi.pw ~/oi/bin/monarchy-identity leave --admin Administrator </dev/null" >/dev/null 2>&1
 out=$("${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A </dev/null" 2>&1)

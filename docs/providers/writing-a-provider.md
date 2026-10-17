@@ -6,8 +6,8 @@ A provider is a directory `providers/<name>/` containing these executables. The 
 | Script | Called by | Contract |
 |---|---|---|
 | `detect` | (reserved) | Exit 0 if the provider's prerequisites are installed. The core does not call it yet. |
-| `enroll [args]` | `monarchy-identity enroll <name> [args]` | Enrol the machine. Receives all remaining arguments. |
-| `unenroll [args]` | `monarchy-identity leave [args]` | Restore the pre-enrolment state exactly. |
+| `enroll [args]` | `monarchy-identity enroll <name> [args]` | Enroll the machine. Receives all remaining arguments. |
+| `unenroll [args]` | `monarchy-identity leave [args]` | Restore the pre-enrollment state exactly. |
 | `policy show\|set ...` | `monarchy-identity policy ...` | Show or change the login policy. |
 | `reassert` | `monarchy-identity reassert`, hooks, path unit | Idempotently re-apply managed edits. |
 | `status` | `monarchy-identity status` | Print `key=value` lines; they become `details` in `status --json`. |

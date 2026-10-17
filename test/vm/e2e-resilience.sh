@@ -16,7 +16,7 @@ scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKn
 "${V[@]}" 'sudo install -m 644 ~/pamtest.py /tmp/pamtest.py'
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok enrol || { bad enrol; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok enroll || { bad enroll; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'for u in alice tester; do sudo faillock --user $u --reset 2>/dev/null; done'
 
 # safety net: if a check below bricks logins, this root timer (no PAM involved) puts the module back
@@ -50,7 +50,7 @@ echo "[package removal while enrolled unwinds the PAM edits]"
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 ./install-package.sh >/dev/null
 out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok "enrol with the installed package" || { bad "enrol (package)"; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok "enroll with the installed package" || { bad "enroll (package)"; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'grep -q monarchy-identity /etc/pam.d/system-auth' && ok "PAM edited while enrolled" || bad "PAM not edited"
 "${V[@]}" 'sudo pacman -R --noconfirm monarchy-identity' >/dev/null 2>&1
 for f in system-auth omarchy-lock-password; do "${V[@]}" "cat /etc/pam.d/$f" | diff -q - fixtures/pam.d/$f >/dev/null && ok "after pacman -R: $f is stock again" || bad "after pacman -R: $f still edited"; done

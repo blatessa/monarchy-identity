@@ -8,8 +8,8 @@ PW='Passw0rd!Test'; fail=0
 ok() { printf '  PASS %s\n' "$1"; }; bad() { printf '  FAIL %s\n' "$1"; fail=1; }
 expect() { local out; out=$("${V[@]}" "sudo python3 -I ~/pamtest.py --session $3 $4 '$5'" 2>&1); [[ $out == $2* ]] && ok "$1" || bad "$1 (got: $out)"; }
 al() { "${V[@]}" '~/oi/bin/monarchy-identity status --json' | grep -o '"autologin":[a-z]*'; }
-enrol() { local out; out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users $*" 2>&1)
-  [[ $out == *"enrolled in"* ]] && ok "enrol $*" || { bad "enrol $*"; echo "$out" | sed 's/^/      /'; }
+enroll() { local out; out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users $*" 2>&1)
+  [[ $out == *"enrolled in"* ]] && ok "enroll $*" || { bad "enroll $*"; echo "$out" | sed 's/^/      /'; }
   "${V[@]}" 'for u in alice bob carol tester; do sudo faillock --user $u --reset 2>/dev/null; done'; }
 leave() { echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1; }
 
@@ -19,7 +19,7 @@ leave; "${V[@]}" 'sudo rm -rf /home/alice /home/bob /home/carol'
 
 echo "[autologin override]"
 [[ $(al) == '"autologin":true' ]] && ok "before: fixture autologin.conf active" || bad "before: $(al)"
-enrol --disable-autologin
+enroll --disable-autologin
 [[ $(al) == '"autologin":false' ]] && ok "effective autologin disabled" || bad "autologin still on: $(al)"
 "${V[@]}" 'sudo rm -f /etc/sddm.conf.d/zz-monarchy-identity.conf'
 [[ $(al) == '"autologin":true' ]] && ok "drift visible when override removed" || bad "drift not visible"
@@ -29,7 +29,7 @@ leave
 [[ $(al) == '"autologin":true' ]] && ok "leave restores original autologin" || bad "leave left autologin off: $(al)"
 
 echo "[services]"
-enrol
+enroll
 for svc in sddm sudo login sshd system-remote-login; do
   expect "$svc: alice allowed (+session)" ALLOWED $svc alice "$PW"
   expect "$svc: carol denied" DENIED $svc carol "$PW"

@@ -1,13 +1,13 @@
 post_install() {
-  echo ":: monarchy-identity is installed but inactive: nothing changes until you enrol."
+  echo ":: monarchy-identity is installed but inactive: nothing changes until you enroll."
   echo ":: Start here:  less /usr/share/doc/monarchy-identity/getting-started.md   (or https://blatessa.github.io/monarchy-identity/)"
-  echo ":: First enrolment on a machine:  sudo monarchy-identity enroll sssd ... --confirm-within 10"
+  echo ":: First enrollment on a machine:  sudo monarchy-identity enroll sssd ... --confirm-within 10"
 }
 
 # Never leave PAM / nsswitch / sudoers / SDDM edits behind pointing at a tool (and PAM modules) that are about
 # to disappear: a dangling PAM rule can lock everyone out. Package upgrades do NOT run this (pre_upgrade is separate).
 pre_remove() {
   if [ -x /usr/bin/monarchy-identity ]; then
-    /usr/bin/monarchy-identity leave || echo "monarchy-identity: WARNING: could not fully unwind enrolment; inspect /etc/pam.d/system-auth and /etc/nsswitch.conf" >&2
+    /usr/bin/monarchy-identity leave || echo "monarchy-identity: WARNING: could not fully unwind enrollment; inspect /etc/pam.d/system-auth and /etc/nsswitch.conf" >&2
   fi
 }

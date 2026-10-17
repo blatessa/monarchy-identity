@@ -12,7 +12,7 @@ scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKn
 trap 'docker start oi-test-dc >/dev/null 2>&1' EXIT
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok enrol || { bad enrol; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok enroll || { bad enroll; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'for u in alice bob; do sudo faillock --user $u --reset; done' 2>/dev/null
 echo "[online: alice signs in once (populates the cache); bob never does]"
 expect ALLOWED alice "$PW" "alice online"

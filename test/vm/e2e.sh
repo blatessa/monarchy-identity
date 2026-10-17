@@ -1,6 +1,6 @@
 #!/bin/bash
 # End-to-end test of the sssd provider against the Samba AD + VM. Needs DC and VM running.
-# Usage: test/vm/e2e.sh        (deploys code, runs enrol -> policy matrix -> drift/reassert -> leave)
+# Usage: test/vm/e2e.sh        (deploys code, runs enroll -> policy matrix -> drift/reassert -> leave)
 set -u
 H="$(cd "$(dirname "$0")" && pwd)"; cd "$H"
 V=(ssh -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -p 2222 tester@127.0.0.1)
@@ -12,12 +12,12 @@ expect() { # expect <desc> <want ALLOWED|DENIED> <service> <user> <password>
 scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 pamtest.py tester@127.0.0.1:/home/tester/
 ./deploy.sh --fixtures >/dev/null
 "${V[@]}" 'sudo faillock --user alice --reset; sudo faillock --user bob --reset; sudo faillock --user carol --reset; sudo faillock --user tester --reset' 
-echo "[enrol]"
+echo "[enroll]"
 # clean slate: leave if a previous run left us enrolled
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok enrol || { bad "enrol"; echo "$out" | sed 's/^/      /'; }
-# reset AFTER enrol: before it, directory users don't resolve and the reset is a silent no-op
+[[ $out == *"enrolled in"* ]] && ok enroll || { bad "enroll"; echo "$out" | sed 's/^/      /'; }
+# reset AFTER enroll: before it, directory users don't resolve and the reset is a silent no-op
 "${V[@]}" 'for u in alice bob carol tester; do sudo faillock --user $u --reset; done' 2>/dev/null
 echo "[policy: groups=oi-laptop-users]"
 for svc in system-auth omarchy-lock-password; do

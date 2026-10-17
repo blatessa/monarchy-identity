@@ -1,5 +1,5 @@
 #!/bin/bash
-# monarchy-identity: directory enrolment, login policy, posture reporting.
+# monarchy-identity: directory enrollment, login policy, posture reporting.
 set -euo pipefail
 
 ROOT="${MONARCHY_IDENTITY_ROOT:-/usr/share/monarchy-identity}"
@@ -13,9 +13,9 @@ usage() {
   cat <<EOF
 Usage: monarchy-identity <command>
 
-  status [--json]            Show enrolment and posture
-  enroll <provider> [args]   Enrol with a directory provider
-  leave                      Unenrol and restore previous config
+  status [--json]            Show enrollment and posture
+  enroll <provider> [args]   Enroll with a directory provider
+  leave                      Unenroll and restore previous config
   check [--json]             Evaluate posture against /etc/monarchy-identity/policy.toml (exit 1 if non-compliant)
   confirm                    Cancel the pending auto-revert (after verifying login works; root)
   policy show|set [opts]     Show or change who may sign in (no re-join): --mode --groups --users --sudo-groups --offline-days
@@ -111,7 +111,7 @@ case "${1:-}" in
       echo "installed $wid -> $wdst"
       if [[ ${2:-} == --enable ]]; then omarchy plugin enable "$wid" --section right; else echo "enable it with: omarchy plugin enable $wid --section right"; fi
     fi ;;
-  confirm) [[ $EUID -eq 0 ]] || { echo "must run as root" >&2; exit 1; }; if revert_pending; then revert_cancel; log "enrolment confirmed; auto-revert cancelled"; else echo "no auto-revert pending"; fi ;;
+  confirm) [[ $EUID -eq 0 ]] || { echo "must run as root" >&2; exit 1; }; if revert_pending; then revert_cancel; log "enrollment confirmed; auto-revert cancelled"; else echo "no auto-revert pending"; fi ;;
   policy) shift; run_provider "$(conf_get provider local)" policy "$@" ;;
   reassert) run_provider "$(conf_get provider local)" reassert ;;
   leave) shift; run_provider "$(conf_get provider local)" unenroll "$@" ;;

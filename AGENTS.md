@@ -3,7 +3,7 @@
 Guidance for coding agents (and humans) working in this repo. Keep it short and accurate; update it when reality changes.
 
 ## What this is
-`monarchy-identity` enrols an Omarchy (Arch + Hyprland) laptop in a corporate directory (Active Directory / Samba AD
+`monarchy-identity` enrolls an Omarchy (Arch + Hyprland) laptop in a corporate directory (Active Directory / Samba AD
 via sssd), enforces who may sign in, repairs configuration drift, and reports device posture (`status --json`).
 It edits PAM, nsswitch, SDDM and sudoers, so mistakes lock people out. Status: prototype, verified only in a VM
 against Samba AD. Public docs are the MkDocs site in `docs/` (published to GitHub Pages).
@@ -18,7 +18,7 @@ against Samba AD. Public docs are the MkDocs site in `docs/` (published to GitHu
 - Never edit `/usr/share/omarchy/` (package-owned, overwritten by `omarchy update`). Use `/etc` drop-ins and markers.
 - Enforcement lives in root-owned `/etc`. The shell widget is cosmetic, never a security boundary.
 - Default is deny. Local break-glass accounts must work in every mode and when sssd/`pam_sss.so` is missing or broken.
-- Scope is enrolment, login policy, drift repair, posture reporting. Privilege removal (wheel), sudo policy and boot hardening belong to the MDM (an opt-in `managed` profile is planned, off by default).
+- Scope is enrollment, login policy, drift repair, posture reporting. Privilege removal (wheel), sudo policy and boot hardening belong to the MDM (an opt-in `managed` profile is planned, off by default).
 - No AUR dependencies (join with samba `net ads join`; home dirs via `pam_mkhomedir`).
 - Don't `pkill -f` (it kills your own shell); find processes by PID. Don't commit `test/vm/images`, `test/vm/keys`, credentials or real hostnames.
 - Don't publish, tag, force-push or change repo settings without the owner asking.
@@ -74,7 +74,7 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 
 ## Conventions
 - Bash with `set -euo pipefail`; quote everything; no new runtime deps without updating PKGBUILD.
-- Provider contract: `enroll` verifies the directory works BEFORE touching PAM and rolls back fully on failure; `unenroll` restores the pre-enrolment state exactly. State goes in `/etc/monarchy-identity/config.toml` (flat `key = "value"`), originals in `/var/lib/monarchy-identity/backup`.
+- Provider contract: `enroll` verifies the directory works BEFORE touching PAM and rolls back fully on failure; `unenroll` restores the pre-enrollment state exactly. State goes in `/etc/monarchy-identity/config.toml` (flat `key = "value"`), originals in `/var/lib/monarchy-identity/backup`.
 - Restart sssd ONLY via `sssd_restart` (systemd start-limit). Never call `sssctl` without `</dev/null` and `timeout` (it can prompt and hang, holding the CLI flock).
 - Test inputs that go through ssh must be `printf %q`-quoted; use `grep -F` for computer names (`$` is a regex anchor).
 - Match the surrounding code's style and comment density. Small, focused commits; explain why in the message.

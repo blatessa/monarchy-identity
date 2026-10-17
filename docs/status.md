@@ -7,11 +7,11 @@ in the test lab; everything else is untested.
 
 Against Samba AD in the lab (Arch VM with Omarchy's PAM and SDDM files as fixtures):
 
-- Enrolment with and without `--server` (DNS SRV discovery), `--ou`, `--computer-name`, `--replace-computer-account`,
+- Enrollment with and without `--server` (DNS SRV discovery), `--ou`, `--computer-name`, `--replace-computer-account`,
   `--sudo-groups`, `--offline-days`, `--password-file`, `--if-needed`, `--confirm-within`.
 - All three login modes, `policy set` without re-joining, and sign-in through `sddm`, `sudo`, `login`, `sshd`,
   `system-remote-login` and the lock-screen PAM service.
-- Rollback on a failed enrolment, leaving the machine and the directory unchanged.
+- Rollback on a failed enrollment, leaving the machine and the directory unchanged.
 - Local accounts keep working with sssd stopped and with `pam_sss.so` missing.
 - Cached sign-in with the domain controller down; recovery when it returns.
 - Password change and expired-password handling with `passwd`.
@@ -38,7 +38,7 @@ Against Samba AD in the lab (Arch VM with Omarchy's PAM and SDDM files as fixtur
   back to `other`); polkit authentication as a directory user is unchecked.
 - **Sudo mapping** is whole-group, all commands.
 - **GPO access control and smart cards** are not handled.
-- **Configuration** mixes administrator intent and enrolment state in one file.
+- **Configuration** mixes administrator intent and enrollment state in one file.
 - **Join quirk.** A new computer account is joined twice; the cause is not understood ([Findings](dev/findings.md)).
 
 Open work is tracked in the repository's

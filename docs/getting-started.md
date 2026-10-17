@@ -1,6 +1,6 @@
 # Getting started
 
-Enrol one Omarchy machine in an Active Directory domain and confirm that a directory user can sign in. Do this on a
+Enroll one Omarchy machine in an Active Directory domain and confirm that a directory user can sign in. Do this on a
 virtual machine or a spare laptop first: it edits PAM.
 
 ## Prerequisites
@@ -12,7 +12,7 @@ virtual machine or a spare laptop first: it edits PAM.
 | An account that may join computers | Its password is read from stdin or a file. |
 | A directory group for permitted users | The default policy is deny; `--mode groups` needs `--groups`. |
 | A unique hostname of at most 15 characters | The hostname becomes the computer account. Generic names (`localhost`, `archlinux`, `omarchy`, `arch`) and longer names are refused; use `--computer-name` to override. |
-| A local account with a password | Enrolment refuses without one, so a directory failure cannot lock you out. |
+| A local account with a password | Enrollment refuses without one, so a directory failure cannot lock you out. |
 | A correct clock | Kerberos fails when the clock is off by more than about five minutes. |
 
 ## Install
@@ -32,10 +32,10 @@ git clone https://github.com/blatessa/monarchy-identity
 cd monarchy-identity/packaging && makepkg -si
 ```
 
-The package depends on `bash`, `python`, `sssd`, `samba` and `krb5`. Installing changes nothing until you enrol.
+The package depends on `bash`, `python`, `sssd`, `samba` and `krb5`. Installing changes nothing until you enroll.
 `monarchy-identity-shell` is an optional status widget for the Omarchy bar.
 
-## Enrol
+## Enroll
 
 ```bash
 sudo monarchy-identity enroll sssd \
@@ -45,8 +45,8 @@ sudo monarchy-identity enroll sssd \
 ```
 
 The command reads `joinuser`'s password from stdin. `--confirm-within 10` schedules an automatic `leave` in ten
-minutes unless you confirm, so a bad enrolment undoes itself. On any failure `enroll` rolls the machine back and
-deletes the computer account it created. See [Enrol safely](guides/enrol-safely.md).
+minutes unless you confirm, so a bad enrollment undoes itself. On any failure `enroll` rolls the machine back and
+deletes the computer account it created. See [Enroll safely](guides/enroll-safely.md).
 
 ## Verify
 
@@ -54,7 +54,7 @@ deletes the computer account it created. See [Enrol safely](guides/enrol-safely.
 monarchy-identity status
 ```
 
-![status output after enrolment](img/status.png)
+![status output after enrollment](img/status.png)
 
 `enrolled: true` and the expected `login mode` mean the configuration is in place. Then check an actual sign-in as a
 directory user from a second session (a text console with Ctrl+Alt+F3, or SSH), not the session you enrolled from:

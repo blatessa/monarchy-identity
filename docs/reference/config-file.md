@@ -1,7 +1,7 @@
 # Configuration file
 
 `/etc/monarchy-identity/config.toml` (root-owned, mode 0644) records the provider and the policy chosen at
-enrolment. It is written by `enroll` and `policy set` and read by the CLI, the providers and the reassert hook.
+enrollment. It is written by `enroll` and `policy set` and read by the CLI, the providers and the reassert hook.
 Do not edit it by hand: change policy with [`policy set`](../guides/change-policy.md).
 
 Format: flat `key = "value"` lines. The file is rewritten in full on each save. The package installs a default

@@ -9,9 +9,9 @@ Commands marked *root* must run as root. Commands marked *user* must not run as 
 
 | Command | Privilege | Purpose |
 |---|---|---|
-| [`status`](#status) | any | Show enrolment and posture |
-| [`enroll`](#enroll) | root | Enrol with a provider |
-| [`leave`](#leave) | root | Unenrol and restore the previous configuration |
+| [`status`](#status) | any | Show enrollment and posture |
+| [`enroll`](#enroll) | root | Enroll with a provider |
+| [`leave`](#leave) | root | Unenroll and restore the previous configuration |
 | [`policy`](#policy) | `show`: any, `set`: root | Show or change who may sign in |
 | [`check`](#check) | any | Evaluate posture against the policy file |
 | [`confirm`](#confirm) | root | Cancel a pending auto-revert |
@@ -76,7 +76,7 @@ account's password is read from `--password-file`, `OI_ADMIN_PASSWORD_FILE`, or 
 |---|---|---|
 | `--confirm-within MINUTES` | `0` (off) | Run `leave` after this many minutes unless `confirm` is run. |
 | `--allow-no-local-fallback` | off | Skip the check that a local account with a usable password exists. |
-| `--if-needed` | off | If already enrolled in the same realm, converge the policy without re-joining. Fails for a different realm. See [Automate enrolment](../guides/automation.md). |
+| `--if-needed` | off | If already enrolled in the same realm, converge the policy without re-joining. Fails for a different realm. See [Automate enrollment](../guides/automation.md). |
 
 Unknown options are an error. Exit status is 0 on success, 1 on failure. A failure after the machine was modified
 triggers a rollback.

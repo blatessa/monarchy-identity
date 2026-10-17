@@ -1,4 +1,4 @@
-# Automate enrolment
+# Automate enrollment
 
 `enroll` needs no terminal when the join password comes from a file.
 
@@ -27,12 +27,12 @@ With `--if-needed`:
   `--sudo-groups` removes sudo access and omitting `--offline-days` resets it to 0.
 - `--disable-autologin` is applied when passed; omitting it never re-enables autologin.
 - If the machine is enrolled in a different realm, it fails; run `leave` first.
-- If the machine is not enrolled, it enrols normally.
+- If the machine is not enrolled, it enrolls normally.
 
 ## Ansible
 
 ```yaml
-- name: Enrol laptops
+- name: Enroll laptops
   hosts: omarchy_laptops
   become: true
   tasks:
@@ -46,13 +46,13 @@ With `--if-needed`:
         mode: "0600"
       no_log: true
 
-    - name: Enrol, or converge policy
+    - name: Enroll, or converge policy
       ansible.builtin.command: >
         monarchy-identity enroll sssd --realm CORP.EXAMPLE.COM --admin joinuser
         --ou "OU=Laptops,DC=corp,DC=example,DC=com" --mode groups --groups laptop-users
         --disable-autologin --password-file /root/join.pw --if-needed
-      register: enrol
-      changed_when: "'enrolled in' in enrol.stdout + enrol.stderr"
+      register: enroll
+      changed_when: "'enrolled in' in enroll.stdout + enroll.stderr"
 
     - name: Remove credential
       ansible.builtin.file: { path: /root/join.pw, state: absent }

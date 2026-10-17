@@ -16,7 +16,7 @@ echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administra
 # always restore lab passwords, whatever happens
 trap 'docker exec oi-test-dc samba-tool user setpassword alice --newpassword="$PW" >/dev/null 2>&1; "${V[@]}" "echo tester:tester | sudo chpasswd" >/dev/null 2>&1' EXIT
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok enrol || { bad enrol; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok enroll || { bad enroll; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'for u in alice tester; do sudo faillock --user $u --reset; done' 2>/dev/null
 "${V[@]}" 'grep -c "^-password.*pam_sss" /etc/pam.d/system-auth' | grep -qx 1 && ok "password stack has pam_sss" || bad "password stack edit missing"
 

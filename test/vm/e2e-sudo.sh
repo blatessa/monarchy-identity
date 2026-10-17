@@ -19,9 +19,9 @@ for badval in "bad group" "a;b" 'x$(id)'; do
 done
 "${V[@]}" 'test ! -e /etc/sudoers.d/50-monarchy-identity' && ok "no sudoers file written" || bad "sudoers file exists"
 
-echo "[enrol with --sudo-groups oi-admins]"
+echo "[enroll with --sudo-groups oi-admins]"
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --sudo-groups oi-admins" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok enrol || { bad enrol; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok enroll || { bad enroll; echo "$out" | sed 's/^/      /'; }
 [[ $("${V[@]}" 'sudo stat -c "%a %U" /etc/sudoers.d/50-monarchy-identity') == "440 root" ]] && ok "drop-in is 0440 root" || bad "drop-in mode/owner"
 can alice && ok "alice (in oi-admins) has sudo" || bad "alice lacks sudo"
 can bob && bad "bob (not in oi-admins) has sudo" || ok "bob (may log in, not in oi-admins) has no sudo"

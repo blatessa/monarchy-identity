@@ -13,7 +13,7 @@ record `provider = "local"`.
 
 With `--admin USER` (password from stdin or `--password-file`), the computer account is deleted from the directory.
 Without it, `leave` tries the machine's own credentials and, if that fails, logs a warning and leaves the account.
-A directory admin must then delete it, or the next enrolment of that name needs `--replace-computer-account`.
+A directory admin must then delete it, or the next enrollment of that name needs `--replace-computer-account`.
 
 `leave --quiet` suppresses the summary line.
 

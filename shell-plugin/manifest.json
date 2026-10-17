@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "monarchy-identity contributors",
   "license": "MIT",
-  "description": "Shows corporate-identity enrolment and posture from monarchy-identity in the Omarchy bar. Cosmetic only; requires the monarchy-identity package.",
+  "description": "Shows corporate-identity enrollment and posture from monarchy-identity in the Omarchy bar. Cosmetic only; requires the monarchy-identity package.",
   "kinds": [
     "bar-widget"
   ],
@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "Identity",
-    "description": "Enrolment state and posture warnings (autologin on, local admins) from monarchy-identity status --json.",
+    "description": "Enrollment state and posture warnings (autologin on, local admins) from monarchy-identity status --json.",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right",

@@ -37,14 +37,14 @@ nav:
   - Getting started: getting-started.md
   - Concepts:
       - Login policy: concepts/login-policy.md
-      - What enrolment changes: concepts/enrolment.md
+      - What enrollment changes: concepts/enrollment.md
       - Self-healing: concepts/self-healing.md
       - Safety model: concepts/safety-model.md
   - Guides:
       - Plan a rollout: guides/rollout-planning.md
-      - Enrol safely: guides/enrol-safely.md
+      - Enroll safely: guides/enroll-safely.md
       - Change who may sign in: guides/change-policy.md
-      - Automate enrolment: guides/automation.md
+      - Automate enrollment: guides/automation.md
       - Compliance checks: guides/compliance-checks.md
       - Omarchy integration: guides/omarchy-integration.md
       - Leave and uninstall: guides/leave-and-uninstall.md

@@ -19,7 +19,7 @@ groups=$(conf_get groups ""); users=$(conf_get users ""); sudo_groups=$(conf_get
 offline_days=$(conf_get offline_days 0); nb=$(conf_get computer_name ""); ou=$(conf_get ou "")
 disable_autologin=$([[ $(conf_get autologin_disabled false) == true ]] && echo 1 || echo 0)
 keep_theme=$([[ $(conf_get login_theme identity) == stock ]] && echo 1 || echo 0)
-[[ -n $nb ]] || nb=$(pick_computer_name "")   # enrolments made before computer_name was recorded
+[[ -n $nb ]] || nb=$(pick_computer_name "")   # enrollments made before computer_name was recorded
 
 cmd=${1:-}; shift || true
 case $cmd in

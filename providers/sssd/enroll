@@ -78,7 +78,7 @@ read_admin_password "$pwfile"
 server_args "$server"
 d=$(realm_lc "$realm"); fqdn="${nb,,}.$d"
 
-# ---- from here on we change the machine; roll back on ANY exit that is not a finished enrolment ---
+# ---- from here on we change the machine; roll back on ANY exit that is not a finished enrollment ---
 for f in "${MANAGED[@]}"; do backup_file "$f"; done
 # (An ERR trap is not enough: `die` calls `exit`, which never fires ERR, so a failed verification step used
 # to leave sssd running and nsswitch edited.)
@@ -86,7 +86,7 @@ enrolled_ok=0 joined=0
 rollback() {
   local rc=$?
   ((enrolled_ok)) && return
-  log "enrol failed (exit $rc) - rolling back"
+  log "enroll failed (exit $rc) - rolling back"
   "$OI_ROOT/providers/sssd/unenroll" --quiet || true
   # we still hold the admin password: remove the computer account WE created, so a failed attempt leaves
   # nothing behind in the directory either (never one we found pre-existing: that is someone else's)
@@ -105,7 +105,7 @@ existing=$(printf '%s\n' "$pw" | net ads search "${SARGS[@]}" -U "$admin" "(sAMA
   | sed -n 's/^distinguishedName: //p' | head -1 || true)
 if [[ -n $existing ]]; then
   if ! ((replace_account)); then
-    die "a computer account '$nb\$' already exists in the directory ($existing) and this machine is not joined with it. It may belong to a DIFFERENT laptop, and joining would reset its password and break it. If this is a re-enrolment of THIS laptop (e.g. after a reinstall), re-run with --replace-computer-account; otherwise choose a unique name with --computer-name"
+    die "a computer account '$nb\$' already exists in the directory ($existing) and this machine is not joined with it. It may belong to a DIFFERENT laptop, and joining would reset its password and break it. If this is a re-enrollment of THIS laptop (e.g. after a reinstall), re-run with --replace-computer-account; otherwise choose a unique name with --computer-name"
   fi
   log "WARNING: replacing existing computer account $existing (--replace-computer-account)"
 fi

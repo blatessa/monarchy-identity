@@ -38,7 +38,7 @@ diag() { # print what SDDM and the session log say (called when a login step fai
   echo "      --- session log:"; "${V[@]}" 'sudo cat /run/oi-test/session.log 2>&1 | tail -4' | sed 's/^/      /'
   echo "      --- sddm:"; "${V[@]}" 'sudo journalctl -u sddm --no-pager -o cat | grep -E "Authentication|Auth:|Login|Session started|crashed|successful|Greeter" | tail -7 | cut -c1-140' | sed 's/^/      /'
 }
-echo "[setup: packaged install, enrol, X11 greeter for the VM]"
+echo "[setup: packaged install, enroll, X11 greeter for the VM]"
 ./deploy.sh --fixtures >/dev/null
 ./install-package.sh >/dev/null
 tar -C fixtures -czf - omarchy-theme-assets oi-test-session oi-test.desktop | "${V[@]}" 'cd /tmp && rm -rf oi-fx && mkdir oi-fx && tar -xzf - -C oi-fx && sudo install -d /usr/share/sddm/themes/omarchy /usr/share/xsessions && sudo install -m644 oi-fx/omarchy-theme-assets/*.png /usr/share/sddm/themes/omarchy/ && sudo install -m755 oi-fx/oi-test-session /usr/local/bin/oi-test-session && sudo install -m644 oi-fx/oi-test.desktop /usr/share/xsessions/oi-test.desktop'
@@ -46,7 +46,7 @@ tar -C fixtures -czf - omarchy-theme-assets oi-test-session oi-test.desktop | "$
 echo "$PW" | "${V[@]}" 'sudo systemctl stop sddm; sudo /usr/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 "${V[@]}" 'sudo rm -rf /home/alice /home/bob /home/carol /var/lib/sddm/state.conf /run/oi-test/logout; for u in alice bob carol tester; do sudo faillock --user $u --reset 2>/dev/null; done'
 out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users --disable-autologin" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok enrol || { bad enrol; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok enroll || { bad enroll; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'printf "[General]\nDisplayServer=x11\n" | sudo tee /etc/sddm.conf.d/zz-vm-x11.conf >/dev/null; sudo systemctl start sddm'
 for _ in $(seq 40); do sleep 1; [[ $("${V[@]}" 'sudo journalctl -u sddm --no-pager -o cat | grep -c "Greeter session started successfully"') -ge 1 ]] && break; done; sleep 4
 shot 0-greeter

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Failure injection: a failed enrolment must leave the machine exactly as it was. Needs DC + VM.
+# Failure injection: a failed enrollment must leave the machine exactly as it was. Needs DC + VM.
 set -u
 H="$(cd "$(dirname "$0")" && pwd)"; cd "$H"
 V=(ssh -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -p 2222 tester@127.0.0.1)
@@ -11,7 +11,7 @@ trap 'docker start oi-test-dc >/dev/null 2>&1' EXIT
 ./deploy.sh --fixtures >/dev/null
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 
-# Snapshot of everything enrolment can touch; compare after each failure.
+# Snapshot of everything enrollment can touch; compare after each failure.
 snap() { "${V[@]}" 'sudo bash -c "
   for f in /etc/pam.d/system-auth /etc/pam.d/omarchy-lock-password /etc/nsswitch.conf; do echo \"== \$f\"; cat \$f; done
   echo \"== sddm\"; ls /etc/sddm.conf.d; echo \"== sudoers.d\"; ls /etc/sudoers.d
@@ -54,8 +54,8 @@ echo "[bad arguments never get as far as touching anything]"
 attempt "invalid realm (newline injection)" "invalid --realm" "$PW" --groups oi-laptop-users --realm $'corp.test\n[evil]'
 attempt "missing groups" "needs --groups" "$PW"
 
-echo "[recovery: a good enrolment still works after all that]"
+echo "[recovery: a good enrollment still works after all that]"
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $BASE --groups oi-laptop-users" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok "clean enrolment succeeds after failures" || { bad "enrolment after failures"; echo "$out" | tail -4 | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok "clean enrollment succeeds after failures" || { bad "enrollment after failures"; echo "$out" | tail -4 | sed 's/^/      /'; }
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

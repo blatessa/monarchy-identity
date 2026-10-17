@@ -3,7 +3,7 @@
 ## Login screen
 
 Omarchy's SDDM theme logs in `userModel.lastUser` and has no username field, so a directory user cannot type a name.
-Enrolment writes `/etc/sddm.conf.d/zz-monarchy-identity-theme.conf` selecting the `monarchy-identity` theme (the
+Enrollment writes `/etc/sddm.conf.d/zz-monarchy-identity-theme.conf` selecting the `monarchy-identity` theme (the
 same look, plus an editable username line). The file name sorts after Omarchy's drop-ins, and SDDM applies the
 last value. Skip it with `--keep-login-theme`. `status --json` reports `login_theme` and `username_field`.
 
@@ -17,7 +17,7 @@ keeps the override; `leave` removes it.
 
 ## Lock screen
 
-Omarchy's lock screen authenticates through its own PAM service, `/etc/pam.d/omarchy-lock-password`. Enrolment
+Omarchy's lock screen authenticates through its own PAM service, `/etc/pam.d/omarchy-lock-password`. Enrollment
 edits it like `system-auth`, so directory users unlock with their directory password.
 
 ## `omarchy update` hook
@@ -43,6 +43,6 @@ monarchy-identity remove-widget
 
 It copies the widget to `~/.config/omarchy/plugins/monarchy-identity.status/`, validating it first with
 `omarchy plugin validate` when available, and `--enable` runs `omarchy plugin enable ... --section right`. The widget
-shows enrolment, login mode and warnings (autologin on, local `wheel` members, or `identity: unavailable` if the
+shows enrollment, login mode and warnings (autologin on, local `wheel` members, or `identity: unavailable` if the
 CLI fails). The widget has not been loaded in a live Omarchy shell yet. It is cosmetic: it runs no privileged
 command and enforces nothing.

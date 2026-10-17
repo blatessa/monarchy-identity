@@ -78,7 +78,7 @@ local_fallback_users() {
 
 REVERT_UNIT="monarchy-identity-revert"
 revert_schedule() { # minutes
-  systemd-run --quiet --unit="$REVERT_UNIT" --on-active="${1}m" --description="monarchy-identity auto-revert (unconfirmed enrolment)" \
+  systemd-run --quiet --unit="$REVERT_UNIT" --on-active="${1}m" --description="monarchy-identity auto-revert (unconfirmed enrollment)" \
     env OI_ROOT="$OI_ROOT" "$OI_ROOT/bin/monarchy-identity" leave >/dev/null
 }
 revert_cancel()  { systemctl stop "$REVERT_UNIT.timer" "$REVERT_UNIT.service" 2>/dev/null || true; }

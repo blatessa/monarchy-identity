@@ -36,7 +36,7 @@ Observed in the lab:
 | sssd stopped | unaffected (sudo, login, SDDM, SSH) | refused quickly |
 | `pam_sss.so` missing | unaffected | refused |
 | Domain controller unreachable | unaffected | cached users can sign in; never-seen users cannot |
-| Enrolment fails partway | machine and directory unchanged | not applicable |
+| Enrollment fails partway | machine and directory unchanged | not applicable |
 | Package removed while enrolled | `pre_remove` runs `leave` first | not applicable |
 | Many rapid policy changes | sssd is not left in systemd's `start-limit-hit` state | not applicable |
 

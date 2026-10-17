@@ -4,7 +4,7 @@ monarchy-identity is provider-agnostic: a core CLI dispatches to directory-speci
 here are settled; change them deliberately.
 
 ## Scope and security model
-- This package owns: directory enrolment, login policy, drift repair, posture reporting.
+- This package owns: directory enrollment, login policy, drift repair, posture reporting.
 - Privilege removal (wheel), sudo rules and boot hardening belong to the org's MDM/config management. An optional
   `managed` profile (off by default) is planned for orgs with no MDM.
 - Enforcement lives in root-owned `/etc`. The shell widget is cosmetic, never a security boundary.
@@ -15,7 +15,7 @@ here are settled; change them deliberately.
 
 ## Packages
 - `monarchy-identity` (`packaging/PKGBUILD`): CLI, providers, hooks, login theme, systemd units. Root-installed;
-  works without the Omarchy shell (SDDM, SSH, headless enrolment). Installing does nothing until you enrol.
+  works without the Omarchy shell (SDDM, SSH, headless enrollment). Installing does nothing until you enroll.
 - `monarchy-identity-shell`: optional Quickshell bar widget. Depends on the CLI; the CLI never depends on it.
 
 ## Layers
@@ -29,7 +29,7 @@ here are settled; change them deliberately.
 ## Provider contract
 Providers source `lib/common.sh`, use `$OI_ROOT` (set by the CLI), and write state to
 `/etc/monarchy-identity/config.toml` (flat `key = "value"`). `enroll` must verify the directory works BEFORE touching
-PAM and roll back fully on failure. `unenroll` must restore the pre-enrolment state exactly.
+PAM and roll back fully on failure. `unenroll` must restore the pre-enrollment state exactly.
 
 ## Login policy (`login.mode`)
 `groups` (members of listed directory groups), `assigned` (listed users), `any` (whole directory, explicit opt-in).
@@ -52,5 +52,5 @@ Local accounts are not governed by it.
 - An optional per-user `omarchy update` hook (`install-hooks`) runs as the user with `sudo -n`; users can delete it.
 
 ## Login theme
-Omarchy's stock SDDM theme has no username box (it logs in `lastUser` only), so enrolment selects
+Omarchy's stock SDDM theme has no username box (it logs in `lastUser` only), so enrollment selects
 `sddm-theme/monarchy-identity`: Omarchy's look plus a username line (`--keep-login-theme` opts out).

@@ -14,7 +14,7 @@ scp -q "${SSHO[@]}" -P 2222 "$PKG" tester@127.0.0.1:/home/tester/oi.pkg.tar.zst
 "${V[@]}" 'sudo pacman -U --noconfirm oi.pkg.tar.zst' >/dev/null 2>&1 && ok "package installs" || bad "package install"
 "${V[@]}" 'sudo rm -rf ~/oi; /usr/bin/monarchy-identity providers' | grep -q sssd && ok "packaged CLI finds providers (no repo checkout)" || bad "packaged layout"
 out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users --sudo-groups oi-admins" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok "enrol using packaged files" || { bad "enrol"; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok "enroll using packaged files" || { bad "enroll"; echo "$out" | sed 's/^/      /'; }
 st() { "${V[@]}" '/usr/bin/monarchy-identity status --json'; }
 [[ $(st) == *'"pam_system_auth":"true"'* ]] && ok "PAM edits present" || bad "PAM edits missing"
 
@@ -30,13 +30,13 @@ sleep 6; r1=$(runs); sleep 12; r2=$(runs)
 [[ $r1 == "$r2" ]] && ok "no reassert runs during 12s of idle (runs: $r2)" || bad "reassert storm: $r1 -> $r2"
 echo "[login theme with a username field]"
 "${V[@]}" 'test -f /usr/share/sddm/themes/monarchy-identity/Main.qml && test -L /usr/share/sddm/themes/monarchy-identity/logo.png' && ok "theme files installed (Main.qml + asset symlinks)" || bad "theme files missing"
-"${V[@]}" 'grep -q "^Current=monarchy-identity" /etc/sddm.conf.d/zz-monarchy-identity-theme.conf' && ok "enrol selects the identity theme via zz- drop-in" || bad "theme drop-in missing"
+"${V[@]}" 'grep -q "^Current=monarchy-identity" /etc/sddm.conf.d/zz-monarchy-identity-theme.conf' && ok "enroll selects the identity theme via zz- drop-in" || bad "theme drop-in missing"
 [[ $(st) == *'"login_theme":"monarchy-identity"'* && $(st) == *'"username_field":true'* ]] && ok "status: effective theme monarchy-identity, username_field:true" || bad "status theme: $(st)"
 "${V[@]}" 'sudo rm -f /etc/sddm.conf.d/zz-monarchy-identity-theme.conf'
 for _ in $(seq 15); do sleep 1; [[ $(st) == *'"username_field":true'* ]] && break; done
 [[ $(st) == *'"username_field":true'* ]] && ok "theme drop-in self-heals after deletion" || bad "theme drop-in not healed"
 echo "[self-heal: root-owned path unit repairs drift with no manual step]"
-"${V[@]}" 'systemctl is-active monarchy-identity-reassert.path' | grep -qx active && ok "watcher active after enrol" || bad "watcher not active"
+"${V[@]}" 'systemctl is-active monarchy-identity-reassert.path' | grep -qx active && ok "watcher active after enroll" || bad "watcher not active"
 [[ $(st) == *'"self_heal":true'* ]] && ok "status reports self_heal:true" || bad "self_heal flag"
 "${V[@]}" 'sudo python3 -I /usr/share/monarchy-identity/lib/pamedit.py remove /etc/pam.d/system-auth'
 for _ in $(seq 15); do sleep 1; [[ $(st) == *'"pam_system_auth":"true"'* ]] && break; done

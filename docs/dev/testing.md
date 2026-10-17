@@ -63,7 +63,7 @@ test/vm/e2e.sh           # or one suite
 
 | Suite | Covers |
 |---|---|
-| `e2e` | enrol, login modes, drift, leave |
+| `e2e` | enroll, login modes, drift, leave |
 | `e2e-modes`, `e2e-policy`, `e2e-account` | login modes, `policy set`/`--if-needed`, computer-account handling |
 | `e2e-services` | PAM services (sddm, sudo, login, sshd, system-remote-login), session open, home creation |
 | `e2e-dns`, `e2e-offline` | SRV discovery without `--server`, cached sign-in with the DC down |
@@ -72,7 +72,7 @@ test/vm/e2e.sh           # or one suite
 | `e2e-package` | the real package: install, pacman hook repair, removal |
 | `e2e-greeter` | the real SDDM greeter (X11), driven with typed keys |
 
-Run the enrol and unenrol suites at least twice after changing `enroll`/`unenroll`: failures have been
+Run the enroll and unenroll suites at least twice after changing `enroll`/`unenroll`: failures have been
 order-dependent (fresh versus pre-existing computer account).
 
 ## Helpers
@@ -88,7 +88,7 @@ order-dependent (fresh versus pre-existing computer account).
 ## Writing tests
 
 - Quote inputs that go through ssh with `printf %q`; use `grep -F` for computer names (`$` is a regex anchor).
-- Reset faillock after enrolment, not before: before it, directory users do not resolve and the reset silently does
+- Reset faillock after enrollment, not before: before it, directory users do not resolve and the reset silently does
   nothing.
 - A new PAM edit needs a remove and idempotency check.
 - Print diagnostics on a failing step (`diag()` in `e2e-greeter.sh`).

@@ -19,7 +19,7 @@ scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKn
 ./deploy.sh --fixtures >/dev/null; "${V[@]}" 'sudo install -m 644 ~/pamtest.py /tmp/pamtest.py'
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --mode groups --groups oi-laptop-users --sudo-groups oi-admins" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok "enrol (groups: oi-laptop-users, sudo: oi-admins)" || { bad enrol; echo "$out" | sed 's/^/      /'; }
+[[ $out == *"enrolled in"* ]] && ok "enroll (groups: oi-laptop-users, sudo: oi-admins)" || { bad enroll; echo "$out" | sed 's/^/      /'; }
 reset_locks; P0=$(pwset); [[ -n $P0 ]] || bad "could not read the computer account's pwdLastSet"
 
 echo "[baseline]"
@@ -78,6 +78,6 @@ out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --real
 [[ $out == *"already enrolled in"* ]] && ok "different realm refused: leave first" || bad "other realm: $out"
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --mode groups --groups oi-laptop-users --if-needed" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok "--if-needed on a NOT-enrolled machine enrols normally" || bad "if-needed fresh: $out"
+[[ $out == *"enrolled in"* ]] && ok "--if-needed on a NOT-enrolled machine enrolls normally" || bad "if-needed fresh: $out"
 echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 ((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"

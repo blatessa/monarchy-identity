@@ -11,7 +11,7 @@ re-apply them.
 
 `reassert` is idempotent. It re-applies the nsswitch and PAM edits, the autologin override, the sudoers drop-in and
 the login theme according to the saved configuration, and restarts sssd if it is not running. It fails if
-`/etc/sssd/sssd.conf` is missing, which means the machine needs re-enrolment.
+`/etc/sssd/sssd.conf` is missing, which means the machine needs re-enrollment.
 
 State-changing commands (`enroll`, `leave`, `reassert`, `confirm`, `policy set`) take a lock at
 `/run/monarchy-identity.lock`, so the path unit cannot re-add edits while `leave` is removing them.

@@ -1,6 +1,6 @@
 # Login policy
 
-The login policy decides which directory users may sign in on this machine. It is set at enrolment with `--mode` and
+The login policy decides which directory users may sign in on this machine. It is set at enrollment with `--mode` and
 changed later with [`policy set`](../guides/change-policy.md).
 
 | Mode | Who may sign in | Required option | sssd setting |

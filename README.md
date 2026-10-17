@@ -37,8 +37,8 @@ Full documentation: **<https://blatessa.github.io/monarchy-identity/>** (sources
 
 | | |
 |---|---|
-| [Getting started](docs/getting-started.md) | Prerequisites, install, enrol, verify |
-| [Plan a rollout](docs/guides/rollout-planning.md), [Automate enrolment](docs/guides/automation.md) | Fleet deployment |
+| [Getting started](docs/getting-started.md) | Prerequisites, install, enroll, verify |
+| [Plan a rollout](docs/guides/rollout-planning.md), [Automate enrollment](docs/guides/automation.md) | Fleet deployment |
 | [CLI](docs/reference/cli.md), [Posture report](docs/reference/posture.md), [Policy file](docs/reference/policy-file.md) | Reference |
 | [Evidence from the lab](docs/evidence.md) | Captured proof of directory authentication |
 | [AGENTS.md](AGENTS.md), [Testing](docs/dev/testing.md) | Contributors and coding agents |
