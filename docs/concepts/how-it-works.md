@@ -1,14 +1,14 @@
 # How sign-in works
 
-What changes on a laptop when it joins your directory, and what people notice.
+What changes on a laptop when it connects to your directory, and what people notice.
 
 ## Terms
 
-- **Directory**: your company's store of people, groups and passwords (Active Directory).
-- **Realm**: the directory's domain name, such as `CORP.EXAMPLE.COM`. It's what you pass as `--realm`.
-- **Join account**: an account allowed to add computers to the directory. It's only used while enrolling.
-- **Computer account**: the laptop's own entry in the directory, named after its hostname.
-- **OU** (organizational unit): a folder in the directory where laptops' computer accounts can go.
+- **Directory**: your company's store of people, groups and passwords: Active Directory, Microsoft Entra ID, Okta,
+  Google Workspace, FreeIPA and so on.
+- **Provider**: the part of monarchy-identity that talks to one kind of directory. See [Providers](../providers/index.md).
+- **Enroll**: connect a laptop to the directory. What that creates in the directory depends on the provider (in Active
+  Directory, a computer account for the laptop).
 
 ## The idea
 
@@ -18,7 +18,7 @@ directory stays the one place where people, groups and passwords live.
 
 Enrolling does two things:
 
-1. **Joins** the laptop to the directory, which creates its computer account.
+1. **Registers** the laptop with the directory, in whatever way that directory expects.
 2. **Connects the laptop's sign-in** to the directory, alongside the local accounts it already has.
 
 Nothing is created per person in advance. A person's account appears on a laptop the first time they sign in.

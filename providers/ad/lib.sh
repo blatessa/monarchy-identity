@@ -1,4 +1,5 @@
-# sssd provider internals. Sourced by enroll/unenroll/reassert/status.
+# Active Directory provider internals (joins with samba, signs in through sssd). Sourced by its scripts.
+PROVIDER=ad
 source "$OI_ROOT/lib/common.sh"
 PAMEDIT="$OI_ROOT/lib/pamedit.py"
 PAM_FILES=(system-auth omarchy-lock-password)
@@ -181,7 +182,7 @@ dn_to_createcomputer() {
 # sssd_save_state: writes /etc/monarchy-identity/config.toml from these globals:
 #   realm server mode groups users disable_autologin keep_theme sudo_groups offline_days nb ou
 sssd_save_state() {
-  conf_write provider=sssd login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" \
+  conf_write provider="$PROVIDER" login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" \
     autologin_disabled="$([[ ${disable_autologin:-0} == 1 ]] && echo true || echo false)" \
     login_theme="$([[ ${keep_theme:-0} == 1 ]] && echo stock || echo identity)" \
     sudo_groups="$sudo_groups" offline_days="$offline_days" computer_name="$nb" ou="${ou:-}"

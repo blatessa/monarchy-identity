@@ -1,38 +1,28 @@
 # Getting started
 
-By the end of this page one Omarchy laptop is joined to your Active Directory domain, and a directory user can sign in
+By the end of this page one Omarchy laptop is connected to your directory, and a person from the directory can sign in
 on it. Try it on a spare laptop or a virtual machine first.
 
-The example values below are `CORP.EXAMPLE.COM` (your domain), `joinuser` (an account that may join computers),
-`laptop-users` (the group allowed to sign in) and `alice` (a member of that group). Replace them with yours.
+The steps are the same for every directory; what you prepare and the options you pass depend on its
+[provider](providers/index.md). This walkthrough uses **Active Directory**, the provider available today, with the
+example values `CORP.EXAMPLE.COM` (the domain), `joinuser` (an account that may join computers), `laptop-users` (the
+group allowed to sign in) and `alice` (a member of it). Replace them with yours.
 
 ## 1. Prepare the directory
 
-You need two things in the directory:
-
-1. **A group of people who may sign in**, here `laptop-users`, with `alice` in it. Nobody can sign in unless they are
-   in a group you name.
-2. **An account that may join computers**, here `joinuser`. For a first test, an existing administrator account is fine.
-
-On Samba AD:
-
-```bash
-samba-tool group add laptop-users
-samba-tool group addmembers laptop-users alice
-```
-
-On Windows AD (not yet tested with this tool), in PowerShell: `New-ADGroup laptop-users -GroupScope Global` and
-`Add-ADGroupMember laptop-users alice`.
+You need **a group of people who may sign in**, here `laptop-users`, with `alice` in it. Nobody can sign in unless
+they are in a group you name. Whatever else the provider needs is on its page; for Active Directory that's an account
+that may join computers (`joinuser`) and a few checks on the laptop:
+[Active Directory: prepare](providers/ad.md#prepare-the-directory).
 
 ## 2. Check the laptop
 
 ```bash
-hostnamectl hostname        # unique, at most 15 characters, not "omarchy" or "archlinux"
 timedatectl                 # "System clock synchronized: yes"
-dig -t SRV _ldap._tcp.corp.example.com   # the laptop can find your domain controllers
 ```
 
-The hostname becomes the laptop's name in the directory. To change it: `sudo hostnamectl set-hostname laptop-0042`.
+Plus the provider's own checks. For Active Directory: a unique hostname of at most 15 characters, and DNS that finds
+the domain controllers ([details](providers/ad.md#prepare-the-laptops)).
 
 ## 3. Install
 
@@ -49,11 +39,12 @@ Installing changes nothing until you enroll.
 ## 4. Enroll
 
 ```bash
-sudo monarchy-identity enroll --realm CORP.EXAMPLE.COM --admin joinuser --groups laptop-users
+sudo monarchy-identity enroll ad --realm CORP.EXAMPLE.COM --admin joinuser --groups laptop-users
 ```
 
-It asks for `joinuser`'s password, checks that the directory has the `laptop-users` group, joins the domain and turns on
-directory sign-in. It finishes with `enrolled in CORP.EXAMPLE.COM`.
+`ad` names the provider and `--realm` and `--admin` are its options; `--groups` says who may sign in, whatever the
+directory. It asks for `joinuser`'s password, checks that the directory has the `laptop-users` group, connects the
+laptop and turns on directory sign-in. It finishes with `enrolled in CORP.EXAMPLE.COM`.
 
 Enrolling also turns off Omarchy's automatic sign-in at boot, so the login screen appears and people sign in as
 themselves. Add `--keep-autologin` to keep it.
@@ -71,7 +62,7 @@ monarchy-identity status
 
 ```text
 enrolled:        true
-provider:        sssd
+provider:        ad
 login mode:      groups
 autologin:       false
 ```

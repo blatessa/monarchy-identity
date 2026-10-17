@@ -1,14 +1,17 @@
 # monarchy-identity
 
-Company sign-in for [Omarchy](https://omarchy.org) laptops. People sign in with the username and password they already
-have in your directory (Active Directory, today), and you decide who may sign in on which laptops.
+Company sign-in for [Omarchy](https://omarchy.org) laptops. People sign in with the account they already have in your
+company directory, and you decide who may sign in on which laptops.
+
+Directories plug in as [providers](providers/index.md). Active Directory is available today; Microsoft Entra ID, Okta,
+Google Workspace and FreeIPA are planned.
 
 It does one job: connect a laptop's sign-in to your directory. It's a small package you install and run yourself, or
 call from your MDM or configuration management.
 
 !!! warning "Prototype"
-    Tested against Samba AD in a virtual machine. Windows Active Directory, Omarchy's own login screen and lock screen,
-    and real `omarchy update` runs are not tested yet. See [Status and limits](status.md).
+    Only the Active Directory provider exists, tested against Samba AD in a virtual machine. Omarchy's own login screen
+    and lock screen, and real `omarchy update` runs, are not tested yet. See [Status and limits](status.md).
 
 ## What it does
 
@@ -30,6 +33,7 @@ existing local users, no locking down settings. Use your MDM for those.
 | You want to | Read |
 |---|---|
 | Try it on one laptop | [Getting started](getting-started.md) |
+| See which directories work | [Providers](providers/index.md) |
 | Understand what changes for people | [How sign-in works](concepts/how-it-works.md) |
 | Plan a fleet rollout | [Roll out to a fleet](guides/rollout.md) |
 | Script enrollment | [Automate enrollment](guides/automation.md) |

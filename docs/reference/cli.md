@@ -7,13 +7,13 @@ monarchy-identity <command> [options]
 | Command | Run as | Purpose |
 |---|---|---|
 | [`status`](#status) | anyone | Show whether the laptop is enrolled and how sign-in is set up |
-| [`enroll`](#enroll) | root | Join the directory and set who may sign in |
+| [`enroll`](#enroll) | root | Connect to a directory and set who may sign in |
 | [`policy`](#policy) | `show`: anyone, `set`: root | Show or change who may sign in |
-| [`leave`](#leave) | root | Leave the directory and remove directory sign-in |
+| [`leave`](#leave) | root | Disconnect from the directory and remove directory sign-in |
 | [`reassert`](#reassert) | root | Put the sign-in configuration back if something overwrote it |
 | [`install-hooks`, `remove-hooks`](#install-hooks-remove-hooks) | desktop user | Omarchy post-update hook |
 | [`install-widget`, `remove-widget`](#install-widget-remove-widget) | desktop user | Bar widget |
-| [`providers`](#providers) | anyone | List the available directory providers |
+| [`providers`](#providers) | anyone | List the installed directory providers |
 
 Every command exits 0 on success and 1 on failure, with the reason on standard error and in the journal
 (`journalctl -t monarchy-identity`). `-h` or `--help` prints usage.
@@ -30,26 +30,17 @@ same and more for scripts: see [Status output](status-output.md).
 ## enroll
 
 ```text
-monarchy-identity enroll --realm REALM (--groups A,B | --users U1,U2 | --mode any) [options]
+monarchy-identity enroll [PROVIDER] [provider options] (--groups A,B | --users U1,U2 | --mode any) [options]
 ```
 
-Joins the directory and turns on directory sign-in. The join account's password is asked for at a terminal, or read
-from `--password-file`, `OI_ADMIN_PASSWORD_FILE` or standard input. `enroll --help` lists every option.
+Connects the laptop to a directory and turns on directory sign-in. `PROVIDER` names the directory's
+[provider](../providers/index.md); while `ad` is the only one, it can be left out. `enroll --help` lists every option.
 
-Before it joins, `enroll` checks the password and that the groups you named exist, so typos fail without changing
-anything.
+Before it changes anything, `enroll` checks what the directory can check (credentials, that the groups you named
+exist), so typos fail without touching the laptop.
 
-**Directory**
-
-| Option | Default | Description |
-|---|---|---|
-| `--realm R` | required | The directory's domain, such as `corp.example.com`. |
-| `--admin USER` | `Administrator` | The join account. |
-| `--password-file FILE` | standard input | File holding the join password; must be readable only by its owner. |
-| `--server HOST` | found through DNS | Use this domain controller. Leave it off in production. |
-| `--computer-name NAME` | hostname | The laptop's name in the directory: up to 15 letters, digits or hyphens. |
-| `--ou DN` | directory default | Where the laptop goes, such as `OU=Laptops,DC=corp,DC=example,DC=com`. |
-| `--replace-computer-account` | off | Take over an existing computer account with this name (a reinstalled laptop). |
+**Provider options** are on each provider's page, for example [Active Directory](../providers/ad.md#enroll-options)
+(`--realm`, `--admin`, `--ou`, ...).
 
 **Who may sign in** (see [Who may sign in](../concepts/login-policy.md)). One is required.
 
@@ -67,7 +58,8 @@ anything.
 | `--offline-days N` | never | Cached sign-in stops working after N days without reaching the directory. |
 | `--keep-autologin` | off | Keep Omarchy's automatic sign-in at boot. |
 | `--keep-login-theme` | off | Keep Omarchy's stock login screen (it has no username box). |
-| `--if-needed` | off | If already enrolled in this realm, update the policy instead of joining again. See [Automate enrollment](../guides/automation.md). |
+| `--password-file FILE` | standard input | Where a provider that needs an enrollment password reads it; readable only by its owner. Also `OI_ADMIN_PASSWORD_FILE`. |
+| `--if-needed` | off | If already enrolled with this directory, update the policy instead of enrolling again. See [Automate enrollment](../guides/automation.md). |
 
 ## policy
 
@@ -76,16 +68,18 @@ monarchy-identity policy show
 monarchy-identity policy set [--groups a,b | --users u1,u2 | --mode any] [--sudo-groups g1,g2 | -] [--offline-days N]
 ```
 
-`show` prints the realm, who may sign in, `sudo` groups, offline days and the computer name. `set` changes only the
-options you pass; `--sudo-groups -` removes `sudo`. See [Change who may sign in](../guides/change-policy.md).
+`show` prints the directory, who may sign in, `sudo` groups and offline days, plus provider details (for Active
+Directory, the computer name). `set` changes only the options you pass; `--sudo-groups -` removes `sudo`. See
+[Change who may sign in](../guides/change-policy.md).
 
 ## leave
 
 ```text
-monarchy-identity leave [--admin USER] [--password-file FILE] [--quiet]
+monarchy-identity leave [provider options] [--quiet]
 ```
 
-Leaves the directory and removes directory sign-in. With `--admin`, also deletes the laptop's computer account. See
+Disconnects the laptop from the directory and removes directory sign-in. Provider options (such as Active Directory's
+`--admin`, to delete the computer account) are on the provider's page. See
 [Leave and uninstall](../guides/leave-and-uninstall.md).
 
 ## reassert

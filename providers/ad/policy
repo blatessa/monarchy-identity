@@ -8,9 +8,9 @@
 # have, is refused before anything is written.
 set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
-source "$OI_ROOT/providers/sssd/lib.sh"
+source "$OI_ROOT/providers/ad/lib.sh"
 
-[[ $(conf_get provider local) == sssd ]] || die "this machine is not enrolled with the sssd provider"
+[[ $(conf_get provider local) == "$PROVIDER" ]] || die "this machine is not enrolled with Active Directory"
 
 # current state
 realm=$(conf_get realm ""); server=$(conf_get server ""); mode=$(conf_get login_mode groups)

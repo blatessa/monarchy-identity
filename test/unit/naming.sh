@@ -1,7 +1,7 @@
 #!/bin/bash
 # Unit tests for computer-account naming and OU handling (no VM, no root). Run: test/unit/naming.sh
 cd "$(dirname "$0")/../.." || exit 1
-export OI_ROOT=$PWD; source providers/sssd/lib.sh
+export OI_ROOT=$PWD; source providers/ad/lib.sh
 fail=0
 t() { local want=$1; shift; if "$@" >/dev/null 2>&1; then got=1; else got=0; fi
   [[ $got == "$want" ]] && printf 'ok   %s %q\n' "$1" "${*:2}" || { printf 'FAIL %s %q (want %s got %s)\n' "$1" "${*:2}" "$want" "$got"; fail=1; }; }

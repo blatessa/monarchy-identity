@@ -6,6 +6,8 @@ untested.
 
 ## Tested
 
+Only the Active Directory provider exists so far. With it:
+
 - Enrolling with and without a pinned domain controller, into an OU, with a chosen computer name, over an existing
   computer account, and unattended with a password file and `--if-needed`.
 - All three login policies, changing the policy without re-joining, and `sudo` for a directory group.
@@ -19,7 +21,8 @@ untested.
 
 ## Not tested
 
-- Windows Active Directory. This is the biggest open question.
+- Windows Active Directory (only Samba AD so far).
+- Every other directory: Microsoft Entra ID, Okta, Google Workspace and FreeIPA providers aren't written yet.
 - Omarchy's own login screen session, its lock screen and a full Hyprland session.
 - A real `omarchy update`.
 - The bar widget in a live Omarchy shell.

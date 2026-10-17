@@ -2,7 +2,7 @@
 # Leave the directory and remove every sign-in change enroll made. --quiet suppresses the summary.
 set -uo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
-source "$OI_ROOT/providers/sssd/lib.sh"
+source "$OI_ROOT/providers/ad/lib.sh"
 need_root
 server_args "$(conf_get server)"
 quiet=0 admin="" pwfile=""

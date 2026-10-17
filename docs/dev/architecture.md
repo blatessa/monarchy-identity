@@ -6,9 +6,10 @@ generated config files, option parsing) are left to the code.
 ## Scope
 
 A single-purpose utility: connect an Omarchy machine's authentication (sign-in, lock screen, `sudo`, `ssh`) to a
-directory, and keep that working. It owns:
+directory, and keep that working. Directories are providers ([Writing a provider](writing-a-provider.md)); Active
+Directory is the first, not the default assumption. It owns:
 
-- **Enrollment and leaving** (join, unjoin, the authentication config that goes with them).
+- **Enrollment and leaving** (registering with the directory, and the authentication config that goes with it).
 - **Authorization that the directory provides**: who may sign in, `sudo` for directory groups, offline credential
   lifetime. A provider feature belongs here if it's about authenticating or authorizing directory users.
 - **Keeping authentication working across updates** (re-applying our edits after package transactions).
@@ -37,16 +38,18 @@ hit a command line or disk.
 
 ## Enrollment order, and why
 
-The sssd provider's `enroll` checks everything it can against the directory **before** joining: the join password,
-that each `--groups` entry exists, and whether a computer account of that name already belongs to another machine
-(it may reuse one only if this machine is already joined with it, `net ads testjoin -P`, or with
-`--replace-computer-account`). Then it joins, starts sssd, waits until a group resolves through sssd, and only then
-edits PAM.
+Every provider follows the same order: check, register, prove the directory answers, then PAM. The AD provider's
+`enroll` checks everything it can against the directory **before** joining: the join password, that each `--groups`
+entry exists, and whether a computer account of that name already belongs to another machine (it may reuse one only if
+this machine is already joined with it, `net ads testjoin -P`, or with `--replace-computer-account`). Then it joins,
+starts sssd, waits until a group resolves through sssd, and only then edits PAM.
 
 There is no rollback. A failure after the join leaves PAM untouched; re-running `enroll` picks up where it stopped,
 and `leave` cleans up. The join password is read from a prompt, a 0600 file or stdin, never argv.
 
-## Files on an enrolled machine
+## Files on an enrolled machine (AD provider)
+
+The PAM, nsswitch, SDDM and sudoers rows apply to every provider; the rest are the AD provider's.
 
 | Path | Change | On `leave` |
 |---|---|---|
@@ -63,7 +66,8 @@ Everything else stays in `/etc` drop-ins or marked blocks; never edit `/usr/shar
 
 ## The PAM edit
 
-This is the one place a mistake locks people out. `lib/pamedit.py apply|remove|check FILE` inserts, between markers:
+This is the one place a mistake locks people out. Today the inserted module is `pam_sss` (the AD provider); a provider
+with another PAM module needs `pamedit.py` to take the module from the provider, with the same safety rules. `lib/pamedit.py apply|remove|check FILE` inserts, between markers:
 
 ```text
 -auth      [success=N default=ignore]  pam_sss.so forward_pass
@@ -87,4 +91,4 @@ local login; only a definite answer from `pam_sss` can. `remove` restores the fi
 
 There is deliberately no file watcher: guarding config against a local admin is an MDM's job, not ours.
 
-The generated sssd/krb5/samba config is in `providers/sssd/lib.sh`; the state keys are in `sssd_save_state`.
+The AD provider's generated sssd/krb5/samba config is in `providers/ad/lib.sh`; its state keys are in `sssd_save_state`.
