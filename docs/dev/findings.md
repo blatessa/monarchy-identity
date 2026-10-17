@@ -68,6 +68,10 @@ captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
   every login showed a graphical password prompt (real hardware, Oct 2026). `enroll` mirrors that one narrow rule for the sign-in
   groups (`51-monarchy-identity-theme`); making them wheel would hand out full sudo. `su`/`su-l` on Arch use `pam_unix` directly, so
   `su - user` can never test directory sign-in: use a console login or the greeter.
+- Admin prompts (polkit) take admin identities from rules, and Omarchy's default is `unix-group:wheel`; directory groups can't join wheel,
+  so a directory admin could `sudo` but not answer one. Polkit stops at the first rule that answers, so `49-monarchy-identity.rules` sorts
+  before `50-default` and names wheel too (else it would replace the local admins). The `polkit-1` PAM service is a vendor file in
+  `/usr/lib/pam.d/` that includes `system-auth`, so directory passwords already work there (not in `/etc/pam.d`, which is why `ls` misses it).
 
 ## Conventions that came from these
 - Anything the CLI sources must also be installed by `packaging/PKGBUILD` (`e2e-package.sh` catches misses).

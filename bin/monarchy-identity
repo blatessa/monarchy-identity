@@ -125,8 +125,8 @@ resolve_policy() { # validates the globals, works out the mode, and exports the 
 save_policy() {
   conf_set login_mode="$mode" groups="$groups" users="$users" sudo_groups="$sudo_groups" offline_days="$offline_days"
 }
-apply_sudo() { # from the globals: sudo groups, and the theme rule for whoever may sign in
-  if [[ -n $sudo_groups ]]; then sudoers_apply "$sudo_groups"; else rm -f "$SUDOERS_FILE"; fi
+apply_sudo() { # from the globals: sudo + polkit admin for the sudo groups, and the theme rule for whoever may sign in
+  if [[ -n $sudo_groups ]]; then sudoers_apply "$sudo_groups"; polkit_apply "$sudo_groups"; else rm -f "$SUDOERS_FILE"; polkit_remove; fi
   sudoers_theme_apply "$mode" "$groups" "$users"
 }
 
