@@ -22,6 +22,7 @@ case $sub in
     else printf '\nGot 0 replies\n\n'; fi ;;
   join) creds; touch "$STUB_STATE/joined"; printf 'keytab\n' > "$MONARCHY_IDENTITY_ETC/krb5.keytab" ;;
   keytab) creds; printf 'keytab\n' > "$MONARCHY_IDENTITY_ETC/krb5.keytab" ;;
+  lookup) printf 'Domain: corp.test\nPre-Win2k Domain: %s\n' "${STUB_NETBIOS:-CORP}" ;;
   testjoin) [[ -e $STUB_STATE/joined ]] ;;
   leave) [[ " $* " != *" -U "* ]] || creds; rm -f "$STUB_STATE/joined" ;;
   *) exit 1 ;;

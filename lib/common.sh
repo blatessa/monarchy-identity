@@ -139,15 +139,57 @@ sddm_theme_restore() { rm -f "$SDDM_THEME_CONF"; }
 # (a broken sudoers file can lock out root access). Names are restricted so no escaping is needed.
 SUDOERS_FILE="${MONARCHY_IDENTITY_SUDOERS:-/etc/sudoers.d/50-monarchy-identity}"
 valid_sudo_groups() { local g IFS=,; [[ -n $1 ]] || return 1; for g in $1; do [[ $g =~ ^[A-Za-z0-9._-]{1,64}$ ]] || return 1; done; }
-sudoers_apply() { # sudoers_apply "g1,g2"  -- idempotent: untouched file => no write
+sudoers_write() { # sudoers_write FILE CONTENT  -- idempotent: untouched file => no write; visudo-validated before it replaces anything
+  local f=$1 want=$2
+  [[ -f $f && $(cat "$f") == "$want" && $(stat -c %a "$f") == 440 ]] && return 0
+  local tmp; tmp=$(mktemp "$f.XXXXXX") || die "cannot create temp sudoers file"
+  printf '%s\n' "$want" > "$tmp"; chmod 0440 "$tmp"
+  if command -v visudo >/dev/null 2>&1 && ! visudo -cf "$tmp" >/dev/null 2>&1; then rm -f "$tmp"; die "generated sudoers failed validation; not installed"; fi
+  mv -f "$tmp" "$f"
+}
+sudoers_apply() { # sudoers_apply "g1,g2"
   valid_sudo_groups "$1" || die "invalid --sudo-groups '$1' (letters, digits, . _ - only; no spaces)"
   local want g IFS=,
   want="# managed by monarchy-identity: directory groups with sudo"
   for g in $1; do want+=$'\n'"%$g ALL=(ALL:ALL) ALL"; done
-  [[ -f $SUDOERS_FILE && $(cat "$SUDOERS_FILE") == "$want" && $(stat -c %a "$SUDOERS_FILE") == 440 ]] && return 0
-  local tmp; tmp=$(mktemp "${SUDOERS_FILE}.XXXXXX") || die "cannot create temp sudoers file"
-  printf '%s\n' "$want" > "$tmp"; chmod 0440 "$tmp"
-  if command -v visudo >/dev/null 2>&1 && ! visudo -cf "$tmp" >/dev/null 2>&1; then rm -f "$tmp"; die "generated sudoers failed validation; not installed"; fi
-  mv -f "$tmp" "$SUDOERS_FILE"
+  sudoers_write "$SUDOERS_FILE" "$want"
 }
-sudoers_remove() { rm -f "$SUDOERS_FILE"; }
+sudoers_remove() { rm -f "$SUDOERS_FILE" "$THEME_SUDOERS_FILE"; polkit_remove; }
+
+# Graphical "enter an administrator password" prompts take their admin identities from polkit, whose default (Omarchy
+# ships it too) is the local group wheel, so a directory admin could use sudo but never answer one. Add the sudo groups.
+# Polkit stops at the first rule that answers and the default is 50-, so ours sorts before it and names wheel as well,
+# or it would replace the local admins. Only written where polkit's rules directory exists (it is root:polkitd 0750,
+# so it is never created here); names are validated, so they can go into the JS as they are.
+POLKIT_RULES_FILE="${MONARCHY_IDENTITY_POLKIT:-/etc/polkit-1/rules.d/49-monarchy-identity.rules}"
+polkit_apply() { # polkit_apply "g1,g2"
+  valid_sudo_groups "$1" || die "invalid --sudo-groups '$1' (letters, digits, . _ - only; no spaces)"
+  [[ -d $(dirname "$POLKIT_RULES_FILE") ]] || return 0
+  local ids='"unix-group:wheel"' g IFS=,
+  for g in $1; do ids+=", \"unix-group:$g\""; done
+  local want="// managed by monarchy-identity: directory groups with sudo may answer administrator prompts
+polkit.addAdminRule(function(action, subject) {
+    return [$ids];
+});"
+  [[ -f $POLKIT_RULES_FILE && $(cat "$POLKIT_RULES_FILE") == "$want" ]] && return 0
+  local tmp; tmp=$(mktemp "$POLKIT_RULES_FILE.XXXXXX") || die "cannot create temp polkit rules file"
+  printf '%s\n' "$want" > "$tmp"; chmod 0644 "$tmp"; mv -f "$tmp" "$POLKIT_RULES_FILE"
+}
+polkit_remove() { rm -f "$POLKIT_RULES_FILE"; }
+
+# Omarchy repaints the browser accent on every theme switch through a helper that writes root-owned policy, and lets
+# its own admins (%wheel) do that without a password; anyone else gets a graphical password prompt at every login.
+# Directory groups can't be in wheel (and wheel is full sudo), so mirror that one narrow rule for the people who may
+# sign in. Same command and argument shape as Omarchy's etc/sudoers.d/omarchy-theme-browser. Names outside the safe
+# set are skipped (those people keep the prompt); --mode any has no one to name, so no rule.
+THEME_SUDOERS_FILE="${MONARCHY_IDENTITY_SUDOERS_THEME:-/etc/sudoers.d/51-monarchy-identity-theme}"
+sudoers_theme_apply() { # sudoers_theme_apply MODE "groups" "users"
+  local who="" x IFS=,
+  case $1 in
+    groups)   for x in $2; do [[ $x =~ ^[A-Za-z0-9._-]{1,64}$ ]] && who+="${who:+,}%$x"; done;;
+    assigned) for x in $3; do [[ $x =~ ^[A-Za-z0-9._-]{1,64}$ ]] && who+="${who:+,}$x"; done;;
+  esac
+  [[ -n $who ]] || { rm -f "$THEME_SUDOERS_FILE"; return 0; }
+  sudoers_write "$THEME_SUDOERS_FILE" "# managed by monarchy-identity: Omarchy theme switching without a password prompt
+$who ALL=(root) NOPASSWD: /usr/bin/omarchy-theme-set-browser-policy [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]"
+}

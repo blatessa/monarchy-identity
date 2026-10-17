@@ -125,13 +125,18 @@ resolve_policy() { # validates the globals, works out the mode, and exports the 
 save_policy() {
   conf_set login_mode="$mode" groups="$groups" users="$users" sudo_groups="$sudo_groups" offline_days="$offline_days"
 }
-apply_sudo() { if [[ -n $sudo_groups ]]; then sudoers_apply "$sudo_groups"; else sudoers_remove; fi; }
+apply_sudo() { # from the globals: sudo + polkit admin for the sudo groups, and the theme rule for whoever may sign in
+  if [[ -n $sudo_groups ]]; then sudoers_apply "$sudo_groups"; polkit_apply "$sudo_groups"; else rm -f "$SUDOERS_FILE"; polkit_remove; fi
+  sudoers_theme_apply "$mode" "$groups" "$users"
+}
 
 # The desktop side of an enrollment, from config.toml: PAM with the provider's module, autologin, sudo, login theme.
 # enroll and reassert both end here; every step is idempotent.
 apply_sign_in() { # apply_sign_in PROVIDER
   pam_apply "$1"
   if [[ $(conf_get autologin_disabled false) == true ]]; then sddm_autologin_disable; else sddm_autologin_restore; fi
+  local mode groups users
+  mode=$(conf_get login_mode groups); groups=$(conf_get groups ""); users=$(conf_get users "")
   sudo_groups=$(conf_get sudo_groups ""); apply_sudo
   if [[ $(conf_get login_theme identity) == identity ]]; then
     sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the monarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"

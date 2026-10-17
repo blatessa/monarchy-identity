@@ -41,13 +41,17 @@ K
 # server_args: sets SARGS=(-S server) or () so samba tools use DNS discovery when no server is configured.
 server_args() { SARGS=(); [[ -n ${1:-} ]] && SARGS=(-S "$1"); return 0; }
 
-write_smb() { # realm netbios-name
+# netbios_domain: the directory's NetBIOS domain name, asked of the DC (callers pass SARGS). It is NOT always the
+# realm's first label (badcaptcha.net can be BAD), and a join with the wrong workgroup fails. Prints nothing on failure.
+netbios_domain() { timeout 30 net ads lookup "$@" 2>/dev/null </dev/null | sed -n 's/^Pre-Win2k Domain: *//p' | head -1 || true; }
+
+write_smb() { # realm netbios-name [workgroup: default is the realm's first label]
   local r=${1^^}
   mkdir -p "$ETC/samba"
   cat > "$ETC/samba/smb.conf" <<S
 $OI_MARK
 [global]
-  workgroup = ${r%%.*}
+  workgroup = ${3:-${r%%.*}}
   realm = $r
   netbios name = ${2:?netbios name required}
   security = ads
