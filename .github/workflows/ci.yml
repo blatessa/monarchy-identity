@@ -28,7 +28,7 @@ jobs:
       - name: Shellcheck (errors only)
         run: |
           shellcheck -S error -s bash $(git ls-files '*.sh') bin/monarchy-identity \
-            providers/*/detect providers/*/enroll providers/*/unenroll providers/*/reassert providers/*/status
+            providers/*/detect providers/*/enroll providers/*/unenroll providers/*/reassert providers/*/status \
             test/unit/stubs/*
       - name: Python syntax
         run: python3 -m py_compile lib/*.py
