@@ -61,6 +61,9 @@ captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
 - `hostnamectl --transient` is ignored when a static hostname exists: simulate hostnames with `sysctl kernel.hostname=`.
 - When patching scripts with python `s.index(...)`, make sure you match the intended occurrence.
 - The VM's SSH private key was once committed (anchored `.gitignore` bug) and purged from history. Never commit `test/vm/images`, `test/vm/keys`.
+- The NetBIOS domain name is not the realm's first label (`badcaptcha.net` can be `BAD`). `smb.conf` `workgroup` must be the
+  NetBIOS name or `net ads join` fails, and the script hides its output. `enroll` asks the DC (`net ads lookup`, `Pre-Win2k Domain:`).
+  The lab's `corp.test`/`CORP` hid this; found on a real Windows Server 2025 DC.
 
 ## Conventions that came from these
 - Anything the CLI sources must also be installed by `packaging/PKGBUILD` (`e2e-package.sh` catches misses).

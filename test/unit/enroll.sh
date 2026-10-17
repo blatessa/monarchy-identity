@@ -19,6 +19,11 @@ grep -q 'netbios name = LAPTOP-0042' "$T/etc/samba/smb.conf" && grep -q 'ldap_sa
 oi policy show; [[ $OUT == *"LAPTOP-0042 in OU=Laptops"* ]] && ok "policy show reports name and OU" || bad "policy show: $OUT"
 oi leave --admin Administrator --password-file "$T/oi.pw" </dev/null; called 'net ads leave -S dc.corp.test -U Administrator' && ok "leave --password-file deletes the account" || bad "leave"
 
+echo "[NetBIOS domain name differs from the realm's first label]"
+sandbox; echo "$PW" > "$T/oi.pw"; chmod 600 "$T/oi.pw"
+OUT=$(STUB_NETBIOS=BAD unshare -r "$OIBIN" enroll --realm CORP.TEST --server dc.corp.test "${G[@]}" --password-file "$T/oi.pw" </dev/null 2>&1)
+grep -q '^  workgroup = BAD$' "$T/etc/samba/smb.conf" && ok "workgroup is the DC's NetBIOS name (BAD), not CORP" || { bad "workgroup"; grep workgroup "$T/etc/samba/smb.conf"; }
+
 echo "[password from OI_ADMIN_PASSWORD_FILE; wrong password in a file]"
 sandbox; echo "$PW" > "$T/oi.pw"; chmod 600 "$T/oi.pw"
 OUT=$(OI_ADMIN_PASSWORD_FILE=$T/oi.pw unshare -r "$OIBIN" enroll --realm CORP.TEST --server dc.corp.test "${G[@]}" </dev/null 2>&1)
