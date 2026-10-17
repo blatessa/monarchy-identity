@@ -6,8 +6,8 @@
 // state: "unavailable" | "local" | "ok" | "warn"
 //   unavailable  CLI missing, errored, or printed something unparseable
 //   local        parsed fine, machine is not enrolled
-//   ok           enrolled, no posture warnings
-//   warn         enrolled, but autologin is on or local wheel members exist
+//   ok           enrolled, people sign in themselves
+//   warn         enrolled, but autologin signs a local user in at boot
 
 function unavailable(reason) {
   return {
@@ -19,12 +19,6 @@ function unavailable(reason) {
   }
 }
 
-function wheelList(value) {
-  if (Array.isArray(value)) return value.map(String).filter(function(s) { return s !== "" })
-  return String(value === undefined || value === null ? "" : value)
-    .split(",").map(function(s) { return s.trim() }).filter(function(s) { return s !== "" })
-}
-
 function parse(text) {
   var data
   try { data = JSON.parse(String(text || "")) } catch (e) { return unavailable("unparseable output") }
@@ -34,12 +28,10 @@ function parse(text) {
   var provider = String(data.provider || "local")
   var mode = String(data.login_mode || "none")
   var autologin = data.autologin === true
-  var wheel = wheelList(data.wheel_members)
 
   var warnings = []
   if (data.enrolled) {
     if (autologin) warnings.push("Autologin is enabled")
-    if (wheel.length > 0) warnings.push("Local admins: " + wheel.join(", "))
   }
 
   var state = !data.enrolled ? "local" : (warnings.length > 0 ? "warn" : "ok")
@@ -56,8 +48,7 @@ function parse(text) {
       { label: "Enrolled", value: data.enrolled ? "yes" : "no" },
       { label: "Provider", value: provider },
       { label: "Login mode", value: mode },
-      { label: "Autologin", value: autologin ? "on" : "off" },
-      { label: "Local admins", value: wheel.length > 0 ? wheel.join(", ") : "none" }
+      { label: "Autologin", value: autologin ? "on" : "off" }
     ]
   }
 }

@@ -4,10 +4,10 @@ Optional Omarchy bar widget that shows the output of `monarchy-identity status -
 
 - `not enrolled`: the machine is on the `local` provider.
 - `enrolled`: provider name, login mode, no warnings.
-- warning (urgent colour): enrolled, but autologin is on or local `wheel` members exist.
+- warning (urgent colour): enrolled, but autologin is on.
 - `identity: unavailable`: the CLI is missing, errored, timed out, or printed bad JSON.
 
-Click for the full posture panel; middle-click to refresh. Poll interval is
+Click for the status panel; middle-click to refresh. Poll interval is
 `refreshIntervalSec` (default 60).
 
 ## This is NOT a security boundary

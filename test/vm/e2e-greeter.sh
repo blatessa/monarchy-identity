@@ -2,12 +2,8 @@
 # Real SDDM greeter test: type credentials with QEMU sendkey into the actual greeter (X11 greeter, our
 # monarchy-identity theme, real PAM stack) and check that sessions start / don't start. Needs DC + VM
 # (started by run.sh with its monitor socket). Screenshots land in $SHOTS (default: a temp dir, printed).
-set -u
-H="$(cd "$(dirname "$0")" && pwd)"; cd "$H"
-V=(ssh -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -p 2222 tester@127.0.0.1)
-PW='Passw0rd!Test'; fail=0
+source "$(dirname "$0")/lib.sh"
 SHOTS=${SHOTS:-$(mktemp -d)}; echo "screenshots: $SHOTS"
-ok() { printf '  PASS %s\n' "$1"; }; bad() { printf '  FAIL %s\n' "$1"; fail=1; }
 shot() { ./qmon.py shot "$SHOTS/$1.png" 2>/dev/null; }
 sessions() { "${V[@]}" 'sudo wc -l < /run/oi-test/session.log 2>/dev/null || echo 0'; }
 last_user() { "${V[@]}" 'sudo tail -1 /run/oi-test/session.log 2>/dev/null | cut -d" " -f1'; }
@@ -45,7 +41,7 @@ tar -C fixtures -czf - omarchy-theme-assets oi-test-session oi-test.desktop | "$
 "${V[@]}" 'sudo rm -rf /run/oi-test; sudo install -d -m 0777 /run/oi-test; sudo install -m 0666 /dev/null /run/oi-test/session.log'
 echo "$PW" | "${V[@]}" 'sudo systemctl stop sddm; sudo /usr/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 "${V[@]}" 'sudo rm -rf /home/alice /home/bob /home/carol /var/lib/sddm/state.conf /run/oi-test/logout; for u in alice bob carol tester; do sudo faillock --user $u --reset 2>/dev/null; done'
-out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users --disable-autologin" 2>&1)
+out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/monarchy-identity enroll$(q $LAB --groups oi-laptop-users)" 2>&1)
 [[ $out == *"enrolled in"* ]] && ok enroll || { bad enroll; echo "$out" | sed 's/^/      /'; }
 "${V[@]}" 'printf "[General]\nDisplayServer=x11\n" | sudo tee /etc/sddm.conf.d/zz-vm-x11.conf >/dev/null; sudo systemctl start sddm'
 for _ in $(seq 40); do sleep 1; [[ $("${V[@]}" 'sudo journalctl -u sddm --no-pager -o cat | grep -c "Greeter session started successfully"') -ge 1 ]] && break; done; sleep 4
@@ -82,4 +78,4 @@ logout_graphical
 "${V[@]}" 'sudo systemctl stop sddm; sudo rm -f /etc/sddm.conf.d/zz-vm-x11.conf' >/dev/null 2>&1
 echo "$PW" | "${V[@]}" 'sudo /usr/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 "${V[@]}" 'sudo pacman -R --noconfirm monarchy-identity' >/dev/null 2>&1   # leave the VM unpackaged, as other suites expect
-((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"
+result

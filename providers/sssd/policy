@@ -4,8 +4,8 @@
 #
 # Change WHO may sign in (and sudo / cache lifetime) on an already-enrolled machine: no re-join, no directory
 # credentials needed. Only the options you pass change; the rest keep their current values. `--sudo-groups -`
-# removes sudo access. Fails closed: a change that leaves mode=groups with no groups is refused, and if the new
-# configuration cannot resolve its group the previous one is restored.
+# removes sudo access. A change that leaves mode=groups with no groups, or names a group the directory does not
+# have, is refused before anything is written.
 set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/sssd/lib.sh"
@@ -51,19 +51,15 @@ case $mode in
   any) ;; *) die "bad --mode '$mode' (groups|assigned|any)";;
 esac
 
-d=$(realm_lc "$realm"); fqdn="${nb,,}.$d"
-old=$(mktemp); cp -a "$ETC/sssd/sssd.conf" "$old"
-restore() { cp -a "$old" "$ETC/sssd/sssd.conf"; sssd_restart 2>/dev/null || true; wait_sssd_online "$d" 30 || true; }
+if [[ $mode == groups ]]; then   # sssd resolves groups whatever the current access rule is
+  IFS=, read -ra gl <<<"$groups"
+  for g in "${gl[@]}"; do getent group "$g" >/dev/null 2>&1 || die "the directory has no group named '$g' (or it cannot be reached); policy unchanged"; done
+fi
 
+d=$(realm_lc "$realm"); fqdn="${nb,,}.$d"
 write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn" "$nb" "$offline_days"
 sssd_restart
 wait_sssd_online "$d" 30 || log "WARNING: sssd did not report online within 30s (directory unreachable?); policy is applied and will take effect when it reconnects"
-if [[ $mode == groups ]]; then
-  probe=${groups%%,*}
-  for _ in $(seq 30); do getent group "$probe" >/dev/null 2>&1 && break; sleep 1; done
-  getent group "$probe" >/dev/null 2>&1 || { restore; rm -f "$old"; die "group '$probe' is not resolvable; previous policy restored"; }
-fi
 if [[ -n $sudo_groups ]]; then sudoers_apply "$sudo_groups"; else sudoers_remove; fi
 sssd_save_state
-rm -f "$old"
 log "policy updated: mode=$mode groups=${groups:--} users=${users:--} sudo=${sudo_groups:--} offline_days=$offline_days"

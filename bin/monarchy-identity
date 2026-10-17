@@ -1,23 +1,20 @@
 #!/bin/bash
-# monarchy-identity: directory enrollment, login policy, posture reporting.
+# monarchy-identity: directory sign-in for Omarchy (enroll, who may sign in, leave).
 set -euo pipefail
 
 ROOT="${MONARCHY_IDENTITY_ROOT:-/usr/share/monarchy-identity}"
 [[ -d $ROOT/providers ]] || ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 export OI_ROOT="$ROOT"
 source "$ROOT/lib/common.sh"
-source "$ROOT/lib/posture.sh"
 CONF="$OI_CONF"
 
 usage() {
   cat <<EOF
 Usage: monarchy-identity <command>
 
-  status [--json]            Show enrollment and posture
+  status [--json]            Show enrollment and sign-in state
   enroll --realm R --groups G  Join the directory and set who may sign in (see: enroll --help)
-  leave                      Unenroll and restore previous config
-  check [--json]             Evaluate posture against /etc/monarchy-identity/policy.toml (exit 1 if non-compliant)
-  confirm                    Cancel the pending auto-revert (after verifying login works; root)
+  leave                      Leave the directory and remove this tool's sign-in changes
   policy show|set [opts]     Show or change who may sign in without re-joining: --groups --users --sudo-groups --offline-days
   reassert                   Re-apply managed /etc edits (run after updates; root)
   install-hooks              Install the post-update hook for the current user (not root)
@@ -32,8 +29,6 @@ json_escape() { local s=${1//\\/\\\\}; s=${s//\"/\\\"}; printf '%s' "$s"; }
 
 autologin_enabled() { [[ -n $(sddm_autologin_user) ]]; }
 
-wheel_members() { getent group wheel | cut -d: -f4; }
-
 cmd_status() {
   local json=0; [[ ${1:-} == --json ]] && json=1
   local provider mode enrolled=false autologin=false
@@ -41,27 +36,18 @@ cmd_status() {
   mode=$(conf_get login_mode none)
   [[ $provider != local ]] && enrolled=true
   autologin_enabled && autologin=true
-  local wheel; wheel=$(wheel_members)
   local details="" k v
   if [[ $enrolled == true && -x $ROOT/providers/$provider/status ]]; then
     while IFS='=' read -r k v; do details+="${details:+,}\"$k\":\"$(json_escape "$v")\""; done \
       < <("$ROOT/providers/$provider/status" 2>/dev/null)
   fi
   if ((json)); then
-    local selfheal; selfheal=$(watch_active && echo true || echo false)
-    printf '{"schema":1,"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"revert_pending":%s,"self_heal":%s,"wheel_members":"%s","login_theme":"%s","username_field":%s,"details":{%s},' \
-      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(revert_pending && echo true || echo false)" "$selfheal" "$(json_escape "$wheel")" "$(json_escape "$(sddm_theme_effective)")" "$([[ $(sddm_theme_effective) == "$IDENTITY_THEME" ]] && echo true || echo false)" "$details"
-    printf '"device":{"hostname":"%s","os":"%s","omarchy":"%s","kernel":"%s"},' \
-      "$(json_escape "$(uname -n)")" "$(json_escape "$(posture_os)")" "$(json_escape "$(posture_omarchy_version)")" "$(json_escape "$(uname -r)")"
-    printf '"compliance":{"disk_encryption":"%s","firewall":"%s","secure_boot":"%s","tpm2":"%s","screen_lock_seconds":"%s","time_sync":"%s"}}\n' \
-      "$(posture_disk_encryption)" "$(posture_firewall)" "$(posture_secure_boot)" "$(posture_tpm2)" "$(posture_screen_lock_seconds)" "$(posture_time_sync)"
+    printf '{"schema":2,"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"login_theme":"%s","username_field":%s,"details":{%s}}\n' \
+      "$enrolled" "$(json_escape "$provider")" "$(json_escape "$mode")" "$autologin" "$(json_escape "$(sddm_theme_effective)")" "$([[ $(sddm_theme_effective) == "$IDENTITY_THEME" ]] && echo true || echo false)" "$details"
   else
     row() { printf '%-16s %s\n' "$1" "$2"; }
     row "enrolled:" "$enrolled"; row "provider:" "$provider"; row "login mode:" "$mode"
-    row "autologin:" "$autologin"; row "revert pending:" "$(revert_pending && echo true || echo false)"
-    row "wheel members:" "${wheel:-none}"
-    row "disk encrypted:" "$(posture_disk_encryption)"; row "firewall:" "$(posture_firewall)"
-    row "secure boot:" "$(posture_secure_boot)"; row "tpm2:" "$(posture_tpm2)"; row "time sync:" "$(posture_time_sync)"
+    row "autologin:" "$autologin"
   fi
 }
 
@@ -74,7 +60,7 @@ run_provider() { # run_provider <provider> <action> [args]
   "$s" "$@"
 }
 
-case "${1:-}" in enroll|leave|reassert|confirm|policy) [[ $EUID -eq 0 ]] && oi_lock ;; esac
+case "${1:-}" in enroll|leave|reassert|policy) [[ $EUID -eq 0 ]] && oi_lock ;; esac
 case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;
@@ -90,10 +76,6 @@ case "${1:-}" in
       if command -v omarchy >/dev/null 2>&1; then omarchy hook install post-update "$hook_src"   # Omarchy's own installer
       else install -D -m 0755 "$hook_src" "$hook_dst"; echo "installed $hook_dst"; fi
     else rm -f "$hook_dst"; echo "removed $hook_dst"; fi ;;
-  check)
-    shift; pol="${MONARCHY_IDENTITY_POLICY:-/etc/monarchy-identity/policy.toml}"
-    [[ -r $pol ]] || { echo "no policy file at $pol (see https://blatessa.github.io/monarchy-identity/reference/policy-file/)" >&2; exit 2; }
-    cmd_status --json | python3 -I "$ROOT/lib/check.py" "$pol" "$@" ;;
   install-widget|remove-widget)
     [[ $EUID -ne 0 ]] || { echo "run as the desktop user, not root (Omarchy plugins live in ~/.config/omarchy/plugins)" >&2; exit 1; }
     wsrc="$ROOT/shell-plugin"; [[ -f $wsrc/manifest.json ]] || { echo "widget not found at $wsrc (install the monarchy-identity-shell package)" >&2; exit 1; }
@@ -109,7 +91,6 @@ case "${1:-}" in
       echo "installed $wid -> $wdst"
       if [[ ${2:-} == --enable ]]; then omarchy plugin enable "$wid" --section right; else echo "enable it with: omarchy plugin enable $wid --section right"; fi
     fi ;;
-  confirm) [[ $EUID -eq 0 ]] || { echo "this needs administrator rights: run it with sudo" >&2; exit 1; }; if revert_pending; then revert_cancel; log "enrollment confirmed; auto-revert cancelled"; else echo "no auto-revert pending"; fi ;;
   policy) shift; run_provider "$(conf_get provider local)" policy "$@" ;;
   reassert) run_provider "$(conf_get provider local)" reassert ;;
   leave) shift; run_provider "$(conf_get provider local)" unenroll "$@" ;;

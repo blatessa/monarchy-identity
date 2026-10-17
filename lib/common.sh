@@ -1,6 +1,5 @@
 # shared helpers for providers. Sourced, not executed.
 OI_CONF="${MONARCHY_IDENTITY_CONF:-/etc/monarchy-identity/config.toml}"
-OI_STATE="${MONARCHY_IDENTITY_STATE:-/var/lib/monarchy-identity}"
 OI_ROOT="${OI_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ETC="${MONARCHY_IDENTITY_ETC:-/etc}"   # overridable for tests
 
@@ -21,17 +20,9 @@ conf_write() { # conf_write key=value ... (rewrites whole file, root:root 0644)
   chmod 0644 "$OI_CONF.tmp"; mv "$OI_CONF.tmp" "$OI_CONF"
 }
 
-# backup_file <path>: save the ORIGINAL once (never overwrite an existing backup).
-backup_file() {
-  local f=$1 d="$OI_STATE/backup"
-  install -d -m 0700 "$d"
-  local b="$d/$(echo "$f" | tr / _)"
-  if [[ -e $f && ! -e $b ]]; then cp -a "$f" "$b"; elif [[ ! -e $f && ! -e $b && ! -e $b.absent ]]; then : > "$b.absent"; fi
-}
-restore_file() {
-  local f=$1 b="$OI_STATE/backup/$(echo "$1" | tr / _)"
-  if [[ -e $b ]]; then cp -a "$b" "$f"; elif [[ -e $b.absent ]]; then rm -f "$f"; fi
-}
+# Files we write carry this marker; `leave` deletes only files that have it.
+OI_MARK="# managed by monarchy-identity"
+remove_if_ours() { local f; for f in "$@"; do [[ -f $f ]] && grep -qF "$OI_MARK" "$f" && rm -f "$f"; done; return 0; }
 
 # --- SDDM autologin ---------------------------------------------------------------------------
 # SDDM merges $SDDM_CONF_D/*.conf in C-locale name order; the LAST [Autologin] User= wins. Omarchy's
@@ -55,7 +46,7 @@ sddm_conf_value() { # sddm_conf_value Section Key -> effective value (last file 
 }
 sddm_autologin_user() { sddm_conf_value Autologin User; }   # prints the effective autologin user ("" if none)
 
-sddm_autologin_disable() { # idempotent: only writes when content differs (a path unit watches this dir)
+sddm_autologin_disable() { # idempotent: only writes when content differs
   local want=$'# managed by monarchy-identity: disables autologin on managed machines\n[Autologin]\nUser=\nSession=\n'
   install -d -m 0755 "$SDDM_CONF_D"
   [[ -f $SDDM_OVERRIDE && $(cat "$SDDM_OVERRIDE") == "${want%$'\n'}" ]] && return 0
@@ -63,37 +54,11 @@ sddm_autologin_disable() { # idempotent: only writes when content differs (a pat
 }
 sddm_autologin_restore() { rm -f "$SDDM_OVERRIDE"; }
 
-# --- lockout safety -----------------------------------------------------------------------------
-# Local accounts (files only, not sssd) a human could still log in with if the directory is broken:
-# uid>=1000, a real shell, and a usable password hash in /etc/shadow.
-local_fallback_users() {
-  local name pw uid shell
-  while IFS=: read -r name _ uid _ _ _ shell; do
-    [[ $uid -ge 1000 && $uid -lt 60000 ]] || continue
-    [[ $shell != */nologin && $shell != */false && -n $shell ]] || continue
-    pw=$(getent -s files shadow "$name" 2>/dev/null | cut -d: -f2)
-    [[ -n $pw && $pw != '!'* && $pw != '*'* ]] && echo "$name"
-  done < <(getent -s files passwd)
-}
-
-REVERT_UNIT="monarchy-identity-revert"
-revert_schedule() { # minutes
-  systemd-run --quiet --unit="$REVERT_UNIT" --on-active="${1}m" --description="monarchy-identity auto-revert (unconfirmed enrollment)" \
-    env OI_ROOT="$OI_ROOT" "$OI_ROOT/bin/monarchy-identity" leave >/dev/null
-}
-revert_cancel()  { systemctl stop "$REVERT_UNIT.timer" "$REVERT_UNIT.service" 2>/dev/null || true; }
-revert_pending() { systemctl is-active --quiet "$REVERT_UNIT.timer" 2>/dev/null; }
-
-# --- serialization + self-heal watcher ----------------------------------------------------------
-# Every state-changing command takes this lock, so the path-triggered reassert can never interleave
-# with enroll/leave (it would otherwise re-add edits that leave is removing).
+# --- serialization -------------------------------------------------------------------------------
+# Every state-changing command takes this lock, so a post-update reassert can never interleave with
+# enroll/leave (it would otherwise re-add edits that leave is removing).
 OI_LOCK="${MONARCHY_IDENTITY_LOCK:-/run/monarchy-identity.lock}"
 oi_lock() { exec 9>"$OI_LOCK" && flock 9; }
-
-WATCH_UNIT="monarchy-identity-reassert.path"
-watch_enable()  { systemctl cat "$WATCH_UNIT" >/dev/null 2>&1 && systemctl enable --now "$WATCH_UNIT" >/dev/null 2>&1 || true; }
-watch_disable() { systemctl disable --now "$WATCH_UNIT" >/dev/null 2>&1 || true; }
-watch_active()  { systemctl is-active --quiet "$WATCH_UNIT" 2>/dev/null; }
 
 # --- admin credential input ---------------------------------------------------------------------
 # read_admin_password [file]: sets $pw from FILE (or $OI_ADMIN_PASSWORD_FILE), else first line of stdin.
@@ -136,7 +101,7 @@ sddm_theme_restore() { rm -f "$SDDM_THEME_CONF"; }
 # (a broken sudoers file can lock out root access). Names are restricted so no escaping is needed.
 SUDOERS_FILE="${MONARCHY_IDENTITY_SUDOERS:-/etc/sudoers.d/50-monarchy-identity}"
 valid_sudo_groups() { local g IFS=,; [[ -n $1 ]] || return 1; for g in $1; do [[ $g =~ ^[A-Za-z0-9._-]{1,64}$ ]] || return 1; done; }
-sudoers_apply() { # sudoers_apply "g1,g2"  -- idempotent: untouched file => no write (a path unit watches this dir)
+sudoers_apply() { # sudoers_apply "g1,g2"  -- idempotent: untouched file => no write
   valid_sudo_groups "$1" || die "invalid --sudo-groups '$1' (letters, digits, . _ - only; no spaces)"
   local want g IFS=,
   want="# managed by monarchy-identity: directory groups with sudo"
