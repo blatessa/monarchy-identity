@@ -18,4 +18,4 @@ A mistake here locks users (including root, over SSH) out of a machine. The host
 
 ## Verify
 - `test/unit/*.sh`, then in the VM: `e2e.sh` (twice), `e2e-services.sh`, `e2e-resilience.sh` (module missing / sssd down must not lock out locals), `e2e-failure.sh` (failed enrolment changes nothing), `e2e-package.sh`; add `e2e-greeter.sh` for theme/SDDM changes.
-- Update the reference docs and add a line to `docs/dev/findings.md` if you learned something non-obvious.
+- Update the docs (`docs/reference/files.md`, `docs/concepts/*`, per the map in AGENTS.md) and add a line to `docs/dev/findings.md` if you learned something non-obvious.

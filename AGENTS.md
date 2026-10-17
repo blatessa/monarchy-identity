@@ -55,8 +55,22 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 - Failure paths leave the machine as found; `leave` restores the original files.
 - New PAM edit: goes through `lib/pamedit.py`, rule is `-`-prefixed, safe when `pam_sss.so` is missing, has a remove/idempotency test.
 - Anything the CLI sources is also installed by `packaging/PKGBUILD` (`test/vm/e2e-package.sh` catches misses).
-- Docs updated for behaviour/flag changes (reference pages must match the code); a non-obvious lesson goes into `docs/dev/findings.md`.
+- **Docs considered.** Ask "does a user or admin see this change?" Not every change needs a docs edit, but decide deliberately, and say in the commit/PR what you did ("docs: updated X" or "docs: none, internal"). See the map below. Run `mkdocs build --strict` when you touch `docs/` (CI does too).
+- A non-obvious lesson goes into `docs/dev/findings.md`.
 - CI is green (`gh run list`).
+
+## Which docs does a change touch?
+| You changed | Update |
+|---|---|
+| CLI command, flag, output, exit code (`bin/`, `providers/*/enroll`) | `docs/reference/cli.md`, and the guide that uses it |
+| `status --json` fields (`lib/posture.sh`, `bin/`) | `docs/reference/posture.md` |
+| `policy.toml` rules (`lib/check.py`, `packaging/policy.example.toml`) | `docs/reference/policy-file.md`, `docs/guides/compliance-checks.md` |
+| `config.toml` keys, files or services we write | `docs/reference/config-file.md`, `docs/reference/files.md` |
+| Login policy, safety, drift repair behaviour | `docs/concepts/*` |
+| Provider behaviour or a new provider | `docs/providers/*` |
+| Verified/unverified status, known limits | `docs/status.md` |
+| Lab, test, release workflow | `docs/dev/testing.md` |
+| Internal only (refactor, test-only) | usually nothing |
 
 ## Conventions
 - Bash with `set -euo pipefail`; quote everything; no new runtime deps without updating PKGBUILD.
