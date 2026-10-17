@@ -1,5 +1,7 @@
 # monarchy-identity
 
+[![CI](https://github.com/blatessa/monarchy-identity/actions/workflows/ci.yml/badge.svg)](https://github.com/blatessa/monarchy-identity/actions/workflows/ci.yml)
+
 Corporate sign-in for [Omarchy](https://omarchy.org), and the identity component of **Monarchy**, a management
 suite that aims to make Omarchy a practical work computer.
 

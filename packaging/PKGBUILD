@@ -5,7 +5,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc='Provider-agnostic corporate identity (directory login, policy, posture) for Omarchy'
 arch=(any)
-url='https://example.invalid/monarchy-identity'
+url='https://github.com/blatessa/monarchy-identity'
 license=('MIT')
 options=(!strip)
 

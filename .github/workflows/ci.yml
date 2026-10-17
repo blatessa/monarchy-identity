@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Unit tests and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y shellcheck python3 nodejs
+      - name: Shellcheck (errors only)
+        run: |
+          shellcheck -S error -s bash $(git ls-files '*.sh') bin/monarchy-identity \
+            providers/*/detect providers/*/enroll providers/*/unenroll providers/*/reassert providers/*/status
+      - name: Python syntax
+        run: python3 -m py_compile lib/*.py
+      - name: Input validation, naming, compliance check
+        run: |
+          bash test/unit/validation.sh
+          bash test/unit/naming.sh
+          bash test/unit/check.sh
+      - name: Reassert hook
+        run: bash hooks/test-reassert.sh
+      - name: Shell widget
+        run: bash shell-plugin/tests/run.sh
+
+  package:
+    name: Build the Arch package
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install git
+        run: pacman -Syu --noconfirm git
+      - uses: actions/checkout@v4
+      - name: makepkg
+        run: |
+          useradd -m builder
+          chown -R builder: "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cd packaging && su builder -c 'makepkg -f --nodeps --noconfirm'
+      - name: Check package contents
+        run: |
+          for p in packaging/monarchy-identity-*.pkg.tar.*; do echo "== $p"; bsdtar -tf "$p" | grep -v '/$'; done
+          bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/bin/monarchy-identity
+          bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/share/doc/monarchy-identity/ADMIN.md
+          bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/share/doc/monarchy-identity/img/status.png

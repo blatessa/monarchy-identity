@@ -4,6 +4,10 @@ Never test PAM/sssd/nsswitch/SDDM changes on a real machine. Use the lab: a thro
 loopback only) and an Arch client VM (QEMU/KVM, UEFI, user-mode net, host = 10.0.2.2). The VM is stock Arch with
 Omarchy's PAM/SDDM files copied in as fixtures, not a full Omarchy install.
 
+## CI
+GitHub Actions (`.github/workflows/ci.yml`) runs the unit tests, shellcheck (errors), the hook and widget tests, and builds
+the Arch package in a container. The VM/Samba suites need KVM and Docker and are run locally (`test/run-all.sh`).
+
 ## Bring-up
     cd test/dc && docker compose up -d && ./seed-users.sh
     cd ../vm && ./fetch-image.sh                                   # once, checksum-verified
