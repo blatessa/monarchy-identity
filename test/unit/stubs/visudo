@@ -1,0 +1,4 @@
+#!/bin/bash
+# Stand-in for visudo -cf FILE; STUB_VISUDO_FAIL=1 makes it reject.
+echo "visudo $*" >> "$STUB_LOG"
+[[ -z ${STUB_VISUDO_FAIL:-} ]]

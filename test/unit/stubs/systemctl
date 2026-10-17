@@ -1,0 +1,9 @@
+#!/bin/bash
+# Stand-in for systemctl: sssd is "active" once started, until stopped or disabled.
+echo "systemctl $*" >> "$STUB_LOG"
+case $1 in
+  is-active) [[ -e $STUB_STATE/sssd-active ]]; exit ;;
+  start|restart|enable) touch "$STUB_STATE/sssd-active" ;;
+  stop|disable) rm -f "$STUB_STATE/sssd-active" ;;
+esac
+exit 0

@@ -35,6 +35,22 @@ something.
 - `net ads search -U admin` checks the password, DC reachability and group names in one go, before anything is joined.
   An empty result still exits 0 ("Got 0 replies"): match the attribute line, not the exit code.
 
+## Stubs in the fast layer (`test/unit/stubs/`)
+The fast layer runs the real CLI with stub commands first on `PATH`. A stub is only as good as the output it copies; these shapes were
+captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
+- `net ads search -S dc -U Administrator '(&(objectClass=group)(sAMAccountName=oi-laptop-users))' sAMAccountName distinguishedName`
+  prints a blank line, `Got 1 replies`, a blank line, then `sAMAccountName: oi-laptop-users` and
+  `distinguishedName: CN=oi-laptop-users,CN=Users,DC=corp,DC=test`; no match prints `Got 0 replies` and still exits 0.
+- A wrong password prints `ads_startup_int: ads_connect_creds: Invalid credentials` and exits 255. A computer lookup
+  (`(sAMAccountName=NAME$)`) has the same shape as the group lookup.
+- Not observed, so assumed: the output when the DC is unreachable. The stub only fails with exit 255, which is all
+  `directory_missing_groups` looks at (any non-zero exit); `e2e-offline` checks the real refusal.
+- `systemctl is-active` must exit non-zero when the unit is down. A stub that ends in `exit 0` after the `case` made
+  every provider status check report healthy.
+- The fast layer runs as fake root with `unshare -r`. On Ubuntu runners, AppArmor blocks that unless
+  `kernel.apparmor_restrict_unprivileged_userns=0` (CI sets it). Files created there are owned by uid 0, so the
+  password-file ownership check behaves as it does for real root.
+
 ## Test lab
 - `deploy.sh` WITHOUT `--fixtures` keeps the current PAM files; WITH it resets `/etc/pam.d` to stock Omarchy (undoes edits).
 - `run.sh`'s cloud-init seed server (python http.server :8000) can be a STALE process from a renamed directory: the VM

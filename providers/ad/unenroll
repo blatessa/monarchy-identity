@@ -22,6 +22,7 @@ if [[ -f $ETC/sssd/sssd.conf ]]; then
 fi
 remove_if_ours "$ETC/krb5.conf" "$ETC/samba/smb.conf" "$ETC/sssd/sssd.conf"
 rm -f "$ETC/krb5.keytab"
-rm -rf /var/lib/sss/db/* /var/lib/sss/mc/* 2>/dev/null || true
+sss=${MONARCHY_IDENTITY_SSS_DIR:-/var/lib/sss}   # overridable for tests
+rm -rf "$sss"/db/* "$sss"/mc/* 2>/dev/null || true
 conf_write provider=local login_mode=none
 ((quiet)) || log "left the directory; sign-in changes removed"

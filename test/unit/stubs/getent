@@ -1,0 +1,6 @@
+#!/bin/bash
+# Stand-in for getent: only `getent group NAME`, answered from STUB_GROUPS (what sssd can resolve).
+[[ $1 == group ]] || exit 2
+IFS=, read -ra l <<<"${STUB_GROUPS:-}"
+for x in "${l[@]}"; do [[ $x == "$2" ]] && { echo "$2:*:1000:"; exit 0; }; done
+exit 2

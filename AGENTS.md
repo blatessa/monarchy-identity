@@ -42,7 +42,7 @@ Status: prototype; only the AD provider exists, verified in a VM against Samba A
 Prerequisites for the lab: Docker, QEMU/KVM + OVMF, ssh, python3, node (widget tests). Details: `docs/dev/testing.md`.
 
     test/lab-check.sh                 # prerequisites + lab state; prints the exact fix for anything missing
-    bash test/unit/validation.sh; bash test/unit/naming.sh                             # no lab needed, seconds
+    test/unit/run.sh                                                                   # fast layer: real CLI, temp /etc, stub commands; seconds, no lab or root
     bash hooks/test-reassert.sh; bash shell-plugin/tests/run.sh                        # no lab needed
     cd test/dc && docker compose up -d && ./seed-users.sh                              # directory
     (cd test/vm && ./fetch-image.sh && (setsid ./run.sh </dev/null >vm.log 2>&1 &))   # VM; makes its own ssh key; first boot ~1 min
@@ -53,7 +53,10 @@ Prerequisites for the lab: Docker, QEMU/KVM + OVMF, ssh, python3, node (widget t
 Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, password `Passw0rd!Test`.
 
 ## Definition of done
-- Unit tests pass; for anything touching enroll/unenroll/PAM/sssd/SDDM, the relevant e2e suites pass in the VM.
+- Two test layers (`docs/dev/testing.md`). The fast layer (`test/unit/run.sh`) always passes and is where logic gets
+  tested: validation, refusals, generated config, PAM/nsswitch/SDDM edits, `leave`, `status --json`. The lab
+  (`test/vm/e2e*.sh`) is required when a change touches what only real sssd, PAM or a directory can show: enroll/join,
+  sign-in through the PAM stack, offline cache, the package; add `e2e-greeter.sh` for login-screen changes.
   Suites must not depend on what ran before them: start from `fresh`, and cover a fresh vs an existing computer
   account explicitly rather than by re-running.
 - `enroll` checks everything the directory can reject before it changes sign-in; `leave` removes every change enroll made.

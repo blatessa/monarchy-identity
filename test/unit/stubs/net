@@ -1,0 +1,28 @@
+#!/bin/bash
+# Stand-in for samba's `net`. State: $STUB_STATE/joined; knobs: STUB_PW (the join password), STUB_GROUPS and
+# STUB_COMPUTERS (comma lists the "directory" holds), STUB_DC_DOWN. Output shapes: docs/dev/findings.md.
+echo "net $*" >> "$STUB_LOG"
+[[ ${1:-} == ads ]] || exit 1
+sub=$2; shift 2
+creds() { # the directory refuses a wrong password; a DC that is down refuses everything
+  local p; IFS= read -r p || p=""
+  [[ -z ${STUB_DC_DOWN:-} ]] || { echo "Didn't find the ldap server!" >&2; exit 255; }
+  [[ $p == "${STUB_PW:-Passw0rd!Test}" ]] || { echo "ads_startup_int: ads_connect_creds: Invalid credentials" >&2; exit 255; }
+}
+has() { local x i=${1,,}; IFS=, read -ra l <<<"$2"; for x in "${l[@]}"; do [[ ${x,,} == "$i" ]] && return 0; done; return 1; }
+case $sub in
+  search)
+    creds
+    for f in "$@"; do [[ $f == \(* ]] && filter=$f; done
+    if [[ $filter =~ sAMAccountName=([^\)]+)\)\)?$ ]]; then n=${BASH_REMATCH[1]}; fi
+    if [[ $filter == *objectClass=group* ]] && has "$n" "${STUB_GROUPS:-}"; then
+      printf '\nGot 1 replies\n\nsAMAccountName: %s\ndistinguishedName: CN=%s,CN=Users,DC=corp,DC=test\n\n' "$n" "$n"
+    elif [[ $filter != *objectClass=group* ]] && has "${n%\$}" "${STUB_COMPUTERS:-}"; then
+      printf '\nGot 1 replies\n\ndistinguishedName: CN=%s,CN=Computers,DC=corp,DC=test\n\n' "${n%\$}"
+    else printf '\nGot 0 replies\n\n'; fi ;;
+  join) creds; touch "$STUB_STATE/joined"; printf 'keytab\n' > "$MONARCHY_IDENTITY_ETC/krb5.keytab" ;;
+  keytab) creds; printf 'keytab\n' > "$MONARCHY_IDENTITY_ETC/krb5.keytab" ;;
+  testjoin) [[ -e $STUB_STATE/joined ]] ;;
+  leave) [[ " $* " != *" -U "* ]] || creds; rm -f "$STUB_STATE/joined" ;;
+  *) exit 1 ;;
+esac

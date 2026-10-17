@@ -28,13 +28,14 @@ jobs:
       - name: Shellcheck (errors only)
         run: |
           shellcheck -S error -s bash $(git ls-files '*.sh') bin/monarchy-identity \
-            providers/*/detect providers/*/enroll providers/*/unenroll providers/*/reassert providers/*/status
+            providers/*/detect providers/*/enroll providers/*/unenroll providers/*/reassert providers/*/status \
+            test/unit/stubs/*
       - name: Python syntax
         run: python3 -m py_compile lib/*.py
-      - name: Input validation and naming
-        run: |
-          bash test/unit/validation.sh
-          bash test/unit/naming.sh
+      - name: Allow user namespaces (the unit tests run the CLI as fake root with unshare -r)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Unit tests (the real CLI against a temp /etc with stub commands)
+        run: bash test/unit/run.sh
       - name: Reassert hook
         run: bash hooks/test-reassert.sh
       - name: Shell widget

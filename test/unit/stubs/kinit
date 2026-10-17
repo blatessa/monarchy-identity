@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "kinit $*" >> "$STUB_LOG"
+[[ -z ${STUB_KINIT_FAIL:-} ]]

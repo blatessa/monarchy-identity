@@ -1,0 +1,4 @@
+#!/bin/bash
+# Stand-in for `uname -n`: the laptop's hostname comes from STUB_HOSTNAME.
+[[ $1 == -n ]] && { echo "${STUB_HOSTNAME:-oi-client}"; exit 0; }
+exec /usr/bin/uname "$@"

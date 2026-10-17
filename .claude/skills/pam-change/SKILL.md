@@ -17,5 +17,5 @@ A mistake here locks users (including root, over SSH) out of a machine. The host
 7. New file under `lib/`, `providers/`, etc. that the CLI sources: add it to `packaging/PKGBUILD` (`test/vm/e2e-package.sh` catches misses).
 
 ## Verify
-- `test/unit/*.sh`, then in the VM: `e2e.sh` (every service, module missing / sssd down must not lock out locals), `e2e-refused.sh`, `e2e-package.sh`; add `e2e-greeter.sh` for theme/SDDM changes.
+- `test/unit/run.sh` (the edit's apply/remove/idempotency and skip counts live in `test/unit/pam.sh`), then in the VM: `e2e.sh` (every service, module missing / sssd down must not lock out locals), `e2e-package.sh`; add `e2e-greeter.sh` for theme/SDDM changes.
 - Update `docs/dev/architecture.md` (files we write) and the user docs only if people see a difference; add a line to `docs/dev/findings.md` if you learned something non-obvious.
