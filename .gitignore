@@ -4,3 +4,4 @@ test/vm/keys/
 *.pkg.tar.*
 __pycache__/
 site/
+test/vm/vm.log

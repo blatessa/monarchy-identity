@@ -14,8 +14,8 @@ Directories plug in as providers: Active Directory today; Entra ID, Okta, Google
 
 It only does sign-in. Device management (compliance, inventory, hardening) belongs to your MDM.
 
-> **Prototype.** Only the Active Directory provider exists, tested against Samba AD in a VM. Windows AD, Omarchy's own login screen and the Quickshell lock screen
-> are untested.
+> **Prototype.** Only the Active Directory provider exists. It is tested against Samba AD in a VM and has been tried by hand on a real Omarchy laptop
+> against a Windows Server domain (login screen, lock screen, console, `omarchy update`). See [status](docs/status.md) for what isn't covered.
 
 ## Quick start
 

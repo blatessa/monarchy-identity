@@ -156,8 +156,8 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 ## Not yet verified
 
-Omarchy's real greeter (SDDM inside Hyprland), the Quickshell lock screen, Windows AD, every non-AD directory (no providers yet), a real
-`omarchy update` run, and the widget in a live shell.
+The lab suites against a Windows DC (Windows Server 2025 was only tried by hand, on a real Omarchy laptop: greeter, lock screen,
+console, `omarchy update`), every non-AD directory (no providers yet), and the widget in a live shell.
 
 ## Building these docs
 

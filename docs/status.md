@@ -1,8 +1,8 @@
 # Status and limits
 
 monarchy-identity is a prototype (version 0.1.0). What's listed under "Tested" is covered by automated tests against a
-Samba AD domain and an Arch virtual machine set up with Omarchy's sign-in and login-screen files. Everything else is
-untested.
+Samba AD domain and an Arch virtual machine set up with Omarchy's sign-in and login-screen files. "Tried by hand" is what
+has been checked on a real Omarchy laptop against a Windows Server domain. Everything else is untested.
 
 ## Tested
 
@@ -19,12 +19,20 @@ Only the Active Directory provider exists so far. With it:
 - Repair after a package update overwrites the configuration; installing and removing the package.
 - The login screen theme in SDDM.
 
+## Tried by hand on real hardware
+
+On an Omarchy laptop enrolled in a Windows Server 2025 domain (one domain controller, Windows DNS):
+
+- Enrolling, with the domain's short (NetBIOS) name different from the first part of its DNS name.
+- Signing in at Omarchy's login screen, on a text console and at the lock screen, as people in the allowed group.
+- `sudo` for the people in the admin group and not for anyone else; someone outside the allowed group is refused.
+- Running `omarchy update`: sign-in kept working.
+
 ## Not tested
 
-- Windows Active Directory (only Samba AD so far).
+- The automated lab suites against a Windows domain controller (only tried by hand so far), and domains with several
+  controllers or sites.
 - Every other directory: Microsoft Entra ID, Okta, Google Workspace and FreeIPA providers aren't written yet.
-- Omarchy's own login screen session, its lock screen and a full Hyprland session.
-- A real `omarchy update`.
 - The bar widget in a live Omarchy shell.
 - Cached sign-in actually expiring after `--offline-days`.
 
@@ -32,7 +40,12 @@ Only the Active Directory provider exists so far. With it:
 
 - **Expired passwords at the login screen.** The login screen can't ask for a new password yet; change it on a text
   console or in your web portal.
-- **`su`** doesn't work for directory users, and graphical admin prompts (polkit) are unchecked.
+- **`su`** doesn't work for directory users on Arch (it never asks the directory).
+- **Graphical admin prompts.** People in the admin group are accepted as administrators, but Omarchy's prompt asks for
+  the first local administrator's password and gives no way to choose another account
+  ([#34](https://github.com/blatessa/monarchy-identity/issues/34)).
+- **Omarchy is built for one person per laptop.** The browser colour is one setting for the whole machine, and the
+  second person to run `omarchy update` fails because the first one's log file is in the way. Both are Omarchy's.
 - **`sudo`** is all-or-nothing per group.
 - **Group Policy logon rules and smart cards** aren't supported.
 
