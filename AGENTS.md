@@ -4,10 +4,12 @@ Guidance for coding agents (and humans) working in this repo. Keep it short and 
 
 ## What this is
 `monarchy-identity` is a single-purpose utility: it connects an Omarchy (Arch + Hyprland) machine's authentication to a
-directory (Active Directory / Samba AD via sssd) and keeps that working. Enroll, decide who may sign in (and who gets
+company directory and keeps that working. Directories plug in as providers: Active Directory (`providers/ad`, via
+samba + sssd) exists; Entra ID, Okta, Google Workspace and FreeIPA are equally first-class targets, so nothing outside
+`providers/<name>/` may assume AD. Enroll, decide who may sign in (and who gets
 sudo), survive updates, leave. Other tools (MDMs, agents) build on it through the CLI and `status --json`; it is not a
 platform and doesn't manage the device. It edits PAM, nsswitch, SDDM and sudoers, so mistakes lock people out.
-Status: prototype, verified only in a VM against Samba AD. Public docs are the MkDocs site in `docs/`.
+Status: prototype; only the AD provider exists, verified in a VM against Samba AD. Public docs are the MkDocs site in `docs/`.
 
 ## Before you change anything
 1. Read the hard rules below. Run `test/lab-check.sh` if the task needs the lab.
@@ -20,19 +22,19 @@ Status: prototype, verified only in a VM against Samba AD. Public docs are the M
 - Enforcement lives in root-owned `/etc`. The shell widget is cosmetic, never a security boundary.
 - Default is deny. Local accounts must keep working when sssd or `pam_sss.so` is missing or broken (that's PAM correctness, not an undo feature).
 - **Scope is authentication.** Enrollment, who may sign in, directory-provided authorization (sudo groups, offline lifetime, later GPO), keeping it working across updates, `leave`. No device posture/compliance, inventory, hardening, tamper resistance or undo machinery (timers, backups, rollback): that's the MDM's or the deployer's job. Test: would it belong in a plain Linux directory client? See `docs/dev/architecture.md#scope`.
-- No AUR dependencies (join with samba `net ads join`; home dirs via `pam_mkhomedir`).
+- No AUR dependencies (the AD provider joins with samba `net ads join`; home dirs via `pam_mkhomedir`). A directory whose client is AUR-only needs an owner decision first.
 - Don't `pkill -f` (it kills your own shell); find processes by PID. Don't commit `test/vm/images`, `test/vm/keys`, credentials or real hostnames.
 - Don't publish, tag, force-push or change repo settings without the owner asking.
 
 ## Layout
     bin/monarchy-identity    core CLI (status|enroll|leave|policy|reassert|install-hooks|install-widget|providers)
-    providers/<name>/        enroll unenroll policy reassert status detect (+lib.sh); `status` prints key=value lines
+    providers/<name>/        one per directory (ad today): enroll unenroll policy reassert status detect (+lib.sh)
     lib/                     common.sh, pamedit.py (idempotent BEGIN/END-marked PAM editor)
     sddm-theme/              login theme: Omarchy's look + a username field (stock theme only logs in the last user)
     hooks/                   reassert.sh + post-update wrapper
     packaging/               PKGBUILD (monarchy-identity + -shell), alpm hook, install scriptlet, default config
     shell-plugin/            optional Quickshell bar widget (id monarchy-identity.status)
-    test/                    dc (Samba AD container), vm (Arch QEMU client, lib.sh + e2e suites), unit
+    test/                    dc (Samba AD container for the ad provider), vm (Arch QEMU client, lib.sh + e2e suites), unit
     docs/                    MkDocs site (user-facing docs + developer pages)
     .github/workflows/       ci.yml, release.yml, docs.yml
 
@@ -76,7 +78,7 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 
 ## Conventions
 - Bash with `set -euo pipefail`; quote everything; no new runtime deps without updating PKGBUILD.
-- Provider contract: `enroll` checks everything the directory can reject before joining and edits PAM last; a re-run picks up after a failure (no rollback machinery). `unenroll` removes every change enroll made. State goes in `/etc/monarchy-identity/config.toml` (flat `key = "value"`). See `docs/dev/writing-a-provider.md`.
+- Provider contract (`docs/dev/writing-a-provider.md`): what's shared across directories lives in the core; `enroll` checks everything the directory can reject before registering and edits PAM last; a re-run picks up after a failure (no rollback machinery). `unenroll` removes every change enroll made. State goes in `/etc/monarchy-identity/config.toml` (flat `key = "value"`). See `docs/dev/writing-a-provider.md`.
 - Restart sssd ONLY via `sssd_restart` (systemd start-limit). Never call `sssctl` without `</dev/null` and `timeout` (it can prompt and hang, holding the CLI flock).
 - Test inputs that go through ssh must be `printf %q`-quoted; use `grep -F` for computer names (`$` is a regex anchor).
 - **Defaults over configuration; don't expose implementation.** The person using this is an administrator, not a

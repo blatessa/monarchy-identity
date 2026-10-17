@@ -1,6 +1,6 @@
 # Testing
 
-Never test PAM, sssd, nsswitch or SDDM changes on a real machine: a bad edit locks the owner out. Use the lab, a
+Never test PAM, sssd, nsswitch or SDDM changes on a real machine: a bad edit locks the owner out. Use the lab. For the AD provider it is a
 throwaway Samba AD domain `CORP.TEST` in Docker (published on loopback only) and an Arch client VM under QEMU/KVM
 (UEFI, user-mode networking, host address 10.0.2.2). The VM is stock Arch with Omarchy's PAM and SDDM files copied in
 as fixtures; it is not a full Omarchy install.
@@ -52,6 +52,11 @@ the Omarchy fixtures, removes the installed package, and deletes stale lab compu
 
 Lab credentials are throwaway: `Administrator`, `alice`, `bob`, `carol`, password `Passw0rd!Test`. `alice` is
 allowed and in `oi-admins`, `bob` is allowed, `carol` exists in the directory only and must be refused.
+
+## Labs for other directories
+
+Each new provider brings its own lab directory: a container where one exists (FreeIPA), otherwise a test tenant or
+a documented stand-in, chosen in the provider's issue. The client VM, `lib.sh` and the core suites are shared.
 
 ## Running the suites
 
@@ -124,7 +129,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 ## Not yet verified
 
-Omarchy's real greeter (SDDM inside Hyprland), the Quickshell lock screen, Windows AD, FreeIPA, Entra ID/OIDC, a real
+Omarchy's real greeter (SDDM inside Hyprland), the Quickshell lock screen, Windows AD, every non-AD directory (no providers yet), a real
 `omarchy update` run, and the widget in a live shell.
 
 ## Building these docs

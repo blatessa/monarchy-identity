@@ -1,7 +1,7 @@
 #!/bin/bash
 # prints key=value health lines for the core status command
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
-source "$OI_ROOT/providers/sssd/lib.sh"
+source "$OI_ROOT/providers/ad/lib.sh"
 chk() { "$@" >/dev/null 2>&1 && echo true || echo false; }
 echo "sssd_active=$(chk systemctl is-active --quiet sssd)"
 echo "nss_sss=$(chk grep -qE '^passwd:.*\bsss\b' "$ETC/nsswitch.conf")"

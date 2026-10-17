@@ -50,7 +50,7 @@ nav:
       - Status output: reference/status-output.md
   - Providers:
       - Overview: providers/index.md
-      - Active Directory (sssd): providers/sssd.md
+      - Active Directory: providers/ad.md
   - Status and limits: status.md
   - Development:
       - Architecture: dev/architecture.md

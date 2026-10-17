@@ -1,6 +1,6 @@
 ---
 name: pam-change
-description: Checklist for any change that edits PAM stacks, nsswitch, SDDM config, sssd config or sudoers. Use before and after touching lib/pamedit.py, providers/sssd/*, packaging hooks, or the sddm theme/conf drop-ins.
+description: Checklist for any change that edits PAM stacks, nsswitch, SDDM config, sssd config or sudoers. Use before and after touching lib/pamedit.py, providers/ad/*, packaging hooks, or the sddm theme/conf drop-ins.
 ---
 
 # Changing what we write into system config

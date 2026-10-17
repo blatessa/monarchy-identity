@@ -1,7 +1,7 @@
 #!/bin/bash
 # Unit tests for input validation (no VM, no root). Run: test/unit/validation.sh
 cd "$(dirname "$0")/../.." || exit 1
-export OI_ROOT=$PWD; source providers/sssd/lib.sh
+export OI_ROOT=$PWD; source providers/ad/lib.sh
 fail=0
 t() { # t <should-pass 1|0> <fn> args...
   local want=$1 fn=$2; shift 2

@@ -18,8 +18,8 @@ Different laptops can use different groups (one per team, for example).
 
 ## Names
 
-Use short names (`alice`, `laptop-users`), not names with the domain attached. Separate several with commas. Home
-folders are `/home/<name>`.
+Use names the way your directory shows them to the laptop; the provider page says which form that is (Active Directory
+uses short names like `alice`). Separate several with commas. Home folders are `/home/<name>`.
 
 ## What it doesn't cover
 

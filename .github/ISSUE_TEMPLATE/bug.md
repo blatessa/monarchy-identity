@@ -10,6 +10,6 @@ labels: bug
 
 **Output of `monarchy-identity status --json`** (remove hostnames/usernames you don't want public)
 
-**Environment**: monarchy-identity version, Omarchy version, directory (Samba AD / Windows AD / other)
+**Environment**: monarchy-identity version, Omarchy version, directory and provider (for example Windows AD with `ad`)
 
 **Logs**: `journalctl -t monarchy-identity`, `sudo sssctl user-checks <user>`

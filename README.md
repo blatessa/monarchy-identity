@@ -3,8 +3,9 @@
 [![CI](https://github.com/blatessa/monarchy-identity/actions/workflows/ci.yml/badge.svg)](https://github.com/blatessa/monarchy-identity/actions/workflows/ci.yml)
 [![Docs](https://github.com/blatessa/monarchy-identity/actions/workflows/docs.yml/badge.svg)](https://blatessa.github.io/monarchy-identity/)
 
-Directory sign-in for [Omarchy](https://omarchy.org). A small utility that joins a laptop to Active Directory and lets
-people sign in with their company account: at the login screen, the lock screen, a terminal, `ssh` and `sudo`.
+Directory sign-in for [Omarchy](https://omarchy.org). A small utility that connects a laptop to your company directory
+and lets people sign in with their company account: at the login screen, the lock screen, a terminal, `ssh` and `sudo`.
+Directories plug in as providers: Active Directory today; Entra ID, Okta, Google Workspace and FreeIPA planned.
 
 - Nobody may sign in until you name a directory group (or users); access is managed in the directory.
 - Optional `sudo` for a directory group, and offline sign-in with an optional expiry.
@@ -13,14 +14,14 @@ people sign in with their company account: at the login screen, the lock screen,
 
 It only does sign-in. Device management (compliance, inventory, hardening) belongs to your MDM.
 
-> **Prototype.** Tested against Samba AD in a VM. Windows AD, Omarchy's own login screen and the Quickshell lock screen
+> **Prototype.** Only the Active Directory provider exists, tested against Samba AD in a VM. Windows AD, Omarchy's own login screen and the Quickshell lock screen
 > are untested.
 
 ## Quick start
 
 ```bash
 sudo pacman -U monarchy-identity-*.pkg.tar.zst        # from a release, or: cd packaging && makepkg -si
-sudo monarchy-identity enroll --realm CORP.EXAMPLE.COM --admin joinuser --groups laptop-users
+sudo monarchy-identity enroll ad --realm CORP.EXAMPLE.COM --admin joinuser --groups laptop-users   # Active Directory
 monarchy-identity status
 ```
 

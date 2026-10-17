@@ -3,9 +3,9 @@ const fs = require("fs"), path = require("path"), assert = require("assert")
 const src = fs.readFileSync(path.join(__dirname, "..", "Model.js"), "utf8").replace(/^\.pragma library\s*$/m, "")
 const M = new Function(src + "; return { parse, unavailable, glyph }")()
 
-const ok = (o) => JSON.stringify(Object.assign({ enrolled: true, provider: "sssd", login_mode: "groups", autologin: false }, o))
+const ok = (o) => JSON.stringify(Object.assign({ enrolled: true, provider: "ad", login_mode: "groups", autologin: false }, o))
 
-let r = M.parse(ok({}));                       assert.equal(r.state, "ok");   assert.equal(r.summary, "identity: sssd")
+let r = M.parse(ok({}));                       assert.equal(r.state, "ok");   assert.equal(r.summary, "identity: ad")
 r = M.parse(ok({ autologin: true }));          assert.equal(r.state, "warn"); assert.match(r.summary, /1 warning\)/)
 assert.match(r.warnings[0], /Autologin/)
 r = M.parse(ok({ enrolled: false, provider: "local", login_mode: "none", autologin: true }))

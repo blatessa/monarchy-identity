@@ -1,6 +1,6 @@
 # Change who may sign in
 
-`policy set` changes the rules on an enrolled laptop without re-joining the directory and without the join password.
+`policy set` changes the rules on an enrolled laptop without enrolling again and without directory credentials.
 (To add or remove *people*, change the directory group instead.)
 
 ```bash

@@ -64,7 +64,7 @@ case "${1:-}" in enroll|leave|reassert|policy) [[ $EUID -eq 0 ]] && oi_lock ;; e
 case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;
-  enroll) shift; p=sssd   # the only directory provider today; `enroll sssd ...` still works
+  enroll) shift; p=ad   # the only provider today, so naming it is optional: `enroll ad ...` also works
     if [[ ${1:-} == [a-z]* ]]; then p=$1; shift; fi
     run_provider "$p" enroll "$@" ;;
   install-hooks|remove-hooks)

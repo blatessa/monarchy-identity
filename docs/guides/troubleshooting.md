@@ -28,14 +28,11 @@ laptop needs re-enrolling, run `leave` and `enroll` again.
 |---|---|
 | `say who may sign in` | Add `--groups` or `--users` (or `--mode any`). |
 | `has no group named` | Check the group's name in the directory. Nothing was changed. |
-| `could not search the directory` | Wrong join password, or the laptop can't reach a domain controller (DNS, network, clock). |
-| `a computer account 'NAME$' already exists` | Another laptop may own that name. Pick another with `--computer-name`, or, if it's this laptop reinstalled, add `--replace-computer-account`. |
-| `the generic '...'` or `longer than 15 characters` | Set a unique, short hostname, or pass `--computer-name`. |
-| `already enrolled in '...'` | `--if-needed` with a different realm. Run `leave` first. |
 | `accessible by group/other` | `chmod 600` the password file. |
 
-If `enroll` fails after the join itself (for example the network dropped), fix the cause and run the same command
-again; it picks up the computer account it already created.
+Anything else is specific to your directory: see the provider page's troubleshooting, for example
+[Active Directory](../providers/ad.md#troubleshooting). If `enroll` stops partway (for example the network dropped),
+fix the cause and run the same command again.
 
 ## Getting back in
 
