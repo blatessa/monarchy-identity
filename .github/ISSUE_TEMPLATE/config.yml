@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/blatessa/monarchy-identity/security/advisories/new
+    about: Private report; please don't open a public issue.
