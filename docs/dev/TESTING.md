@@ -6,7 +6,11 @@ Omarchy's PAM/SDDM files copied in as fixtures, not a full Omarchy install.
 
 ## CI
 GitHub Actions (`.github/workflows/ci.yml`) runs the unit tests, shellcheck (errors), the hook and widget tests, and builds
-the Arch package in a container. The VM/Samba suites need KVM and Docker and are run locally (`test/run-all.sh`).
+the Arch package in a container. Docs-only changes skip CI, and a newer push cancels the run in flight.
+
+## Releases
+Bump `pkgver` in `packaging/PKGBUILD`, commit, then `git tag vX.Y.Z && git push --tags`. `release.yml` re-runs CI, checks
+the tag matches `pkgver`, and publishes the `.pkg.tar.zst` files plus `SHA256SUMS` as a GitHub release with generated notes. The VM/Samba suites need KVM and Docker and are run locally (`test/run-all.sh`).
 
 ## Bring-up
     cd test/dc && docker compose up -d && ./seed-users.sh

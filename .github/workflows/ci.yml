@@ -3,19 +3,28 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE', '.mailmap']
   pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE', '.mailmap']
+  workflow_call:        # also run by release.yml before a release is cut
 
 permissions:
   contents: read
+
+# a newer push to the same branch/PR supersedes the run in flight
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests:
     name: Unit tests and lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y shellcheck python3 nodejs
+      - name: Install shellcheck (python3 and node are preinstalled)
+        run: sudo apt-get install -y --no-install-recommends shellcheck
       - name: Shellcheck (errors only)
         run: |
           shellcheck -S error -s bash $(git ls-files '*.sh') bin/monarchy-identity \
@@ -36,6 +45,7 @@ jobs:
     name: Build the Arch package
     runs-on: ubuntu-latest
     container: archlinux:base-devel
+    timeout-minutes: 10
     steps:
       - name: Install git
         run: pacman -Syu --noconfirm git
@@ -52,3 +62,10 @@ jobs:
           bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/bin/monarchy-identity
           bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/share/doc/monarchy-identity/ADMIN.md
           bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/share/doc/monarchy-identity/img/status.png
+      - name: Keep the packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: packaging/*.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 7

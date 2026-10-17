@@ -47,6 +47,9 @@ boot; it reports on those (`check`) and leaves enforcement to your MDM or other 
 
 ## 3. Install
 
+Prebuilt packages are attached to each [GitHub release](https://github.com/blatessa/monarchy-identity/releases)
+(with `SHA256SUMS`); you can also build it yourself, and host it in your own repo as described above.
+
     sudo pacman -S monarchy-identity            # from your repo; or: makepkg -si in packaging/
     sudo pacman -S monarchy-identity-shell      # optional status widget
 
