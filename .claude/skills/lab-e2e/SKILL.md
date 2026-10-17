@@ -18,7 +18,7 @@ Never run these steps against the host's `/etc`. Everything below targets the QE
 VM access: `ssh -i test/vm/keys/id_oi -p 2222 tester@127.0.0.1`. Lab credentials (throwaway, loopback): Administrator/alice/bob/carol, password `Passw0rd!Test`. alice and bob are allowed, carol is directory-only and must be denied.
 
 ## When a suite fails
-- Print diagnostics first (journal, `monarchy-identity status`, `sssctl user-checks`, `/var/log/sssd/*.log` in the VM) before theorising. Read `docs/dev` findings for the known traps.
+- Print diagnostics first (journal, `monarchy-identity status`, `sssctl user-checks`, `/var/log/sssd/*.log` in the VM) before theorising. Read `docs/dev/findings.md` for the known traps.
 - Shared state between suites: faillock (reset it AFTER enrol), stale computer account `OI-CLIENT$` (`deploy.sh --fixtures` deletes it; or `docker exec oi-test-dc samba-tool computer delete 'OI-CLIENT$'`), a stale sssd in `start-limit-hit` (`systemctl reset-failed sssd`).
 - A hung `sssctl` or CLI holds `/run/monarchy-identity.lock`: find the process by PID with `ps`; don't `pkill -f`.
 - VM bricked (everyone locked out): stop it by PID (`pgrep -x qemu-system-x86`), delete `test/vm/images/client.qcow2` and `OVMF_VARS.fd`, rerun `run.sh`.

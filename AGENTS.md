@@ -10,7 +10,7 @@ against Samba AD. Public docs are the MkDocs site in `docs/` (published to GitHu
 
 ## Before you change anything
 1. Read the hard rules below. Run `test/lab-check.sh` if the task needs the lab.
-2. Skim `docs/` developer pages (architecture, testing, findings) for the area you're touching. `FINDINGS` lists traps already hit.
+2. Skim `docs/dev/` (`architecture.md`, `testing.md`, `findings.md`) for the area you're touching. `findings.md` lists traps already hit.
 3. Open work is tracked as GitHub issues (`gh issue list`); `TODO.md` is only an index. Pick or create an issue first.
 
 ## Hard rules
@@ -36,7 +36,7 @@ against Samba AD. Public docs are the MkDocs site in `docs/` (published to GitHu
     .github/workflows/       ci.yml, release.yml, docs.yml
 
 ## Commands
-Prerequisites for the lab: Docker, QEMU/KVM + OVMF, ssh, python3, node (widget tests). Details: developer testing page in `docs/`.
+Prerequisites for the lab: Docker, QEMU/KVM + OVMF, ssh, python3, node (widget tests). Details: `docs/dev/testing.md`.
 
     test/lab-check.sh                 # prerequisites + lab state; prints the exact fix for anything missing
     bash test/unit/validation.sh; bash test/unit/naming.sh; bash test/unit/check.sh   # no lab needed, seconds
@@ -55,7 +55,7 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 - Failure paths leave the machine as found; `leave` restores the original files.
 - New PAM edit: goes through `lib/pamedit.py`, rule is `-`-prefixed, safe when `pam_sss.so` is missing, has a remove/idempotency test.
 - Anything the CLI sources is also installed by `packaging/PKGBUILD` (`test/vm/e2e-package.sh` catches misses).
-- Docs updated for behaviour/flag changes (reference pages must match the code); a non-obvious lesson goes into the findings page.
+- Docs updated for behaviour/flag changes (reference pages must match the code); a non-obvious lesson goes into `docs/dev/findings.md`.
 - CI is green (`gh run list`).
 
 ## Conventions
@@ -69,5 +69,5 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 `.claude/skills/`: `lab-e2e` (run and debug the lab), `pam-change` (checklist for any system-config edit), `new-provider`, `release`.
 
 ## Workflow
-Branch from `main`, open a PR, let CI run; releases are cut by tagging `vX.Y.Z` (see the testing/releasing page; the tag must match `pkgver`).
+Branch from `main`, open a PR, let CI run; releases are cut by tagging `vX.Y.Z` (see the `release` skill; the tag must match `pkgver`).
 Security issues: private advisory (see `SECURITY.md`), not a public issue.
