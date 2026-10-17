@@ -1,8 +1,8 @@
 # TODO (priority order)
 
-Legend: [ ] open, size S/M/L. Update this file as you go; put lessons in HANDOFF.md.
+Legend: [ ] open, size S/M/L. Update this file as you go; put lessons in docs/dev/FINDINGS.md.
 
-## From the 2026-10-16 review (see docs/REVIEW.md)
+## From the 2026-10-16 review
 - [ ] **Test against real Windows AD (L).** LDAP signing/channel binding, GPO, SPN/UPN quirks: the biggest untested assumption.
 - [ ] **Split config from state (S).** `/etc/monarchy-identity/config.toml` currently holds both admin intent and enrolment state.
 - [ ] **Publish the widget as its own repo (S)** so `omarchy plugin add <url>` works; keep `install-widget` for packaged installs.

@@ -1,16 +1,12 @@
 # Contributing
 
-Start with [CLAUDE.md](CLAUDE.md): it has the hard rules, repo layout, provider contract and the dev loop (it is
-written for coding agents but is the accurate contributor guide too).
+Contributor and agent guidance lives in [CLAUDE.md](CLAUDE.md) (rules, layout, conventions),
+[docs/dev/TESTING.md](docs/dev/TESTING.md) (the lab) and [docs/dev/DESIGN.md](docs/dev/DESIGN.md).
 
-The short version:
-
-- **Never test PAM/sssd/SDDM changes on your own laptop.** Use the lab in `test/` (a throwaway Samba AD in Docker and
-  an Arch VM under QEMU/KVM). A bad PAM edit locks you out; we have bricked the test VM that way on purpose.
-- Run `test/run-all.sh` before sending a change (about 16 minutes). Unit tests in `test/unit/` need nothing.
-- Anything we add to a PAM stack must be safe when `pam_sss.so` is missing, must be idempotent, and must come out
-  exactly with `lib/pamedit.py remove`. Add a test.
+- **Never test PAM/sssd/SDDM changes on your own laptop.** Use the lab in `test/`.
+- Run `test/run-all.sh` before sending a change (about 15 minutes). Unit tests in `test/unit/` need nothing.
+- PAM additions must be safe when `pam_sss.so` is missing, idempotent, and removable with `lib/pamedit.py remove`. Add a test.
 - Failure must leave the machine as it was found.
-- Update `docs/` (admin and user docs) with behaviour changes, and `TODO.md` / `HANDOFF.md` with what you learned.
+- Update the admin/user docs with behaviour changes, `TODO.md` with open work, `docs/dev/FINDINGS.md` with lessons.
 
 By contributing you agree your work is released under the MIT license in [LICENSE](LICENSE).

@@ -41,11 +41,8 @@ package_monarchy-identity() {
   install -Dm644 "$_root/packaging/monarchy-identity-reassert.service" "$pkgdir/usr/lib/systemd/system/monarchy-identity-reassert.service"
   install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/monarchy-identity/config.toml"
   install -Dm644 "$_root/packaging/policy.example.toml" "$pkgdir/usr/share/doc/monarchy-identity/policy.example.toml"
-  for d in ADMIN.md POSTURE.md DESIGN.md; do install -Dm644 "$_root/docs/$d" "$pkgdir/usr/share/doc/monarchy-identity/$d"; done
-  install -Dm644 "$_root/docs/user/USER-GUIDE.md" "$pkgdir/usr/share/doc/monarchy-identity/user/USER-GUIDE.md"
-  install -Dm644 "$_root/docs/user/QUICK-REFERENCE.md" "$pkgdir/usr/share/doc/monarchy-identity/user/QUICK-REFERENCE.md"
-  install -Dm644 "$_root/docs/user/img/login-screen.png" "$pkgdir/usr/share/doc/monarchy-identity/user/img/login-screen.png"
-  install -Dm644 "$_root/docs/user/img/login-failed.png" "$pkgdir/usr/share/doc/monarchy-identity/user/img/login-failed.png"
+  for d in ADMIN.md POSTURE.md; do install -Dm644 "$_root/docs/$d" "$pkgdir/usr/share/doc/monarchy-identity/$d"; done
+  for i in status policy check auth-proof auth-pamstack dc-computer dc-groups vm-signed-in vm-filesystem; do install -Dm644 "$_root/docs/img/$i.png" "$pkgdir/usr/share/doc/monarchy-identity/img/$i.png"; done
   install -Dm644 "$_root/LICENSE" "$pkgdir/usr/share/licenses/monarchy-identity/LICENSE"
 }
 

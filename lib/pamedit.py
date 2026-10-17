@@ -3,7 +3,7 @@
 
 usage: pamedit.py apply|remove|check FILE
 
-Design (see docs/DESIGN.md): local users must keep working untouched, so pam_sss is tried FIRST
+Design (see docs/dev/DESIGN.md): local users must keep working untouched, so pam_sss is tried FIRST
 and ignored for users it does not know ("default=ignore"); on success it skips the rest of the
 auth stack (pam_unix + faillock authfail) with a skip count computed from the real file, which
 keeps it correct next to Omarchy's pam_systemd_home skip lines.

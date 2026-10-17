@@ -1,9 +1,12 @@
 # Administrator guide
 
 For people rolling `monarchy-identity` out to a fleet of Omarchy laptops. Status: prototype, verified in a VM
-against Samba AD (see [../HANDOFF.md](../HANDOFF.md) for exactly what has and has not been tested). Give your users
-the [user guide](user/USER-GUIDE.md) and [quick reference](user/QUICK-REFERENCE.md); edit them to add your helpdesk
-contact and password rules.
+against Samba AD (see [known limits](#12-known-limits)).
+
+**Contents:** 1 Scope · 2 Plan · 3 Install · 4 Safety rules · 5 Enrol · 6 Login policy · 7 Automation ·
+8 Verify and monitor · 9 What keeps it correct · 10 Failure behaviour · 11 Leave · 12 Known limits · 13 Troubleshooting
+
+**In a hurry?** Do sections 2, 3 and 5 on one test VM first, then a few pilot laptops, then script it (section 7).
 
 ## 1. What you get, and what you still own
 
@@ -47,7 +50,7 @@ boot; it reports on those (`check`) and leaves enforcement to your MDM or other 
     sudo pacman -S monarchy-identity            # from your repo; or: makepkg -si in packaging/
     sudo pacman -S monarchy-identity-shell      # optional status widget
 
-Docs ship in `/usr/share/doc/monarchy-identity/` (this guide, the user guide, an example policy).
+Docs ship in `/usr/share/doc/monarchy-identity/` (this guide, the posture schema, an example policy).
 
 ## 4. Safety rules for the first enrolment on any machine
 
@@ -63,6 +66,10 @@ Docs ship in `/usr/share/doc/monarchy-identity/` (this guide, the user guide, an
          --ou 'OU=Laptops,DC=corp,DC=example,DC=com' \
          --mode groups --groups laptop-users --disable-autologin --confirm-within 10
     # reads the join account's password from stdin
+
+After enrolment, `monarchy-identity status` confirms the result:
+
+![status output after enrolment](img/status.png)
 
 **Computer accounts are never taken over silently.** If `NAME$` already exists in the directory and this machine
 isn't joined with it, `enroll` refuses (that account may belong to a different laptop; joining would reset its password
@@ -85,6 +92,8 @@ Local accounts are never governed by this policy, so the break-glass admin keeps
     sudo monarchy-identity policy set --mode groups --groups laptop-users,contractors
     sudo monarchy-identity policy set --sudo-groups laptop-admins        # '-' removes sudo
     sudo monarchy-identity policy set --offline-days 14
+
+![policy show output](img/policy.png)
 
 Only the options you pass change. A change that would leave the machine with nobody allowed is refused; if the new
 configuration can't resolve its group, the previous policy is restored automatically.
@@ -132,8 +141,44 @@ and clock sync. `unknown` means "could not determine".
 **Compliance check for your MDM:** write `/etc/monarchy-identity/policy.toml` (example in
 `/usr/share/doc/monarchy-identity/policy.example.toml`), then run `monarchy-identity check [--json]`. It prints PASS/FAIL
 per rule and exits **0** compliant, **1** violations, **2** bad policy (unknown keys, bad values, missing file: a typo
-never silently weakens a policy). Use it directly as a custom compliance script in Intune/Ansible/osquery. Values the
+never silently weakens a policy). Example on an unhardened lab VM:
+
+![check output](img/check.png)
+
+Use it directly as a custom compliance script in Intune/Ansible/osquery. Values the
 tool cannot determine count as failures unless `unknown_is_failure = false`.
+
+### What a healthy enrolment looks like
+
+Evidence from the lab (Samba AD `CORP.TEST`, one Arch VM with Omarchy's PAM and SDDM files), taken after the enrol
+command in section 5. The images are command output captured from the machines and rendered to PNG.
+
+**The directory is doing the authentication.** `alice` signs in with her directory password and holds a Kerberos
+ticket-granting ticket issued by the domain controller. `carol` exists in the directory and her password is correct
+(`pam_sss(auth): authentication success`), but she isn't in the allowed group, so the account check refuses her. Local
+accounts never reach this policy.
+
+![Directory sign-in and policy denial](img/auth-proof.png)
+
+**The Omarchy login and lock screens use the same stack.** Omarchy's `sddm` and `omarchy-lock-password` PAM services
+both funnel into `system-auth`, where enrolment added the marker-wrapped `pam_sss` rules (all `-`-prefixed, so a
+missing module can't lock anyone out):
+
+![PAM results for the login and lock screens](img/auth-pamstack.png)
+
+**The directory** has a computer object for the laptop (in `CN=Computers`, or your `--ou`) and your sign-in group
+holds the users you expect:
+
+![Computer account in the directory](img/dc-computer.png)
+![Group membership in the directory](img/dc-groups.png)
+
+**The laptop** after `alice` (in `oi-laptop-users`) signs in: her directory identity and group memberships resolve,
+her home directory was created on first login (`pam_mkhomedir`, mode 0700, owned by her), and she has her own
+session. Everything we manage on the machine is under `/etc/monarchy-identity` and `/var/lib/monarchy-identity/backup`
+(the originals that `leave` restores):
+
+![A directory user's session on the laptop](img/vm-signed-in.png)
+![Filesystem state on the laptop](img/vm-filesystem.png)
 
 ## 9. What keeps it correct
 
@@ -177,7 +222,7 @@ enrolled runs `leave` automatically (without credentials), so the PAM edits neve
   screen use the same PAM stack but have not been exercised directly.
 - **Expired / must-change passwords:** login is refused with "new authentication token required". SSH and a text login
   can prompt for a new password, but the **graphical login screen has no change-password dialog**; users must change
-  it first on a TTY or over SSH (see the user guide).
+  it first on a TTY or over SSH.
 - `su` uses pam_unix directly (directory users can't `su`). Sudo is whole-group, all commands.
 - GPO-based access control and smart cards are not handled.
 
