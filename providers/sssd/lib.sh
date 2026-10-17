@@ -2,8 +2,6 @@
 source "$OI_ROOT/lib/common.sh"
 PAMEDIT="$OI_ROOT/lib/pamedit.py"
 PAM_FILES=(system-auth omarchy-lock-password)
-MANAGED=(/etc/nsswitch.conf /etc/krb5.conf /etc/samba/smb.conf /etc/sssd/sssd.conf /etc/krb5.keytab
-         /etc/pam.d/system-auth /etc/pam.d/omarchy-lock-password)
 
 realm_lc() { echo "$1" | tr 'A-Z' 'a-z'; }
 
@@ -11,6 +9,7 @@ write_krb5() { # realm [server]   (no server => DNS SRV discovery of KDCs)
   local r=${1^^} d; d=$(realm_lc "$1")
   if [[ -n ${2:-} ]]; then
     cat > "$ETC/krb5.conf" <<K
+$OI_MARK
 [libdefaults]
   default_realm = $r
   dns_lookup_realm = false
@@ -27,6 +26,7 @@ write_krb5() { # realm [server]   (no server => DNS SRV discovery of KDCs)
 K
   else
     cat > "$ETC/krb5.conf" <<K
+$OI_MARK
 [libdefaults]
   default_realm = $r
   dns_lookup_realm = true
@@ -46,6 +46,7 @@ write_smb() { # realm netbios-name
   local r=${1^^}
   mkdir -p "$ETC/samba"
   cat > "$ETC/samba/smb.conf" <<S
+$OI_MARK
 [global]
   workgroup = ${r%%.*}
   realm = $r
@@ -69,6 +70,7 @@ write_sssd() { # realm server mode "groups" "users" hostfqdn netbios [offline_da
   install -d -m 0711 "$ETC/sssd"
   umask 077
   cat > "$ETC/sssd/sssd.conf" <<S
+$OI_MARK
 [sssd]
 services = nss, pam
 domains = $d
@@ -122,13 +124,26 @@ valid_list()  { # comma-separated names; letters digits . _ - @ space \ ; no lea
   done
   [[ $1 != *,, && $1 != ,* && $1 != *,  ]]
 }
-validate_enroll_args() { # realm server admin groups users confirm_within
+validate_enroll_args() { # realm server admin groups users
   valid_realm "$1" || die "invalid --realm '$1' (expected a DNS name like corp.example.com)"
   [[ -z $2 ]] || valid_host "$2" || die "invalid --server '$2'"
   valid_admin "$3" || die "invalid --admin '$3'"
   [[ -z $4 ]] || valid_list "$4" || die "invalid --groups '$4' (comma-separated names; letters, digits, . _ - @ space)"
   [[ -z $5 ]] || valid_list "$5" || die "invalid --users '$5' (comma-separated names; letters, digits, . _ - @ space)"
-  [[ $6 =~ ^[0-9]+$ ]] || die "invalid --confirm-within '$6' (whole minutes)"
+}
+
+# --- directory lookups before joining ------------------------------------------------------------
+# directory_missing_groups "g1,g2": prints the groups the directory does not have (uses $pw, $admin, SARGS).
+# Exits non-zero if the directory cannot be searched at all (wrong password, DC unreachable). Group names may
+# be written CORP\name or name@corp; the directory stores the bare sAMAccountName.
+directory_missing_groups() {
+  local g bare out IFS=,
+  for g in $1; do
+    bare=${g##*\\}; bare=${bare%%@*}
+    out=$(printf '%s\n' "$pw" | net ads search "${SARGS[@]}" -U "$admin" "(&(objectClass=group)(sAMAccountName=$bare))" sAMAccountName 2>&1) \
+      || { echo "$out" | tail -1 >&2; return 1; }
+    grep -qi "^sAMAccountName: $bare\$" <<<"$out" || echo "$g"
+  done
 }
 
 # --- computer account naming and placement ------------------------------------------------------

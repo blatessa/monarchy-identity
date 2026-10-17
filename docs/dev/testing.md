@@ -13,7 +13,6 @@ Agents and contributors: the working rules and definition of done are in
 ```bash
 bash test/unit/validation.sh      # input validation
 bash test/unit/naming.sh          # computer names, OU conversion
-bash test/unit/check.sh           # compliance policy evaluation
 bash hooks/test-reassert.sh       # reassert hook wrapper
 bash shell-plugin/tests/run.sh    # widget manifest, Model.js (needs node), qmllint when installed
 ```
@@ -57,23 +56,30 @@ allowed and in `oi-admins`, `bob` is allowed, `carol` exists in the directory on
 ## Running the suites
 
 ```bash
-test/run-all.sh          # every suite, 12-16 minutes; each suite prints RESULT: ALL PASS
+test/run-all.sh          # every suite; each prints RESULT: ALL PASS
 test/vm/e2e.sh           # or one suite
 ```
 
+Each suite is built around as few enrollments as possible. Add a check to the suite that already has the enrollment
+you need before writing a new one; a new suite pays for its own deploy, enroll and leave.
+
 | Suite | Covers |
 |---|---|
-| `e2e` | enroll, login modes, drift, leave |
-| `e2e-modes`, `e2e-policy`, `e2e-account` | login modes, `policy set`/`--if-needed`, computer-account handling |
-| `e2e-services` | PAM services (sddm, sudo, login, sshd, system-remote-login), session open, home creation |
-| `e2e-dns`, `e2e-offline` | SRV discovery without `--server`, cached sign-in with the DC down |
-| `e2e-passwd`, `e2e-expired`, `e2e-sudo` | password change, expired passwords, `--sudo-groups` |
-| `e2e-noninteractive`, `e2e-safety`, `e2e-failure`, `e2e-resilience` | password files, auto-revert and fallback guard, rollback leaves nothing, missing module and stopped sssd |
-| `e2e-package` | the real package: install, pacman hook repair, removal |
-| `e2e-greeter` | the real SDDM greeter (X11), driven with typed keys |
+| `e2e` | The core: every Omarchy PAM service (allowed, refused, wrong password, local), home creation, `passwd`, repair with `reassert`, local users with sssd stopped and `pam_sss.so` missing, `leave` |
+| `e2e-policy` | Implied modes, groups/assigned/any, `--sudo-groups`, `--offline-days`, autologin, `policy set` without re-joining, refused changes, systemd start limit, `--if-needed` |
+| `e2e-enroll` | `--computer-name`, `--ou`, password file and variable, `--replace-computer-account`, re-running a half-finished enrollment, hooks and widget installers |
+| `e2e-refused` | Everything `enroll` must refuse before sign-in changes (bad input, wrong password, unknown group, DC down, colliding or generic names, unsafe password files). Never enrolls. |
+| `e2e-offline` | Expired password, cached sign-in with the DC down, recovery |
+| `e2e-dns` | Enrolling without `--server` (DNS SRV discovery) |
+| `e2e-package` | The real package: install, pacman hook repair, removal while enrolled |
+| `e2e-greeter` | The real SDDM greeter (X11), driven with typed keys |
 
-Run the enroll and unenroll suites at least twice after changing `enroll`/`unenroll`: failures have been
-order-dependent (fresh versus pre-existing computer account).
+Suites share `test/vm/lib.sh`: `fresh` (deploy and reset), `enroll`/`leave`, `expect` (run a PAM service), `check`,
+`cli`/`scli` (the CLI as tester/root) and `result`.
+
+Suites don't depend on each other or on order: each starts with `fresh` (stock PAM, not enrolled, stale lab
+computer accounts deleted). Behaviour that depends on leftover state, such as an existing computer account, gets an
+explicit check (`e2e-enroll`, `e2e-refused`) instead of relying on a second run.
 
 ## Helpers
 
@@ -87,7 +93,7 @@ order-dependent (fresh versus pre-existing computer account).
 
 ## Writing tests
 
-- Quote inputs that go through ssh with `printf %q`; use `grep -F` for computer names (`$` is a regex anchor).
+- Quote inputs that go through ssh with `q` (`printf %q`); use `grep -F` for computer names (`$` is a regex anchor).
 - Reset faillock after enrollment, not before: before it, directory users do not resolve and the reset silently does
   nothing.
 - A new PAM edit needs a remove and idempotency check.

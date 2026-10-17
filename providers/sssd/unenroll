@@ -1,5 +1,5 @@
 #!/bin/bash
-# Restore pre-enrollment state. --quiet suppresses the summary.
+# Leave the directory and remove every sign-in change enroll made. --quiet suppresses the summary.
 set -uo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/sssd/lib.sh"
@@ -7,7 +7,6 @@ need_root
 server_args "$(conf_get server)"
 quiet=0 admin="" pwfile=""
 while [[ $# -gt 0 ]]; do case $1 in --quiet) quiet=1; shift;; --admin) admin=$2; shift 2;; --password-file) pwfile=$2; shift 2;; *) die "unknown option $1";; esac; done
-watch_disable   # first: otherwise the watcher would re-add the edits we are removing
 sddm_autologin_restore
 sddm_theme_restore
 sudoers_remove
@@ -21,7 +20,8 @@ if [[ -f $ETC/sssd/sssd.conf ]]; then
     log "WARNING: computer account left in the directory; have a directory admin remove it (or rerun: leave --admin USER, password on stdin)"
   fi
 fi
-for f in /etc/krb5.conf /etc/samba/smb.conf /etc/sssd/sssd.conf /etc/krb5.keytab; do restore_file "$f"; done
+remove_if_ours "$ETC/krb5.conf" "$ETC/samba/smb.conf" "$ETC/sssd/sssd.conf"
+rm -f "$ETC/krb5.keytab"
 rm -rf /var/lib/sss/db/* /var/lib/sss/mc/* 2>/dev/null || true
 conf_write provider=local login_mode=none
-((quiet)) || log "left directory; local configuration restored"
+((quiet)) || log "left the directory; sign-in changes removed"

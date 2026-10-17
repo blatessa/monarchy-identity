@@ -1,42 +1,39 @@
 # monarchy-identity
 
-Company sign-in for [Omarchy](https://omarchy.org) laptops. People use the username and password they already have in
-your directory (Active Directory, today); you decide who may sign in on which laptops, and you can check the state of
-every machine.
+Company sign-in for [Omarchy](https://omarchy.org) laptops. People sign in with the username and password they already
+have in your directory (Active Directory, today), and you decide who may sign in on which laptops.
 
-It is the identity part of **Monarchy**, a set of tools for running Omarchy as a work computer.
+It does one job: connect a laptop's sign-in to your directory. It's a small package you install and run yourself, or
+call from your MDM or configuration management.
 
 !!! warning "Prototype"
     Tested against Samba AD in a virtual machine. Windows Active Directory, Omarchy's own login screen and lock screen,
-    and real `omarchy update` runs are not tested yet. See [Status and limits](status.md) and pilot on machines you can
-    recover.
+    and real `omarchy update` runs are not tested yet. See [Status and limits](status.md).
 
-## What you get
+## What it does
 
-- **One account everywhere.** A person signs in at the Omarchy login screen, lock screen, a terminal or `ssh` with their
-  company credentials. Nobody creates accounts on laptops by hand.
-- **Access you control.** Nobody may sign in until you name a group (or users). Add or remove people in the directory.
-- **Safe by design.** Local accounts keep working whatever happens to the directory, a failed enrollment undoes itself,
-  and a safety timer reverts a bad first enrollment. See [Staying safe](concepts/safety-model.md).
-- **Stays working.** If something overwrites the configuration, a watcher repairs it within seconds (proven by simulated
-  overwrites and package upgrades; a real `omarchy update` hasn't been exercised yet).
-- **A fleet view.** Every laptop reports its identity and security posture as JSON, and one command checks it against
-  your own definition of healthy.
+- **One account everywhere.** People sign in at the login screen, the lock screen, a terminal, `ssh` and `sudo` with
+  their company credentials. Nobody creates accounts on laptops by hand.
+- **You choose who gets in.** Nobody may sign in until you name a directory group (or a list of people). Add or remove
+  people in the directory and every laptop follows.
+- **Optional admin rights.** Give a directory group `sudo` on its laptops.
+- **Survives updates.** If an Omarchy update overwrites the sign-in configuration, it's put back after the update.
+- **Scriptable.** Every command works unattended, and `status --json` tells your tooling what state a laptop is in.
 
-## What it leaves to you
+## What it doesn't do
 
-It doesn't remove admin rights from existing users, manage `sudo` beyond an optional group, harden boot, or keep a
-fleet inventory. Use your MDM or configuration management for those; this tool reports on them.
+It doesn't manage the laptop: no disk-encryption or firewall checks, no inventory, no removing admin rights from
+existing local users, no locking down settings. Use your MDM for those.
 
 ## Where to start
 
 | You want to | Read |
 |---|---|
-| Understand what changes on a laptop | [How sign-in works on Omarchy](concepts/how-it-works.md) |
+| Try it on one laptop | [Getting started](getting-started.md) |
+| Understand what changes for people | [How sign-in works](concepts/how-it-works.md) |
 | Plan a fleet rollout | [Roll out to a fleet](guides/rollout.md) |
-| Enroll your first laptop | [Getting started](getting-started.md) |
 | Script enrollment | [Automate enrollment](guides/automation.md) |
-| Look up a command or option | [CLI reference](reference/cli.md) |
+| Look up a command | [CLI reference](reference/cli.md) |
 | Fix a problem | [Troubleshooting](guides/troubleshooting.md) |
 
 Source and issues: <https://github.com/blatessa/monarchy-identity>. MIT licensed.

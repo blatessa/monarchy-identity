@@ -1,5 +1,5 @@
 site_name: monarchy-identity
-site_description: Directory sign-in, login policy and posture reporting for Omarchy
+site_description: Directory sign-in for Omarchy
 site_url: https://blatessa.github.io/monarchy-identity/
 repo_url: https://github.com/blatessa/monarchy-identity
 repo_name: blatessa/monarchy-identity
@@ -34,36 +34,27 @@ markdown_extensions:
 
 nav:
   - Overview: index.md
+  - Getting started: getting-started.md
   - Understand:
-      - How sign-in works on Omarchy: concepts/how-it-works.md
+      - How sign-in works: concepts/how-it-works.md
       - Who may sign in: concepts/login-policy.md
-      - Staying safe: concepts/safety-model.md
-      - Staying correct: concepts/self-healing.md
-  - Roll out:
+  - Guides:
       - Roll out to a fleet: guides/rollout.md
-      - Getting started (one laptop): getting-started.md
-      - Enroll safely: guides/enroll-safely.md
       - Automate enrollment: guides/automation.md
-  - Operate:
       - Change who may sign in: guides/change-policy.md
-      - Compliance checks: guides/compliance-checks.md
       - Omarchy integration: guides/omarchy-integration.md
       - Leave and uninstall: guides/leave-and-uninstall.md
       - Troubleshooting: guides/troubleshooting.md
   - Reference:
       - CLI: reference/cli.md
-      - Posture report: reference/posture.md
-      - Compliance policy file: reference/policy-file.md
-      - Configuration file: reference/config-file.md
-      - Files, units and variables: reference/files.md
-      - What enroll does, step by step: reference/enrollment-steps.md
+      - Status output: reference/status-output.md
   - Providers:
       - Overview: providers/index.md
-      - sssd (Active Directory): providers/sssd.md
-      - Writing a provider: providers/writing-a-provider.md
+      - Active Directory (sssd): providers/sssd.md
   - Status and limits: status.md
-  - Test evidence: evidence.md
   - Development:
       - Architecture: dev/architecture.md
+      - Writing a provider: dev/writing-a-provider.md
       - Testing: dev/testing.md
       - Findings: dev/findings.md
+      - Test evidence: dev/evidence.md

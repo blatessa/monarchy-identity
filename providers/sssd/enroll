@@ -19,10 +19,7 @@
 #   --keep-autologin            keep Omarchy's automatic sign-in at boot (by default it is turned off so the login
 #                               screen appears; --disable-autologin is accepted and is the default)
 #   --keep-login-theme          do not switch SDDM to the theme with a username field
-# Safety / automation:
-#   --confirm-within MINUTES    auto-leave unless `monarchy-identity confirm` is run in time. Default: 10 when run by
-#                               a person at a terminal, off for scripts (password file, piped, no TTY); 0 = off
-#   --allow-no-local-fallback   skip the "a local user with a password must exist" check
+# Automation:
 #   --if-needed                 already enrolled in this realm? just converge the policy (no re-join), exit 0
 set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
@@ -30,7 +27,7 @@ source "$OI_ROOT/providers/sssd/lib.sh"
 case " $* " in *" --help "*|*" -h "*) sed -n '2,/^set -euo/{/^set -euo/d;s/^# \{0,1\}//;p}' "$0"; exit 0;; esac
 need_root
 
-offline_days=0 sudo_groups="" keep_theme=0 pwfile="" confirm_within="" allow_no_fallback=0 disable_autologin=1
+offline_days=0 sudo_groups="" keep_theme=0 pwfile="" disable_autologin=1
 realm="" server="" admin="Administrator" mode="" groups="" users=""
 computer_name="" ou="" replace_account=0 if_needed=0
 while [[ $# -gt 0 ]]; do case $1 in
@@ -40,7 +37,6 @@ while [[ $# -gt 0 ]]; do case $1 in
   --replace-computer-account) replace_account=1; shift;;
   --sudo-groups) sudo_groups=$2; shift 2;; --offline-days) offline_days=$2; shift 2;;
   --disable-autologin) disable_autologin=1; shift;; --keep-autologin) disable_autologin=0; shift;; --keep-login-theme) keep_theme=1; shift;;
-  --confirm-within) confirm_within=$2; shift 2;; --allow-no-local-fallback) allow_no_fallback=1; shift;;
   --if-needed) if_needed=1; shift;;
   *) die "unknown option $1";; esac; done
 
@@ -48,14 +44,11 @@ while [[ $# -gt 0 ]]; do case $1 in
 [[ -n $realm ]] || die "--realm is required (--server is optional: omit it to discover DCs through DNS)"
 [[ -z $sudo_groups ]] || valid_sudo_groups "$sudo_groups" || die "invalid --sudo-groups '$sudo_groups' (letters, digits, . _ - only; no spaces)"
 [[ $offline_days =~ ^[0-9]+$ ]] || die "invalid --offline-days '$offline_days' (whole days; 0 = never expire)"
-if [[ -z $confirm_within ]]; then   # safety net by default for a person at a terminal; scripts opt in explicitly
-  if [[ -t 0 && -t 1 && -z $pwfile && -z ${OI_ADMIN_PASSWORD_FILE:-} && $if_needed == 0 ]]; then confirm_within=10; else confirm_within=0; fi
-fi
 if [[ -z $mode ]]; then   # saying who may sign in is enough; --mode is only needed for 'any'
   if [[ -n $groups ]]; then mode=groups; elif [[ -n $users ]]; then mode=assigned
   else die "say who may sign in: --groups GROUP[,GROUP] (members of those directory groups) or --users USER[,USER]. Nobody can sign in by default; --mode any admits the whole directory"; fi
 fi
-validate_enroll_args "$realm" "$server" "$admin" "$groups" "$users" "$confirm_within"
+validate_enroll_args "$realm" "$server" "$admin" "$groups" "$users"
 case $mode in
   groups)   [[ -n $groups ]] || die "--mode groups needs --groups (default is deny)";;
   assigned) [[ -n $users ]]  || die "--mode assigned needs --users";;
@@ -80,47 +73,26 @@ fi
 
 nb=$(pick_computer_name "$computer_name")      # dies with a clear reason for generic / too-long hostnames
 for c in sssd net python3; do command -v $c >/dev/null || die "missing dependency: $c"; done
-if ((!allow_no_fallback)); then
-  fb=$(local_fallback_users | tr '\n' ' ')
-  [[ -n $fb ]] || die "no local account with a usable password exists; if the directory breaks you would be locked out. Create one (or pass --allow-no-local-fallback)"
-  log "local accounts that keep working: $fb"
-fi
 read_admin_password "$pwfile"
 
 server_args "$server"
 d=$(realm_lc "$realm"); fqdn="${nb,,}.$d"
 
-# ---- from here on we change the machine; roll back on ANY exit that is not a finished enrollment ---
-for f in "${MANAGED[@]}"; do backup_file "$f"; done
-# (An ERR trap is not enough: `die` calls `exit`, which never fires ERR, so a failed verification step used
-# to leave sssd running and nsswitch edited.)
-enrolled_ok=0 joined=0
-rollback() {
-  local rc=$?
-  ((enrolled_ok)) && return
-  log "enroll failed (exit $rc) - rolling back"
-  "$OI_ROOT/providers/sssd/unenroll" --quiet || true
-  # we still hold the admin password: remove the computer account WE created, so a failed attempt leaves
-  # nothing behind in the directory either (never one we found pre-existing: that is someone else's)
-  if ((joined && !replace_account)) && [[ -n ${pw:-} ]]; then
-    printf '%s\n' "$pw" | net ads leave "${SARGS[@]}" -U "$admin" >/dev/null 2>&1 \
-      || log "WARNING: could not delete the computer account; have a directory admin remove it"
-  fi
-}
-trap rollback EXIT
-
 log "preparing this machine for $realm"
 write_krb5 "$realm" "$server"; write_smb "$realm" "$nb"
 
-# ---- never silently take over somebody else's computer account -------------------------------------
+# ---- check the directory BEFORE joining: credentials, groups, and whose computer account this is ---
+if [[ $mode == groups ]]; then
+  missing=$(directory_missing_groups "$groups") || die "could not search the directory as '$admin' (wrong password, or the domain controller is unreachable)"
+  [[ -z $missing ]] || die "the directory has no group named: $(paste -sd, <<<"$missing")"
+fi
 existing=$(printf '%s\n' "$pw" | net ads search "${SARGS[@]}" -U "$admin" "(sAMAccountName=${nb}\$)" distinguishedName 2>/dev/null \
   | sed -n 's/^distinguishedName: //p' | head -1 || true)
-if [[ -n $existing ]]; then
-  if ! ((replace_account)); then
-    die "a computer account '$nb\$' already exists in the directory ($existing) and this machine is not joined with it. It may belong to a DIFFERENT laptop, and joining would reset its password and break it. If this is a re-enrollment of THIS laptop (e.g. after a reinstall), re-run with --replace-computer-account; otherwise choose a unique name with --computer-name"
-  fi
-  log "WARNING: replacing existing computer account $existing (--replace-computer-account)"
+# An account this machine is already joined with (e.g. an enrollment that stopped halfway) is ours to reuse.
+if [[ -n $existing ]] && ! ((replace_account)) && ! net ads testjoin "${SARGS[@]}" -P >/dev/null 2>&1; then
+  die "a computer account '$nb\$' already exists in the directory ($existing) and this machine is not joined with it. It may belong to a DIFFERENT laptop, and joining would reset its password and break it. If this is a re-enrollment of THIS laptop (e.g. after a reinstall), re-run with --replace-computer-account; otherwise choose a unique name with --computer-name"
 fi
+[[ -z $existing ]] || log "reusing existing computer account $existing"
 
 log "joining $realm as computer $nb"
 # Join TWICE. On a brand-new computer account the first join yields a machine key that sssd's ldap_child
@@ -128,7 +100,6 @@ log "joining $realm as computer $nb"
 # already happens for pre-existing accounts) fixes it. Verified in test/vm/e2e.sh.
 for _ in 1 2; do
   printf '%s\n' "$pw" | net ads join "${SARGS[@]}" -U "$admin" --no-dns-updates ${ou_path:+createcomputer="$ou_path"} >/dev/null
-  joined=1
 done
 # Build the keytab with ADMIN credentials. `-P` (machine creds) produced keytabs the KDC rejected
 # ("Preauthentication failed") on fresh accounts; -S is needed so samba can find the DC for kvno/salt.
@@ -141,10 +112,11 @@ systemctl reset-failed sssd 2>/dev/null || true
 systemctl enable --now sssd
 wait_sssd_online "$d" 30 || true
 nss_apply
-# verify directory lookups work BEFORE touching PAM (never lock out on a broken directory)
-timeout 60 bash -c "until getent group \"${groups%%,*}\" >/dev/null 2>&1 || [[ $mode != groups ]]; do sleep 1; done" || true
-if [[ $mode == groups ]]; then probe=${groups%%,*}; getent group "$probe" >/dev/null || \
-  die "could not find the group '$probe' in the directory: check the name, that this laptop can reach the domain controller, and that the join account can read it. Nothing was changed (not resolvable via sssd)"; fi
+# sssd must resolve the group before PAM consults it
+if [[ $mode == groups ]]; then probe=${groups%%,*}
+  timeout 60 bash -c 'until getent group "$1" >/dev/null 2>&1; do sleep 1; done' _ "$probe" \
+    || die "joined, but sssd cannot see the group '$probe' yet; sign-in is not switched on. Re-run this command once the directory is reachable"
+fi
 pam_apply
 ((!disable_autologin)) || sddm_autologin_disable
 [[ -z $sudo_groups ]] || sudoers_apply "$sudo_groups"
@@ -152,8 +124,6 @@ if ((!keep_theme)); then
   sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the monarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"
 fi
 sssd_save_state
-enrolled_ok=1; trap - EXIT; pw=""
-watch_enable   # self-heal: root-owned path unit re-asserts our edits if anything overwrites them
-((confirm_within > 0)) && { revert_schedule "$confirm_within"; log "SAFETY TIMER: this laptop will leave the domain again in ${confirm_within} min. Check that a directory user can sign in (Ctrl+Alt+F3), then run: sudo monarchy-identity confirm"; }
+pw=""
 log "enrolled in $realm as $nb (login mode: $mode)"
 [[ -z $(sddm_autologin_user 2>/dev/null) ]] || log "NOTE: Omarchy autologin is on, so this laptop signs in its local user automatically at boot. Re-run with --disable-autologin (or: monarchy-identity policy set) if people should sign in themselves."

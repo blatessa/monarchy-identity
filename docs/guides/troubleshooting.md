@@ -1,56 +1,43 @@
 # Troubleshooting
 
-Start with `monarchy-identity status`, `sudo monarchy-identity policy show` and `journalctl -t monarchy-identity`.
+Start with `monarchy-identity status`, `monarchy-identity policy show` and `journalctl -t monarchy-identity`.
 
 ## A directory user is refused
 
-- Check the policy and the user's group membership: `sudo monarchy-identity policy show`,
-  `sudo sssctl user-checks USER </dev/null`.
-- Look at the service's log: `journalctl -t sshd -t sddm`. `pam_sss(...:account): Access denied ... Permission denied`
-  means the policy refused a correct password. A wrong password shows as an `auth` failure.
-- Faillock applies to directory users as well. After repeated failures the account is locked for a short time
-  (`faillock --user USER`, `faillock --user USER --reset`).
-- A user never seen on this machine cannot sign in while the domain controller is unreachable.
-- sssd needs a few seconds to reach the DC after a restart.
+- **Are they allowed?** Check `monarchy-identity policy show` against their groups in the directory. A correct password
+  for someone who isn't allowed fails just like a wrong one; `journalctl -t sshd -t sddm` shows `Access denied` for a
+  policy refusal and an `auth` failure for a wrong password.
+- **Too many failed attempts?** The account is locked for a short time: `faillock --user NAME`, and
+  `sudo faillock --user NAME --reset` to clear it.
+- **First time on this laptop, and offline?** The first sign-in needs the company network.
+- **Just enrolled or just rebooted?** The laptop needs a few seconds to reach the directory.
+- **Clock wrong?** Sign-in fails when the clock is more than about five minutes off. Check `timedatectl`.
 
-## Everything fails after a time change or resume
-
-Check the clock. `status` shows `time sync`; Kerberos fails beyond about five minutes of skew.
-
-## sssd is in a failed state
+## Directory sign-in stopped working for everyone
 
 ```bash
-sudo systemctl reset-failed sssd && sudo monarchy-identity reassert
+sudo monarchy-identity reassert
 ```
 
-Rapid restarts hit systemd's start limit; monarchy-identity's own commands reset it before restarting.
+It puts the sign-in configuration back and starts the directory service if it has stopped. If that reports that the
+laptop needs re-enrolling, run `leave` and `enroll` again.
 
 ## `enroll` refuses
 
-| Message contains | Cause and fix |
+| Message contains | What to do |
 |---|---|
-| `say who may sign in` | Add `--groups` or `--users` (or `--mode any`). Nobody can sign in by default. |
-| `a computer account 'NAME$' already exists` | See [Enroll safely](enroll-safely.md): `--computer-name` or `--replace-computer-account`. |
-| `the generic '...'` | Set a unique hostname or pass `--computer-name`. |
-| `longer than 15 characters` | Shorten the hostname or pass `--computer-name`. |
-| `no local account with a usable password exists` | Create a local user with a password (or `--allow-no-local-fallback`, not recommended). |
-| `could not find the group '...' in the directory` | The group name is wrong, the DC is unreachable, or the join account cannot read it. Nothing was changed. |
-| `already enrolled in '...'` | You used `--if-needed` with a different realm. Run `leave` first. |
-| `password file ... accessible by group/other` | `chmod 600` it. |
+| `say who may sign in` | Add `--groups` or `--users` (or `--mode any`). |
+| `has no group named` | Check the group's name in the directory. Nothing was changed. |
+| `could not search the directory` | Wrong join password, or the laptop can't reach a domain controller (DNS, network, clock). |
+| `a computer account 'NAME$' already exists` | Another laptop may own that name. Pick another with `--computer-name`, or, if it's this laptop reinstalled, add `--replace-computer-account`. |
+| `the generic '...'` or `longer than 15 characters` | Set a unique, short hostname, or pass `--computer-name`. |
+| `already enrolled in '...'` | `--if-needed` with a different realm. Run `leave` first. |
+| `accessible by group/other` | `chmod 600` the password file. |
 
-## `monarchy-identity check` exits 2
+If `enroll` fails after the join itself (for example the network dropped), fix the cause and run the same command
+again; it picks up the computer account it already created.
 
-Read the message: it names the file and line (`unknown policy key`, `must be true or false`, ...). See
-[Compliance policy file](../reference/policy-file.md).
+## Getting back in
 
-## A command hangs or says another is running
-
-State-changing commands take `/run/monarchy-identity.lock`. Look for a stale root process holding it by PID
-(`ps`) rather than killing by name. Never run `sssctl` without `</dev/null`: when sssd is down it prompts on a
-terminal and waits.
-
-## Last resort
-
-From a text console or SSH as the local fallback account: `sudo monarchy-identity leave --admin JOINACCOUNT` (without
-`--admin` it still restores the laptop but leaves its computer account in the directory; delete that account, or enroll
-again with `--replace-computer-account`).
+Local accounts always work. Sign in as your local account on a text console (Ctrl+Alt+F3) or over `ssh`, then
+`sudo monarchy-identity leave` if you want to remove directory sign-in.

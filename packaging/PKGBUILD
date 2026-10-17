@@ -3,7 +3,7 @@ pkgbase=monarchy-identity
 pkgname=(monarchy-identity monarchy-identity-shell)
 pkgver=0.1.0
 pkgrel=1
-pkgdesc='Provider-agnostic corporate identity (directory login, policy, posture) for Omarchy'
+pkgdesc='Directory sign-in (Active Directory via sssd) for Omarchy'
 arch=(any)
 url='https://github.com/blatessa/monarchy-identity'
 license=('MIT')
@@ -22,8 +22,8 @@ package_monarchy-identity() {
   install -d "$pkgdir/usr/share/monarchy-identity/providers"
   cp -a "$_root/providers/." "$pkgdir/usr/share/monarchy-identity/providers/"
   install -d "$pkgdir/usr/share/monarchy-identity/lib"
-  install -m755 "$_root/lib/pamedit.py" "$_root/lib/check.py" "$pkgdir/usr/share/monarchy-identity/lib/"
-  install -m644 "$_root/lib/common.sh" "$_root/lib/posture.sh" "$pkgdir/usr/share/monarchy-identity/lib/"
+  install -m755 "$_root/lib/pamedit.py" "$pkgdir/usr/share/monarchy-identity/lib/"
+  install -m644 "$_root/lib/common.sh" "$pkgdir/usr/share/monarchy-identity/lib/"
 
   install -d "$pkgdir/usr/share/monarchy-identity/hooks/post-update.d"
   install -m755 "$_root/hooks/reassert.sh" "$pkgdir/usr/share/monarchy-identity/hooks/reassert.sh"
@@ -37,10 +37,7 @@ package_monarchy-identity() {
   for a in logo lock lock-failed entry entry-failed bullet; do
     ln -s "../omarchy/$a.png" "$pkgdir/usr/share/sddm/themes/monarchy-identity/$a.png"
   done
-  install -Dm644 "$_root/packaging/monarchy-identity-reassert.path" "$pkgdir/usr/lib/systemd/system/monarchy-identity-reassert.path"
-  install -Dm644 "$_root/packaging/monarchy-identity-reassert.service" "$pkgdir/usr/lib/systemd/system/monarchy-identity-reassert.service"
   install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/monarchy-identity/config.toml"
-  install -Dm644 "$_root/packaging/policy.example.toml" "$pkgdir/usr/share/doc/monarchy-identity/policy.example.toml"
   # documentation sources (the published site is built from these with mkdocs); images are referenced relatively
   install -d "$pkgdir/usr/share/doc/monarchy-identity"
   cp -a "$_root/docs/." "$pkgdir/usr/share/doc/monarchy-identity/"

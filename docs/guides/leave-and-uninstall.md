@@ -3,27 +3,21 @@
 ## Leave the directory
 
 ```bash
-sudo monarchy-identity leave --admin joinuser --password-file /root/join.pw
+sudo monarchy-identity leave --admin joinuser
 ```
 
-`leave` returns the laptop to exactly how it was before enrolling: the sign-in configuration, login theme, autologin
-setting and any `sudo` rule are restored from the backups taken at enrollment, the sign-in service is stopped, the
-laptop leaves the domain, and the watcher is switched off first so it can't undo the removal. Local accounts are
-untouched throughout. The step-by-step is in [What enroll does](../reference/enrollment-steps.md).
+`leave` turns off directory sign-in, takes the laptop out of the domain and removes the changes enrollment made: the
+login theme, the autologin setting and any `sudo` rule. Local accounts are untouched. Home folders of directory users
+stay on disk.
 
-With `--admin USER` (password from stdin or `--password-file`), the computer account is deleted from the directory.
-Without it, `leave` tries the machine's own credentials and, if that fails, logs a warning and leaves the account.
-A directory admin must then delete it, or the next enrollment of that name needs `--replace-computer-account`.
-
-`leave --quiet` suppresses the summary line.
+With `--admin` (password prompted, from standard input, or `--password-file`), the laptop's computer account is deleted
+from the directory. Without it, `leave` tries the laptop's own credentials; if that fails it warns and the account stays.
+Delete it in the directory, or the next enrollment with that name needs `--replace-computer-account`.
 
 ## Uninstall
-
-Removing the package while enrolled runs `monarchy-identity leave` first (without credentials), so PAM edits never
-outlive the tool:
 
 ```bash
 sudo pacman -R monarchy-identity
 ```
 
-Package upgrades do not run `leave`.
+Removing the package from an enrolled laptop runs `leave` first (without directory credentials). Package upgrades don't.

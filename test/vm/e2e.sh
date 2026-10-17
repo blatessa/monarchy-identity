@@ -1,40 +1,63 @@
 #!/bin/bash
-# End-to-end test of the sssd provider against the Samba AD + VM. Needs DC and VM running.
-# Usage: test/vm/e2e.sh        (deploys code, runs enroll -> policy matrix -> drift/reassert -> leave)
-set -u
-H="$(cd "$(dirname "$0")" && pwd)"; cd "$H"
-V=(ssh -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -p 2222 tester@127.0.0.1)
-PW='Passw0rd!Test'; fail=0
-ok() { printf '  PASS %s\n' "$1"; }; bad() { printf '  FAIL %s\n' "$1"; fail=1; }
-expect() { # expect <desc> <want ALLOWED|DENIED> <service> <user> <password>
-  local out; out=$("${V[@]}" "sudo python3 -I ~/pamtest.py $3 $4 '$5'" 2>&1)
-  [[ $out == $2* ]] && ok "$1" || bad "$1 (got: $out)"; }
-scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 pamtest.py tester@127.0.0.1:/home/tester/
-./deploy.sh --fixtures >/dev/null
-"${V[@]}" 'sudo faillock --user alice --reset; sudo faillock --user bob --reset; sudo faillock --user carol --reset; sudo faillock --user tester --reset' 
+# Core: enroll, sign-in through every Omarchy PAM service, password change, repair after overwrite, local users
+# unaffected when sssd or pam_sss.so is gone, and leave. One enrollment for all of it. Needs DC + VM.
+source "$(dirname "$0")/lib.sh"
+SSS=/usr/lib/security/pam_sss.so
+pt_as() { local u=$1; shift; "${V[@]}" "sudo -u $u python3 -I /tmp/pamtest.py$(q "$@")" 2>&1; }   # pam_sss refuses root-initiated password changes
+trap 'dc user setpassword alice --newpassword="$PW" >/dev/null; "${V[@]}" "echo tester:tester | sudo chpasswd; test -e $SSS.off && sudo mv $SSS.off $SSS" >/dev/null 2>&1' EXIT
+fresh
+"${V[@]}" 'sudo rm -rf /home/alice /home/bob /home/carol'
+
 echo "[enroll]"
-# clean slate: leave if a previous run left us enrolled
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
-out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm CORP.TEST --server dc.corp.test --admin Administrator --mode groups --groups oi-laptop-users" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok enroll || { bad "enroll"; echo "$out" | sed 's/^/      /'; }
-# reset AFTER enroll: before it, directory users don't resolve and the reset is a silent no-op
-"${V[@]}" 'for u in alice bob carol tester; do sudo faillock --user $u --reset; done' 2>/dev/null
-echo "[policy: groups=oi-laptop-users]"
-for svc in system-auth omarchy-lock-password; do
-  expect "$svc alice (allowed group) right pw" ALLOWED $svc alice "$PW"
-  expect "$svc bob   (allowed group) right pw" ALLOWED $svc bob "$PW"
-  expect "$svc carol (NOT in group)   denied"  DENIED  $svc carol "$PW"
-  expect "$svc tester (local break-glass)"     ALLOWED $svc tester tester
-  expect "$svc bob wrong pw denied"            DENIED  $svc bob wrong
+enroll_ok --groups oi-laptop-users
+s=$(st); [[ $s == *'"enrolled":true'* && $s == *'"login_mode":"groups"'* && $s != *'"false"'* ]] && ok "status: enrolled, groups, every check true" || bad "status: $s"
+
+echo "[sign-in on every service]"
+for svc in system-auth omarchy-lock-password sddm sudo login sshd system-remote-login; do
+  sess=--session; [[ $svc == omarchy-lock-password ]] && sess=""   # unlocking authenticates; it opens no session
+  expect ALLOWED "$svc: alice (in group)" $sess "$svc" alice "$PW"
+  expect DENIED  "$svc: carol (not in group)" "$svc" carol "$PW"
+  expect DENIED  "$svc: bob, wrong password" "$svc" bob wrong
+  expect ALLOWED "$svc: tester (local)" "$svc" tester tester
 done
-echo "[drift + reassert]"
-"${V[@]}" 'sudo cp ~/oi/../../../etc/pam.d/system-auth /dev/null 2>/dev/null; sudo python3 -I ~/oi/lib/pamedit.py remove /etc/pam.d/system-auth'
-"${V[@]}" '~/oi/bin/monarchy-identity status --json' | grep -q '"pam_system_auth":"false"' && ok "drift detected by status" || bad "drift detected"
-"${V[@]}" 'sudo ~/oi/bin/monarchy-identity reassert' >/dev/null 2>&1
-expect "alice allowed after reassert" ALLOWED system-auth alice "$PW"
+check "alice's home created on first sign-in, mode 700" test "$("${V[@]}" 'sudo stat -c "%U %a" /home/alice' 2>&1)" == "alice 700"
+check "carol (refused) got no home" "${V[@]}" 'test ! -e /home/carol'
+
+echo "[passwords]"
+reset_locks
+[[ $(pt_as alice passwd alice "$PW" --chauthtok 'N3w-Passw0rd!') == PASSWORD-CHANGED* ]] && ok "alice changes her directory password with passwd" || bad "alice passwd"
+expect ALLOWED "alice: new password works" system-auth alice 'N3w-Passw0rd!'
+expect DENIED  "alice: old password refused" system-auth alice "$PW"
+dc user setpassword alice --newpassword="$PW" >/dev/null; reset_locks
+expect PASSWORD-CHANGED "tester: local passwd still changes the local password" passwd tester tester --chauthtok 'tester2-pw'
+"${V[@]}" 'echo tester:tester | sudo chpasswd'
+
+echo "[repair after something overwrites the sign-in config]"
+"${V[@]}" 'sudo python3 -I ~/oi/lib/pamedit.py remove /etc/pam.d/system-auth; sudo sed -i -E "/^(passwd|group|shadow):/ s/[[:space:]]+sss\b//" /etc/nsswitch.conf'
+s=$(st); [[ $s == *'"pam_system_auth":"false"'* && $s == *'"nss_sss":"false"'* ]] && ok "status shows the overwrite" || bad "status: $s"
+scli reassert >/dev/null
+s=$(st); [[ $s == *'"pam_system_auth":"true"'* && $s == *'"nss_sss":"true"'* ]] && ok "reassert puts it back" || bad "after reassert: $s"
+expect ALLOWED "alice signs in again" system-auth alice "$PW"
+
+echo "[local users don't depend on the directory]"
+"${V[@]}" 'sudo systemctl stop $(systemctl list-units --all --no-legend --plain "sssd*" | cut -d" " -f1)' >/dev/null 2>&1   # sockets too, or they restart it
+for svc in sudo sddm sshd; do expect ALLOWED "sssd stopped: $svc tester (local)" "$svc" tester tester; done
+expect DENIED "sssd stopped: alice gets a prompt answer" system-auth alice "$PW"
+# if a check below bricks every login, this root timer (no PAM involved) restores the module
+"${V[@]}" "sudo systemd-run --quiet --unit=oi-restore-pam --on-active=120s /bin/sh -c 'test -e $SSS.off && mv $SSS.off $SSS'"
+"${V[@]}" "sudo mv $SSS $SSS.off"
+for svc in sudo sddm sshd; do expect ALLOWED "pam_sss.so missing: $svc tester (local)" "$svc" tester tester; done
+expect DENIED "pam_sss.so missing: alice refused, not waved through" system-auth alice "$PW"
+"${V[@]}" "sudo mv $SSS.off $SSS; sudo systemctl stop oi-restore-pam.timer; sudo systemctl start sssd"
+scli reassert >/dev/null; reset_locks
+expect ALLOWED "alice works again once sssd is back" system-auth alice "$PW"
+
 echo "[leave]"
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
-for f in system-auth omarchy-lock-password; do "${V[@]}" "cat /etc/pam.d/$f" | diff -q - fixtures/pam.d/$f >/dev/null && ok "$f restored to stock" || bad "$f restored"; done
-[[ $(docker exec oi-test-dc samba-tool computer list | grep -c 'OI-CLIENT') -eq 0 ]] && ok "computer account removed" || bad "computer account removed"
-expect "tester still ok after leave" ALLOWED system-auth tester tester
-((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"
+leave
+check "PAM back to stock" pam_stock
+check "nsswitch has no sss" "${V[@]}" '! grep -qE "^(passwd|group|shadow):.*sss" /etc/nsswitch.conf'
+check "sssd, krb5 and samba config removed" "${V[@]}" 'sudo test ! -e /etc/sssd/sssd.conf -a ! -e /etc/krb5.conf -a ! -e /etc/samba/smb.conf -a ! -e /etc/krb5.keytab'
+check "computer account deleted" bash -c '! docker exec oi-test-dc samba-tool computer list | grep -qxF "OI-CLIENT\$"'
+[[ $(st) == *'"enrolled":false'* ]] && ok "status: not enrolled" || bad "status after leave: $(st)"
+expect ALLOWED "tester (local) fine after leave" system-auth tester tester
+result

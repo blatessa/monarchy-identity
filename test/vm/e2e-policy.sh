@@ -1,83 +1,84 @@
 #!/bin/bash
-# `policy set` / `policy show` / `enroll --if-needed`: change who may sign in WITHOUT re-joining. Needs DC + VM.
-set -u
-H="$(cd "$(dirname "$0")" && pwd)"; cd "$H"
-V=(ssh -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -p 2222 tester@127.0.0.1)
-PW='Passw0rd!Test'; fail=0
-ok() { printf '  PASS %s\n' "$1"; }; bad() { printf '  FAIL %s\n' "$1"; fail=1; }
-A="--realm CORP.TEST --server dc.corp.test --admin Administrator"
-q() { local o="" a; for a in "$@"; do o+=" $(printf '%q' "$a")"; done; printf '%s' "$o"; }   # safe remote quoting
-M() { "${V[@]}" "sudo ~/oi/bin/monarchy-identity$(q "$@") 2>&1"; }
-pt() { "${V[@]}" "sudo python3 -I /tmp/pamtest.py $* 2>&1"; }
-allowed() { [[ $(pt sddm "$1" "$PW") == ALLOWED* ]]; }
+# Who may sign in: implied modes, all three policies, sudo groups, offline days, autologin, `policy set` without
+# re-joining, refusals that change nothing, `enroll --if-needed`. Needs DC + VM.
+source "$(dirname "$0")/lib.sh"
+allowed() { reset_locks; [[ $(pt sddm "$1" "$PW") == ALLOWED* ]]; }
 can_sudo() { "${V[@]}" "sudo sudo -l -U $1 2>&1" | grep -q "(ALL : ALL) ALL"; }
-pwset() { docker exec oi-test-dc samba-tool computer show 'OI-CLIENT$' 2>/dev/null | sed -n 's/^pwdLastSet: //p'; }
-reset_locks() { "${V[@]}" 'for u in alice bob carol; do sudo faillock --user $u --reset 2>/dev/null; done'; }
-shown() { M policy show; }
+autologin() { st | grep -o '"autologin":[a-z]*' | cut -d: -f2; }
+pwset() { dc computer show 'OI-CLIENT$' | sed -n 's/^pwdLastSet: //p'; }
+SUDOERS=/etc/sudoers.d/50-monarchy-identity
+fresh
 
-scp -q -i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 pamtest.py tester@127.0.0.1:/home/tester/
-./deploy.sh --fixtures >/dev/null; "${V[@]}" 'sudo install -m 644 ~/pamtest.py /tmp/pamtest.py'
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
-out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --mode groups --groups oi-laptop-users --sudo-groups oi-admins" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok "enroll (groups: oi-laptop-users, sudo: oi-admins)" || { bad enroll; echo "$out" | sed 's/^/      /'; }
-reset_locks; P0=$(pwset); [[ -n $P0 ]] || bad "could not read the computer account's pwdLastSet"
+echo "[enroll: --groups alone implies the mode; autologin off by default]"
+[[ $(autologin) == true ]] && ok "before: Omarchy autologin on (fixture)" || bad "fixture autologin: $(autologin)"
+out=$(enroll --groups oi-laptop-users --sudo-groups oi-admins)
+[[ $out == *"enrolled in CORP.TEST"* && $out == *"login mode: groups"* ]] && ok "enrolled, mode groups" || { bad "enroll"; sed 's/^/      /' <<<"$out"; }
+[[ $(autologin) == false ]] && ok "autologin turned off" || bad "autologin: $(autologin)"
+P0=$(pwset)
 
-echo "[baseline]"
-allowed alice && allowed bob && ok "alice and bob allowed" || bad "baseline allow"
-allowed carol && bad "carol allowed at baseline" || ok "carol denied"
-can_sudo alice && ok "alice has sudo" || bad "alice lacks sudo"
-[[ $(shown) == *"login mode:    groups"* && $(shown) == *"oi-laptop-users"* ]] && ok "policy show reflects it" || bad "policy show: $(shown)"
-[[ $("${V[@]}" '~/oi/bin/monarchy-identity policy show >/dev/null 2>&1; echo $?') == 0 ]] && ok "policy show needs no root" || bad "policy show as user"
+echo "[groups + sudo]"
+allowed alice && allowed bob && ok "alice and bob allowed" || bad "group members"
+allowed carol && bad "carol allowed" || ok "carol (not in group) denied"
+[[ $("${V[@]}" "sudo stat -c '%a %U' $SUDOERS") == "440 root" ]] && ok "sudoers drop-in 0440 root" || bad "sudoers mode"
+can_sudo alice && ok "alice (oi-admins) has sudo" || bad "alice lacks sudo"
+can_sudo bob && bad "bob has sudo" || ok "bob (not in oi-admins) has no sudo"
+check "visudo -c clean" "${V[@]}" 'sudo visudo -c >/dev/null 2>&1'
+[[ $(cli policy show) == *"login mode:    groups"* ]] && ok "policy show works without root" || bad "policy show: $(cli policy show)"
 
-echo "[policy set: groups -> assigned (alice only), no re-join]"
-out=$(M policy set --mode assigned --users alice); [[ $out == *"policy updated"* ]] && ok "policy set --mode assigned" || { bad "set assigned"; echo "$out" | sed 's/^/      /'; }
-reset_locks
-allowed alice && ok "alice allowed" || bad "alice denied after assigned"
-allowed bob && bad "bob still allowed (not assigned)" || ok "bob now denied (in the group, but not assigned)"
-can_sudo alice && ok "sudo untouched by a policy change that didn't mention it" || bad "sudo lost"
-[[ $(pwset) == "$P0" ]] && ok "computer account NOT re-joined (pwdLastSet unchanged)" || bad "account was re-joined"
-"${V[@]}" 'sudo net ads testjoin' 2>&1 | grep -q 'Join is OK' && ok "domain join still healthy" || bad "join broken"
+echo "[reassert restores deleted drop-ins]"
+"${V[@]}" "sudo rm -f $SUDOERS /etc/sddm.conf.d/zz-monarchy-identity.conf"
+scli reassert >/dev/null
+can_sudo alice && [[ $(autologin) == false ]] && ok "sudo and autologin override back" || bad "reassert: sudo=$(can_sudo alice && echo y) autologin=$(autologin)"
 
-echo "[policy set: assigned -> any]"
-M policy set --mode any >/dev/null; reset_locks
-allowed carol && ok "carol (no group, not assigned) allowed under any" || bad "carol denied under any"
+echo "[policy set: --users alone implies assigned; no re-join]"
+[[ $(scli policy set --users alice) == *"mode=assigned"* ]] && ok "policy set --users" || bad "policy set --users"
+allowed alice && ok "alice allowed" || bad "alice denied"
+allowed bob && bad "bob still allowed" || ok "bob denied (in group, not listed)"
+can_sudo alice && ok "sudo untouched by a change that didn't mention it" || bad "sudo lost"
+[[ $(pwset) == "$P0" ]] && ok "computer account not re-joined" || bad "re-joined"
 
-echo "[policy set: back to groups, and remove sudo]"
-M policy set --mode groups --groups oi-laptop-users --sudo-groups - >/dev/null; reset_locks
-allowed bob && ok "bob allowed again" || bad "bob denied"
+echo "[policy set: any, offline days]"
+scli policy set --mode any --offline-days 3 >/dev/null
+allowed carol && ok "carol allowed under any" || bad "carol denied under any"
+check "offline_credentials_expiration = 3 written" "${V[@]}" 'sudo grep -q "^offline_credentials_expiration = 3" /etc/sssd/sssd.conf'
+check "sssctl config-check accepts the generated sssd.conf" "${V[@]}" 'sudo timeout 20 sssctl config-check </dev/null >/dev/null 2>&1'
+
+echo "[policy set: back to groups, sudo removed]"
+scli policy set --groups oi-laptop-users --sudo-groups - --offline-days 0 >/dev/null
 allowed carol && bad "carol still allowed" || ok "carol denied again"
-can_sudo alice && bad "alice still has sudo after --sudo-groups -" || ok "--sudo-groups - removed sudo"
-"${V[@]}" 'test ! -e /etc/sudoers.d/50-monarchy-identity' && ok "sudoers drop-in removed" || bad "sudoers file remains"
-M reassert >/dev/null; "${V[@]}" 'test ! -e /etc/sudoers.d/50-monarchy-identity' && ok "reassert does not resurrect removed sudo" || bad "reassert re-added sudo"
+can_sudo alice && bad "alice still has sudo" || ok "--sudo-groups - removed sudo"
+scli reassert >/dev/null; check "reassert doesn't bring removed sudo back" "${V[@]}" "test ! -e $SUDOERS"
 
-echo "[bad changes are refused and change nothing]"
-S0=$(shown)
-out=$(M policy set --mode groups --groups ''); [[ $out == *"needs --groups"* ]] && ok "mode groups with no groups refused (default deny)" || bad "empty groups: $out"
-out=$(M policy set --groups 'bad;group'); [[ $out == *"invalid --groups"* ]] && ok "invalid group name refused" || bad "invalid groups: $out"
-out=$(M policy set --mode bogus); [[ $out == *"bad --mode"* ]] && ok "invalid mode refused" || bad "bogus mode: $out"
-out=$(M policy set --offline-days abc); [[ $out == *"invalid --offline-days"* ]] && ok "invalid --offline-days refused" || bad "offline-days: $out"
-[[ $(shown) == "$S0" ]] && ok "policy unchanged after the refusals" || bad "policy changed by a refused request"
-out=$(M policy set --groups no-such-group-anywhere); [[ $out == *"previous policy restored"* ]] && ok "unresolvable group: previous policy restored" || bad "unresolvable: $out"
-reset_locks; allowed bob && ok "bob still allowed (old policy is live again)" || bad "bob locked out after failed change"
-[[ $("${V[@]}" '~/oi/bin/monarchy-identity policy set --mode any >/dev/null 2>&1; echo $?') != 0 ]] && ok "policy set refuses non-root" || bad "policy set allowed for non-root"
+echo "[refused changes change nothing]"
+S0=$(cli policy show)
+[[ $(scli policy set --mode groups --groups '') == *"needs --groups"* ]] && ok "no groups refused" || bad "empty groups"
+[[ $(scli policy set --groups 'bad;group') == *"invalid --groups"* ]] && ok "invalid group name refused" || bad "invalid group"
+[[ $(scli policy set --groups no-such-group) == *"has no group named"* ]] && ok "unknown group refused" || bad "unknown group"
+[[ $(scli policy set --mode bogus) == *"bad --mode"* ]] && ok "bogus mode refused" || bad "bogus mode"
+[[ $(scli policy set --offline-days abc) == *"invalid --offline-days"* ]] && ok "bad --offline-days refused" || bad "offline-days"
+[[ $(cli policy set --mode any) == *"administrator rights"* ]] && ok "non-root refused" || bad "non-root allowed"
+[[ $(cli policy show) == "$S0" ]] && ok "policy unchanged" || bad "policy changed"
+allowed bob && ok "bob still allowed" || bad "bob locked out"
 
-echo "[rapid-fire changes must not trip systemd's start limit and leave sssd failed]"
-for i in 1 2 3 4 5 6 7 8; do M policy set --mode any >/dev/null; M policy set --mode groups --groups oi-laptop-users >/dev/null; done
-[[ $("${V[@]}" 'systemctl is-active sssd') == active ]] && ok "sssd still active after 16 back-to-back policy changes" || bad "sssd is $("${V[@]}" 'systemctl is-active sssd') after rapid changes"
-reset_locks; allowed bob && ok "directory login still works afterwards" || bad "login broken after rapid changes"
-for i in 1 2 3 4 5 6; do M reassert >/dev/null; done
-[[ $("${V[@]}" 'systemctl is-active sssd') == active ]] && ok "sssd active after 6 back-to-back reasserts" || bad "reassert storm broke sssd"
-echo "[enroll --if-needed converges instead of re-joining]"
-out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --mode groups --groups oi-admins --if-needed" 2>&1)
-[[ $out == *"converging policy without re-joining"* ]] && ok "already enrolled: converged, exit message" || { bad "if-needed: $out"; }
-reset_locks
-allowed alice && ok "alice (in oi-admins) allowed" || bad "alice"
-allowed bob && bad "bob still allowed after converging to oi-admins" || ok "bob denied (not in oi-admins)"
-[[ $(pwset) == "$P0" ]] && ok "still not re-joined" || bad "if-needed re-joined"
-out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd --realm OTHER.EXAMPLE --admin x --groups g --if-needed" 2>&1)
-[[ $out == *"already enrolled in"* ]] && ok "different realm refused: leave first" || bad "other realm: $out"
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
-out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll sssd $A --mode groups --groups oi-laptop-users --if-needed" 2>&1)
-[[ $out == *"enrolled in"* ]] && ok "--if-needed on a NOT-enrolled machine enrolls normally" || bad "if-needed fresh: $out"
-echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
-((fail)) && { echo "RESULT: FAIL"; exit 1; } || echo "RESULT: ALL PASS"
+echo "[back-to-back changes don't trip systemd's start limit]"
+for _ in 1 2 3; do scli policy set --mode any >/dev/null; scli policy set --groups oi-laptop-users >/dev/null; done
+[[ $("${V[@]}" 'systemctl is-active sssd') == active ]] && ok "sssd active after 6 quick restarts" || bad "sssd $("${V[@]}" 'systemctl is-active sssd')"
+allowed bob && ok "sign-in still works" || bad "sign-in broken"
+
+echo "[enroll --if-needed]"
+out=$(enroll --groups oi-admins --if-needed)
+[[ $out == *"converging policy without re-joining"* ]] && ok "enrolled machine: converged" || bad "if-needed: $out"
+allowed alice && ok "alice (oi-admins) allowed" || bad "alice"
+allowed bob && bad "bob still allowed" || ok "bob (not in oi-admins) denied"
+[[ $(pwset) == "$P0" ]] && ok "still not re-joined" || bad "re-joined"
+out=$(echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity enroll --realm OTHER.EXAMPLE --groups g --if-needed' 2>&1)
+[[ $out == *"already enrolled in"* ]] && ok "different realm refused" || bad "other realm: $out"
+
+echo "[leave turns autologin back on; --if-needed on a fresh machine enrolls]"
+leave
+[[ $(autologin) == true ]] && ok "autologin back on" || bad "autologin: $(autologin)"
+check "sudoers drop-in gone" "${V[@]}" "test ! -e $SUDOERS"
+enroll_ok --groups oi-laptop-users --if-needed --keep-autologin
+[[ $(autologin) == true ]] && ok "--keep-autologin keeps it" || bad "autologin: $(autologin)"
+leave
+result
