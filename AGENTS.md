@@ -92,8 +92,8 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 `.claude/skills/`: `lab-e2e` (run and debug the lab), `pam-change` (checklist for any system-config edit), `new-provider`, `release`.
 
 ## Picking work
-GitHub issues are the work queue for agents. Labels: `P0` (blocks real use) to `P3` (polish), and `needs-lab` (needs
-the VM/DC lab to verify). Take the highest-priority open issue without an assignee or open PR; each issue body says
+GitHub issues are the work queue for agents. Labels: `P0` (blocks real use) to `P3` (polish). Assume work needs the
+lab unless the issue says otherwise. Take the highest-priority open issue without an assignee or open PR; each issue body says
 what done looks like. Close it from the PR (`Fixes #N`). If you find new work, open an issue in the same shape rather
 than expanding the current change.
 
