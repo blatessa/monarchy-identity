@@ -9,7 +9,7 @@ It edits PAM, nsswitch, SDDM and sudoers, so mistakes lock people out. Status: p
 against Samba AD. Public docs are the MkDocs site in `docs/` (published to GitHub Pages).
 
 ## Before you change anything
-1. Read the hard rules below.
+1. Read the hard rules below. Run `test/lab-check.sh` if the task needs the lab.
 2. Skim `docs/` developer pages (architecture, testing, findings) for the area you're touching. `FINDINGS` lists traps already hit.
 3. Open work is tracked as GitHub issues (`gh issue list`); `TODO.md` is only an index. Pick or create an issue first.
 
@@ -38,10 +38,11 @@ against Samba AD. Public docs are the MkDocs site in `docs/` (published to GitHu
 ## Commands
 Prerequisites for the lab: Docker, QEMU/KVM + OVMF, ssh, python3, node (widget tests). Details: developer testing page in `docs/`.
 
+    test/lab-check.sh                 # prerequisites + lab state; prints the exact fix for anything missing
     bash test/unit/validation.sh; bash test/unit/naming.sh; bash test/unit/check.sh   # no lab needed, seconds
     bash hooks/test-reassert.sh; bash shell-plugin/tests/run.sh                        # no lab needed
     cd test/dc && docker compose up -d && ./seed-users.sh                              # directory
-    (cd test/vm && ./fetch-image.sh && (setsid ./run.sh </dev/null >vm.log 2>&1 &))   # VM, first boot ~1 min
+    (cd test/vm && ./fetch-image.sh && (setsid ./run.sh </dev/null >vm.log 2>&1 &))   # VM; makes its own ssh key; first boot ~1 min
     test/vm/deploy.sh [--fixtures]    # push repo to the VM (--fixtures resets PAM to stock Omarchy, removes the package)
     test/vm/e2e*.sh                   # one suite; each prints RESULT: ALL PASS
     test/run-all.sh                   # everything, ~15 min

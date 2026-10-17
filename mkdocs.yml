@@ -1,0 +1,67 @@
+site_name: monarchy-identity
+site_description: Directory sign-in, login policy and posture reporting for Omarchy
+site_url: https://blatessa.github.io/monarchy-identity/
+repo_url: https://github.com/blatessa/monarchy-identity
+repo_name: blatessa/monarchy-identity
+edit_uri: edit/main/docs/
+docs_dir: docs
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: { icon: material/weather-night, name: Dark mode }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: { icon: material/weather-sunny, name: Light mode }
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+nav:
+  - Overview: index.md
+  - Getting started: getting-started.md
+  - Concepts:
+      - Login policy: concepts/login-policy.md
+      - What enrolment changes: concepts/enrolment.md
+      - Self-healing: concepts/self-healing.md
+      - Safety model: concepts/safety-model.md
+  - Guides:
+      - Plan a rollout: guides/rollout-planning.md
+      - Enrol safely: guides/enrol-safely.md
+      - Change who may sign in: guides/change-policy.md
+      - Automate enrolment: guides/automation.md
+      - Compliance checks: guides/compliance-checks.md
+      - Omarchy integration: guides/omarchy-integration.md
+      - Leave and uninstall: guides/leave-and-uninstall.md
+      - Troubleshooting: guides/troubleshooting.md
+  - Reference:
+      - CLI: reference/cli.md
+      - Posture report: reference/posture.md
+      - Compliance policy file: reference/policy-file.md
+      - Configuration file: reference/config-file.md
+      - Files, units and variables: reference/files.md
+  - Providers:
+      - Overview: providers/index.md
+      - sssd (Active Directory): providers/sssd.md
+      - Writing a provider: providers/writing-a-provider.md
+  - Evidence from the lab: evidence.md
+  - Status and limits: status.md
+  - Development:
+      - Architecture: dev/architecture.md
+      - Testing: dev/testing.md
+      - Findings: dev/findings.md

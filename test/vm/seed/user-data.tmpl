@@ -5,7 +5,7 @@ users:
     groups: [wheel]
     lock_passwd: false
     plain_text_passwd: tester
-    ssh_authorized_keys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGzegy8+lbXXmJVe9wqIL/DWmbDk73bGOYVxyI7RtL4E oi-test"]
+    ssh_authorized_keys: ["@SSH_PUBKEY@"]
 ssh_pwauth: true
 write_files:
   - path: /etc/hosts.d-oi
