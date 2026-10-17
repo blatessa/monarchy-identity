@@ -9,37 +9,48 @@ particular directory.
 | The core (same for every directory) | The provider |
 |---|---|
 | The CLI, locking, `status --json` top level | Registering the laptop with the directory (join, device registration, ...) and undoing it |
-| Who may sign in: `--groups`, `--users`, `--mode any` | Making the laptop resolve directory users and groups (NSS) |
-| `--sudo-groups`, `--offline-days`, autologin, login theme, `--if-needed` | Authenticating them (the PAM module, and its config) |
-| Password-file handling (`read_admin_password`) | Enforcing the login policy with the directory's mechanism |
-| Editing PAM through `lib/pamedit.py` | Its own options (`--realm`, `--tenant`, ...) and their validation |
-| SDDM, sudoers, the pacman/Omarchy hooks | Its `details` health keys and its docs page |
+| Who may sign in: parsing and validating `--groups`, `--users`, `--mode any` | Making the laptop resolve directory users and groups (NSS) |
+| `--sudo-groups`, `--offline-days`, autologin, login theme, `--if-needed`, `--password-file` | Naming the PAM module that authenticates them, and configuring it |
+| Editing PAM with the provider's module, through `lib/pamedit.py` | Enforcing the resolved login policy with the directory's mechanism |
+| SDDM, sudoers, the pacman/Omarchy hooks | Its own options (`--realm`, `--tenant`, ...) and their validation |
+| The policy keys in `config.toml` | Its own keys there, its `details` health keys and its docs page |
 
-Today the AD provider still parses the shared options itself and `pamedit.py` inserts `pam_sss` specifically. Moving
-both into the core is the first provider-work issue; do it before adding a second provider rather than copying.
+`enroll` runs: the core validates the shared options, the provider's `enroll` registers and proves the directory
+answers, then the core records the enrollment and switches sign-in on (PAM, autologin, sudoers, login theme).
+`reassert` and `leave` wrap the provider's script the same way.
 
 ## Scripts
 
+Each runs with `$OI_ROOT` set and sources `lib/common.sh` (`die`, `log`, `need_root`, `conf_get`, `conf_set`,
+`read_admin_password`, ...). The core passes the resolved policy in the environment: `OI_LOGIN_MODE`
+(`groups`, `assigned` or `any`), `OI_GROUPS`, `OI_USERS`, `OI_OFFLINE_DAYS`; and `OI_ADMIN_PASSWORD_FILE` when
+`--password-file` was given (`read_admin_password` reads it, or standard input).
+
 | Script | Called by | Contract |
 |---|---|---|
-| `enroll [args]` | `monarchy-identity enroll <name> [args]` | Register and turn on directory sign-in. |
-| `unenroll [args]` | `leave` | Remove every change `enroll` made, and what it created in the directory when it can. |
-| `policy show\|set ...` | `policy` | Show or change who may sign in. |
-| `reassert` | `reassert`, the update hooks | Idempotently re-apply the edits. |
+| `enroll [own options]` | `enroll <name>` | Validate its options, check everything the directory can reject, register, enforce the policy, make users resolve, wait until the directory answers. Must not touch PAM, SDDM or sudoers. Save its state with `conf_set`. On success print one line naming the enrollment (`CORP.EXAMPLE.COM as LAPTOP-0042`). `--help` prints its options. |
+| `matches [own options]` | `enroll --if-needed` on an enrolled laptop | Print the enrollment line if these options describe the current enrollment (the core then only converges the policy); fail with a clear message if not. |
+| `policy show` | `policy show` | Print the provider's lines (the directory, the device name); the core prints the policy. |
+| `policy apply` | `policy set`, `enroll --if-needed` | Enforce the resolved policy on an enrolled laptop; refuse (changing nothing) what the directory can't honour. |
+| `reassert` | `reassert`, the update hooks | Idempotently re-apply the provider's edits (NSS, its daemon). |
+| `unenroll [own options]` | `leave`, after the core removed PAM, SDDM and sudoers | Remove every other change `enroll` made, and what it created in the directory when it can. |
 | `status` | `status` | Print read-only `key=value` health lines (`true`/`false`/`unknown`); they become `details`. |
 | `detect` | (reserved) | Exit 0 if prerequisites are installed. |
+| `pam.conf` (a file) | the core's PAM edit | `module = "pam_x.so"`, plus optional arguments per stack: `auth = "..."`, `account`, `password`, `session`. |
 
-The active provider is `provider` in `/etc/monarchy-identity/config.toml`; persist state there with `conf_write`.
+The active provider is `provider` in `/etc/monarchy-identity/config.toml`. `test/unit/stub-provider/` is a complete
+provider with no directory behind it, and `test/unit/provider.sh` checks the contract against it.
 
 ## Rules for every provider
 
 - **Check against the directory before changing sign-in.** Anything the directory can reject (credentials, group
   names, name collisions) is checked before registering; PAM is edited last, after the directory demonstrably answers.
   A re-run after a failure must pick up where it stopped; no rollback machinery.
-- **Never lock out local users.** PAM rules go through `lib/pamedit.py`, `-`-prefixed, harmless when the module or
-  its daemon is missing.
+- **Never lock out local users.** The core inserts the module named in `pam.conf` with fixed rules (`-`-prefixed,
+  unknown or unavailable users ignored), harmless when the module or its daemon is missing.
 - **Same policy meaning everywhere.** `--groups` means "members of these directory groups", `--users` "only these
-  people", default deny. If a directory can't express one of them, refuse it with a clear message.
+  people", default deny. If a directory can't express one of them, refuse it with a clear message in `enroll` and
+  `policy apply`.
 - **Offline sign-in.** Laptops travel: cached credentials after a first online sign-in are expected, with
   `--offline-days` honoured.
 - **Validate input** before it reaches a config file; mark files you write with `$OI_MARK`.

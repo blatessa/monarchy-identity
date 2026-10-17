@@ -28,13 +28,13 @@ Status: prototype; only the AD provider exists, verified in a VM against Samba A
 
 ## Layout
     bin/monarchy-identity    core CLI (status|enroll|leave|policy|reassert|install-hooks|install-widget|providers)
-    providers/<name>/        one per directory (ad today): enroll unenroll policy reassert status detect (+lib.sh)
-    lib/                     common.sh, pamedit.py (idempotent BEGIN/END-marked PAM editor)
+    providers/<name>/        one per directory (ad today): enroll matches unenroll policy reassert status detect pam.conf (+lib.sh)
+    lib/                     common.sh, pamedit.py (idempotent BEGIN/END-marked PAM editor; the provider names the module)
     sddm-theme/              login theme: Omarchy's look + a username field (stock theme only logs in the last user)
     hooks/                   reassert.sh + post-update wrapper
     packaging/               PKGBUILD (monarchy-identity + -shell), alpm hook, install scriptlet, default config
     shell-plugin/            optional Quickshell bar widget (id monarchy-identity.status)
-    test/                    dc (Samba AD container for the ad provider), vm (Arch QEMU client, lib.sh + e2e suites), unit
+    test/                    dc (Samba AD container for the ad provider), vm (Arch QEMU client, lib.sh + e2e suites), unit (+ stub-provider)
     docs/                    MkDocs site (user-facing docs + developer pages)
     .github/workflows/       ci.yml, release.yml, docs.yml
 
@@ -60,7 +60,7 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
   Suites must not depend on what ran before them: start from `fresh`, and cover a fresh vs an existing computer
   account explicitly rather than by re-running.
 - `enroll` checks everything the directory can reject before it changes sign-in; `leave` removes every change enroll made.
-- New PAM edit: goes through `lib/pamedit.py`, rule is `-`-prefixed, safe when `pam_sss.so` is missing, has a remove/idempotency test.
+- New PAM edit: goes through `lib/pamedit.py`, rule is `-`-prefixed, safe when the module is missing, has a remove/idempotency test.
 - Anything the CLI sources is also installed by `packaging/PKGBUILD` (`test/vm/e2e-package.sh` catches misses).
 - **Docs considered.** Ask "does a user or admin see this change?" Not every change needs a docs edit, but decide deliberately, and say in the commit/PR what you did ("docs: updated X" or "docs: none, internal"). See the map below. Run `mkdocs build --strict` when you touch `docs/` (CI does too).
 - A non-obvious lesson goes into `docs/dev/findings.md`.
@@ -81,7 +81,7 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 
 ## Conventions
 - Bash with `set -euo pipefail`; quote everything; no new runtime deps without updating PKGBUILD.
-- Provider contract (`docs/dev/writing-a-provider.md`): what's shared across directories lives in the core; `enroll` checks everything the directory can reject before registering and edits PAM last; a re-run picks up after a failure (no rollback machinery). `unenroll` removes every change enroll made. State goes in `/etc/monarchy-identity/config.toml` (flat `key = "value"`). See `docs/dev/writing-a-provider.md`.
+- Provider contract (`docs/dev/writing-a-provider.md`): what's shared across directories lives in the core (shared options, PAM, SDDM, sudoers; a provider gets its own options and the resolved policy); `enroll` checks everything the directory can reject before registering, and the core edits PAM last; a re-run picks up after a failure (no rollback machinery). `unenroll` removes every change enroll made. State goes in `/etc/monarchy-identity/config.toml` (flat `key = "value"`). See `docs/dev/writing-a-provider.md`.
 - Restart sssd ONLY via `sssd_restart` (systemd start-limit). Never call `sssctl` without `</dev/null` and `timeout` (it can prompt and hang, holding the CLI flock).
 - Test inputs that go through ssh must be `printf %q`-quoted; use `grep -F` for computer names (`$` is a regex anchor).
 - **Defaults over configuration; don't expose implementation.** The person using this is an administrator, not a

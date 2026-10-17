@@ -34,7 +34,9 @@ monarchy-identity enroll [PROVIDER] [provider options] (--groups A,B | --users U
 ```
 
 Connects the laptop to a directory and turns on directory sign-in. `PROVIDER` names the directory's
-[provider](../providers/index.md); while `ad` is the only one, it can be left out. `enroll --help` lists every option.
+[provider](../providers/index.md); when only one is installed (today, `ad`), it can be left out. `enroll --help` lists
+every option, and `enroll PROVIDER --help` adds that provider's. A laptop enrolled with one directory must `leave`
+before enrolling with another.
 
 Before it changes anything, `enroll` checks what the directory can check (credentials, that the groups you named
 exist), so typos fail without touching the laptop.

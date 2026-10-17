@@ -4,19 +4,20 @@
 source "$(dirname "$0")/lib.sh"
 sandbox
 PE=(python3 -I "$REPO/lib/pamedit.py")
+SSS=(pam_sss.so auth=forward_pass)   # what the ad provider declares in providers/ad/pam.conf
 SA=$T/etc/pam.d/system-auth LP=$T/etc/pam.d/omarchy-lock-password
 rule() { grep -F -- "$2" "$1" | head -1 | tr -s ' '; }
 
 echo "[pamedit on Omarchy's files]"
 for f in system-auth omarchy-lock-password; do
-  stock=$(cat "$T/etc/pam.d/$f"); "${PE[@]}" apply "$T/etc/pam.d/$f"; once=$(cat "$T/etc/pam.d/$f")
+  stock=$(cat "$T/etc/pam.d/$f"); "${PE[@]}" apply "$T/etc/pam.d/$f" "${SSS[@]}"; once=$(cat "$T/etc/pam.d/$f")
   [[ $once != "$stock" ]] && ok "$f: apply changes it" || bad "$f: apply did nothing"
-  "${PE[@]}" apply "$T/etc/pam.d/$f"; [[ $(cat "$T/etc/pam.d/$f") == "$once" ]] && ok "$f: apply twice is the same as once" || bad "$f: not idempotent"
+  "${PE[@]}" apply "$T/etc/pam.d/$f" "${SSS[@]}"; [[ $(cat "$T/etc/pam.d/$f") == "$once" ]] && ok "$f: apply twice is the same as once" || bad "$f: not idempotent"
   "${PE[@]}" check "$T/etc/pam.d/$f" && ok "$f: check sees the edit" || bad "$f: check"
   "${PE[@]}" remove "$T/etc/pam.d/$f"; [[ $(cat "$T/etc/pam.d/$f") == "$stock" ]] && ok "$f: remove restores the file byte for byte" || bad "$f: remove"
   ! "${PE[@]}" check "$T/etc/pam.d/$f" && ok "$f: check is false after remove" || bad "$f: check after remove"
 done
-"${PE[@]}" apply "$SA"
+"${PE[@]}" apply "$SA" "${SSS[@]}"
 [[ $(rule "$SA" 'pam_sss.so forward_pass') == "-auth [success=3 default=ignore] pam_sss.so forward_pass" ]] && ok "auth skips systemd_home, unix and faillock authfail (success=3)" || bad "auth skip: $(rule "$SA" forward_pass)"
 [[ $(rule "$SA" 'module_unknown=ignore') == "-account [success=2 user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad] pam_sss.so" ]] && ok "account: unknown/unavailable ignored, skips systemd_home and unix" || bad "account rule"
 grep -qE '^-password +\[success=2 default=ignore\] +pam_sss.so' "$SA" && ok "password skip count" || bad "password rule"
@@ -24,13 +25,30 @@ grep -qx 'session    required   pam_mkhomedir.so umask=0077' "$SA" && ok "pam_mk
 ! grep -E '^[^#]*pam_sss' "$SA" | grep -vq '^-' && ok "every pam_sss rule is -prefixed (safe when the module is missing)" || bad "a pam_sss rule is not -prefixed"
 [[ $(grep -c 'BEGIN monarchy-identity' "$SA") == 4 ]] && ok "four marked blocks" || bad "blocks: $(grep -c BEGIN "$SA")"
 "${PE[@]}" remove "$SA"
+echo "[another provider's module gets the same rules, with its own arguments]"
+"${PE[@]}" apply "$SA" pam_other.so auth=use_first_pass account='a b'
+[[ $(rule "$SA" 'pam_other.so use_first_pass') == "-auth [success=3 default=ignore] pam_other.so use_first_pass" ]] && ok "auth rule and skip count" || bad "auth: $(rule "$SA" pam_other)"
+[[ $(rule "$SA" 'module_unknown=ignore') == *"default=bad] pam_other.so a b" ]] && ok "account rule keeps the ignore mappings" || bad "account: $(rule "$SA" module_unknown)"
+grep -qE '^-password +\[success=2 default=ignore\] +pam_other.so$' "$SA" && grep -qx -- '-session   optional   pam_other.so' "$SA" && ok "password and session rules" || bad "password/session"
+! grep -E '^[^#]*pam_other' "$SA" | grep -vq '^-' && ! grep -q pam_sss "$SA" && ok "every rule -prefixed, no pam_sss" || bad "rules"
+"${PE[@]}" remove "$SA"; cmp -s "$SA" "$FIX/pam.d/system-auth" && ok "remove needs no module name" || bad "remove"
+echo "[a module or argument that could add a PAM line is refused, file untouched]"
+refuse() { local what=$1; shift   # refuse WHAT MODULE [ARGS]: apply must fail and leave the file as it was
+  if "${PE[@]}" apply "$SA" "$@" 2>/dev/null; then bad "accepted $what"
+  elif cmp -s "$SA" "$FIX/pam.d/system-auth"; then ok "refused $what"; else bad "$what changed the file"; fi; }
+refuse "an argument with a newline"  pam_x.so auth=$'a\nauth sufficient pam_permit.so'
+refuse "a control field in an argument" pam_x.so 'auth=[success=done]'
+refuse "a module path"               ../pam_x.so
+refuse "a module name with a space"  'pam_x.so; x'
+refuse "an unknown stack type"       pam_x.so bogus=1
+refuse "no module at all"
 echo "[a plain stack (no systemd_home, no faillock) still gets a correct skip count]"
 printf '#%%PAM-1.0\nauth required pam_unix.so\naccount required pam_unix.so\nsession required pam_unix.so\n' > "$T/plain"
-"${PE[@]}" apply "$T/plain"; grep -qF -- '-auth      [success=1 default=ignore]  pam_sss.so forward_pass' "$T/plain" && ok "plain stack: success=1" || bad "plain: $(cat "$T/plain")"
+"${PE[@]}" apply "$T/plain" "${SSS[@]}"; grep -qF -- '-auth      [success=1 default=ignore]  pam_sss.so forward_pass' "$T/plain" && ok "plain stack: success=1" || bad "plain: $(cat "$T/plain")"
 echo "[a file with no pam_unix at all is left alone]"
-printf '#%%PAM-1.0\nauth required pam_deny.so\n' > "$T/odd"; cp "$T/odd" "$T/odd.0"; "${PE[@]}" apply "$T/odd"; cmp -s "$T/odd" "$T/odd.0" && ok "unchanged" || bad "odd file modified"
+printf '#%%PAM-1.0\nauth required pam_deny.so\n' > "$T/odd"; cp "$T/odd" "$T/odd.0"; "${PE[@]}" apply "$T/odd" "${SSS[@]}"; cmp -s "$T/odd" "$T/odd.0" && ok "unchanged" || bad "odd file modified"
 echo "[permissions survive an edit]"
-chmod 0640 "$SA"; "${PE[@]}" apply "$SA"; [[ $(stat -c %a "$SA") == 640 ]] && ok "mode kept" || bad "mode changed"; "${PE[@]}" remove "$SA"
+chmod 0640 "$SA"; "${PE[@]}" apply "$SA" "${SSS[@]}"; [[ $(stat -c %a "$SA") == 640 ]] && ok "mode kept" || bad "mode changed"; "${PE[@]}" remove "$SA"
 
 echo "[enroll and leave]"
 enroll --groups oi-laptop-users; [[ $OUT == *"enrolled in"* ]] || { bad "enroll: $OUT"; }

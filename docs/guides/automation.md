@@ -27,7 +27,8 @@ standard input. Never pass a password as an argument. Which credential a provide
 ## Re-running with `--if-needed`
 
 - **Already enrolled with the same directory:** nothing is re-registered and no credential is needed. The options you pass become the laptop's
-  whole policy: leaving out `--sudo-groups` removes `sudo`, leaving out `--offline-days` removes the expiry. (With
+  whole policy: leaving out `--sudo-groups` removes `sudo`, leaving out `--offline-days` removes the expiry, and
+  `--keep-autologin` and `--keep-login-theme` apply as on a new laptop. (With
   [`policy set`](change-policy.md), only what you pass changes.)
 - **Enrolled with a different directory:** fails. Run `leave` first.
 - **Not enrolled:** enrolls normally.

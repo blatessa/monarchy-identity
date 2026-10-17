@@ -5,15 +5,12 @@ description: Add or change a directory provider under providers/ (Entra ID, Okta
 
 # Providers
 
-A provider is `providers/<name>/` with executables `detect`, `enroll`, `unenroll`, `reassert`, `status` (plus `lib.sh`; the ad provider also has `policy`). The CLI runs them via `run_provider` with `$OI_ROOT` set; they source `lib/common.sh`.
+A provider is `providers/<name>/` with executables `detect`, `enroll`, `matches`, `policy`, `unenroll`, `reassert`, `status` and a `pam.conf` naming its PAM module (plus `lib.sh`). The CLI runs them via `run_provider` with `$OI_ROOT` set; they source `lib/common.sh`. The core parses the shared options (who may sign in, sudo, offline days, autologin, theme, `--if-needed`, `--password-file`) and does PAM, SDDM and sudoers itself; the provider gets its own options plus `OI_LOGIN_MODE`/`OI_GROUPS`/`OI_USERS`/`OI_OFFLINE_DAYS`.
 
-Contract:
-- `detect`: exit 0 if prerequisites exist.
-- `enroll`: validate every input first (see `test/unit/validation.sh`), check everything the directory can reject (credentials, group names, colliding computer account) **before joining**, and edit PAM last, via `lib/pamedit.py`. No rollback machinery: a re-run must pick up where a failed run stopped.
-- `unenroll`: remove every change `enroll` made (marked PAM blocks, `$OI_MARK`-marked files, drop-ins).
-- `reassert`: idempotently re-apply edits (the pacman hook calls it as root).
-- `status`: print `key=value` lines; read-only, no root needed, `unknown` when undeterminable. Keys feed `status --json` (`details`).
-- State goes in `/etc/monarchy-identity/config.toml` (flat `key = "value"`). Install every new file in `packaging/PKGBUILD`.
+Contract (full table in `docs/dev/writing-a-provider.md`):
+- `enroll`: validate its own options first, check everything the directory can reject (credentials, group names, colliding computer account) **before registering**, enforce the policy, prove the directory answers; never touch PAM (the core does it after). Print one line naming the enrollment. No rollback machinery: a re-run must pick up where a failed run stopped.
+- `matches`, `policy show|apply`, `unenroll`, `reassert`, `status`, `detect`: see the doc. `test/unit/stub-provider/` is a minimal complete example; `test/unit/provider.sh` checks the contract.
+- State goes in `/etc/monarchy-identity/config.toml` via `conf_set` (flat `key = "value"`). `packaging/PKGBUILD` copies `providers/` whole.
 
 Read `docs/dev/writing-a-provider.md` first: it says what the core owns and what a provider owns. Every directory is first-class; nothing outside `providers/<name>/` may assume AD. Scope: a provider feature belongs here only if it authenticates or authorizes directory users (`docs/dev/architecture.md#scope`).
 

@@ -1,3 +1,0 @@
-#!/bin/bash
-# local provider: no directory; status is a no-op
-exit 0

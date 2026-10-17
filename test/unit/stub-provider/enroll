@@ -1,0 +1,15 @@
+#!/bin/bash
+# Stub provider for test/unit/provider.sh: the provider contract (docs/dev/writing-a-provider.md) without a directory.
+# Logs each call, with the arguments and the policy the core passed, to $STUB_LOG.
+set -euo pipefail
+source "$OI_ROOT/lib/common.sh"
+called() { echo "stub $* | ${OI_LOGIN_MODE-}|${OI_GROUPS-}|${OI_USERS-}|${OI_OFFLINE_DAYS-}|${OI_ADMIN_PASSWORD_FILE-}" >> "$STUB_LOG"; }
+called enroll "$@"
+[[ " $* " != *" --help "* ]] || { echo "  --tenant T   the directory to enroll with"; exit 0; }
+need_root
+tenant=""
+while [[ $# -gt 0 ]]; do case $1 in --tenant) tenant=$2; shift 2;; *) die "unknown option $1";; esac; done
+[[ -n $tenant ]] || die "--tenant is required"
+[[ -z ${STUB_REFUSE:-} ]] || die "the stub directory says no"
+conf_set tenant="$tenant"
+echo "$tenant"

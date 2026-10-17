@@ -1,13 +1,9 @@
 #!/bin/bash
-# Idempotently re-apply our /etc edits (called after omarchy update / pambase upgrades).
+# Idempotently re-apply the AD side (nsswitch, sssd running); the core re-applies PAM, SDDM and sudoers.
 set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/ad/lib.sh"
 need_root
 [[ -f $ETC/sssd/sssd.conf ]] || die "sssd.conf missing; machine needs re-enrollment"
-nss_apply; pam_apply
-[[ $(conf_get autologin_disabled false) == true ]] && sddm_autologin_disable
-[[ -z $(conf_get sudo_groups "") ]] || sudoers_apply "$(conf_get sudo_groups "")"
-[[ $(conf_get login_theme identity) == identity ]] && { sddm_theme_enable || true; }
+nss_apply
 systemctl is-active --quiet sssd || sssd_restart
-log "reasserted nsswitch + PAM"
