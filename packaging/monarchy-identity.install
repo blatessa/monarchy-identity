@@ -1,6 +1,6 @@
 post_install() {
   echo ":: monarchy-identity is installed but inactive: nothing changes until you enrol."
-  echo ":: Start here:  less /usr/share/doc/monarchy-identity/ADMIN.md"
+  echo ":: Start here:  less /usr/share/doc/monarchy-identity/getting-started.md   (or https://blatessa.github.io/monarchy-identity/)"
   echo ":: First enrolment on a machine:  sudo monarchy-identity enroll sssd ... --confirm-within 10"
 }
 

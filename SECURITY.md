@@ -11,5 +11,5 @@ root, credential exposure (the join password is only ever read from stdin or a 0
 admin-supplied values (these are validated before reaching `sssd.conf`, `smb.conf`, `krb5.conf` and sudoers),
 and anything that lets an unprivileged user alter the managed configuration.
 
-Known limits are listed in [docs/ADMIN.md](docs/ADMIN.md#12-known-limits); this is a prototype verified against Samba
+Known limits are listed in [the documentation](docs/status.md); this is a prototype verified against Samba
 AD in a VM. Do not rely on it for production without your own testing.

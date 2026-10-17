@@ -41,8 +41,10 @@ package_monarchy-identity() {
   install -Dm644 "$_root/packaging/monarchy-identity-reassert.service" "$pkgdir/usr/lib/systemd/system/monarchy-identity-reassert.service"
   install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/monarchy-identity/config.toml"
   install -Dm644 "$_root/packaging/policy.example.toml" "$pkgdir/usr/share/doc/monarchy-identity/policy.example.toml"
-  for d in ADMIN.md POSTURE.md; do install -Dm644 "$_root/docs/$d" "$pkgdir/usr/share/doc/monarchy-identity/$d"; done
-  for i in status policy check auth-proof auth-pamstack dc-computer dc-groups vm-signed-in vm-filesystem; do install -Dm644 "$_root/docs/img/$i.png" "$pkgdir/usr/share/doc/monarchy-identity/img/$i.png"; done
+  # documentation sources (the published site is built from these with mkdocs); images are referenced relatively
+  install -d "$pkgdir/usr/share/doc/monarchy-identity"
+  cp -a "$_root/docs/." "$pkgdir/usr/share/doc/monarchy-identity/"
+  find "$pkgdir/usr/share/doc/monarchy-identity" -type d -exec chmod 755 {} + -o -type f -exec chmod 644 {} +
   install -Dm644 "$_root/LICENSE" "$pkgdir/usr/share/licenses/monarchy-identity/LICENSE"
 }
 

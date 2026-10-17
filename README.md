@@ -1,66 +1,48 @@
 # monarchy-identity
 
 [![CI](https://github.com/blatessa/monarchy-identity/actions/workflows/ci.yml/badge.svg)](https://github.com/blatessa/monarchy-identity/actions/workflows/ci.yml)
+[![Docs](https://github.com/blatessa/monarchy-identity/actions/workflows/docs.yml/badge.svg)](https://blatessa.github.io/monarchy-identity/)
 
-Corporate sign-in for [Omarchy](https://omarchy.org), and the identity component of **Monarchy**, a management
-suite that aims to make Omarchy a practical work computer.
+Directory sign-in, login policy and posture reporting for [Omarchy](https://omarchy.org). It is the identity
+component of Monarchy, a set of tools for running Omarchy as a work computer.
 
-Enrol a laptop in your company directory (Active Directory / Samba AD today; other providers are pluggable), control
-who may sign in, keep that configuration from drifting, and report device posture to the management tooling you
-already run. Directory users sign in at the normal Omarchy login screen, which gains a username box.
+- Joins a laptop to Active Directory or Samba AD and adds `pam_sss` to the login, lock-screen, `sudo` and `sshd`
+  PAM stacks without changing how local accounts authenticate.
+- Enforces a default-deny login policy: members of listed groups, listed users, or the whole directory.
+- Selects an SDDM theme with a username field (Omarchy's stock theme logs in only the last user).
+- Repairs its own configuration within seconds if an update or a person overwrites it.
+- Reports posture as JSON (`status --json`) and evaluates it against a policy file (`check`).
 
-> **Status: prototype.** Verified end to end in a VM against Samba AD, including the real SDDM login screen (X11
-> greeter). **Not yet verified:** Omarchy's own Hyprland-based greeter, the Quickshell lock screen, Windows AD,
-> FreeIPA, Entra ID/OIDC. Pilot it on a few machines you can recover before rolling out.
+> **Prototype.** Verified in a VM against Samba AD. Windows AD, FreeIPA, Entra ID, Omarchy's own login screen and the
+> Quickshell lock screen are untested. Pilot on machines you can recover.
 
-## Rolling it out to a fleet
+## Quick start
 
-1. **Prepare the directory:** a join account with rights to create computer objects in one OU, an OU for laptops, and
-   a security group for who may sign in (e.g. `laptop-users`).
-2. **Build and publish the package** to your own pacman repo: `makepkg` in `packaging/`, then `repo-add`.
-3. **Install on each laptop:** `sudo pacman -S monarchy-identity`. Nothing changes until you enrol.
-4. **Enrol** (needs a unique hostname of at most 15 characters, and a local account with a password as fallback):
+```bash
+sudo pacman -U monarchy-identity-*.pkg.tar.zst        # from a release, or: cd packaging && makepkg -si
 
-        sudo monarchy-identity enroll sssd --realm CORP.EXAMPLE.COM --admin joinuser \
-             --ou 'OU=Laptops,DC=corp,DC=example,DC=com' \
-             --mode groups --groups laptop-users --disable-autologin --confirm-within 10
+sudo monarchy-identity enroll sssd --realm CORP.EXAMPLE.COM --admin joinuser \
+  --ou 'OU=Laptops,DC=corp,DC=example,DC=com' \
+  --mode groups --groups laptop-users --disable-autologin --confirm-within 10
 
-   Sign in as a directory user, then run `sudo monarchy-identity confirm`. If you don't, the laptop reverts itself
-   after 10 minutes.
-5. **Automate it** with `--password-file` and `--if-needed` (Ansible example in the admin guide), and **monitor** with
-   `monarchy-identity status --json` and `monarchy-identity check`.
+monarchy-identity status                               # check, sign in as a directory user, then:
+sudo monarchy-identity confirm                         # otherwise the machine reverts itself in 10 minutes
+```
 
-![monarchy-identity status after enrolment](docs/img/status.png)
-
-The full walk-through, with the reasoning and the failure modes, is the **[admin guide](docs/ADMIN.md)**.
-
-## What it does
-
-- **Enrol and join.** Joins the domain, starts sssd, and adds `pam_sss` to the login and lock-screen PAM stacks without
-  disturbing local accounts. DCs are found through DNS (`--server` is optional).
-- **Login policy.** `groups`, `assigned` (listed users) or `any` (whole directory, explicit opt-in). Default deny.
-  Local break-glass accounts always work. Change it later with `policy set`, no re-join.
-- **A login screen that works.** Omarchy's stock SDDM theme has no username box; enrolment selects a
-  `monarchy-identity` theme with one.
-- **Stays correct.** A root-owned systemd path unit repairs the PAM, nsswitch and SDDM edits within seconds if an update
-  or a person overwrites them.
-- **Fleet-safe.** Never takes over an existing computer account, refuses colliding hostnames, rolls back (including
-  the directory account) on any failure. Broken sssd or a missing PAM module never locks out local users.
-- **Reports and checks.** `status --json` is a versioned posture report (identity, disk encryption, firewall,
-  Secure Boot, TPM2, lock timeout, clock sync); `check` evaluates it against a policy file and exits 0/1/2.
-- **Optional extras.** `--sudo-groups`, `--offline-days`, `--disable-autologin`, offline login, and a Quickshell
-  status widget (`monarchy-identity-shell`, cosmetic only).
-
-## What it deliberately does not do
-
-Remove admin rights from existing local users, enforce a device-wide privilege model, or harden boot. Those belong to
-your MDM or other Monarchy components; this tool reports on them and leaves enforcement to you.
+The hostname must be unique and at most 15 characters, and a local account with a password must exist as a fallback.
 
 ## Documentation
 
-| You are... | Read |
-|---|---|
-| **An admin** rolling it out (start here) | [Admin guide](docs/ADMIN.md), [posture report schema](docs/POSTURE.md) |
-| **A developer or coding agent** | [CLAUDE.md](CLAUDE.md), then [design](docs/dev/DESIGN.md), [testing](docs/dev/TESTING.md), [findings](docs/dev/FINDINGS.md), [TODO](TODO.md) |
+Full documentation: **<https://blatessa.github.io/monarchy-identity/>** (sources in [`docs/`](docs/)).
 
-[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) (report vulnerabilities privately) · MIT, see [LICENSE](LICENSE).
+| | |
+|---|---|
+| [Getting started](docs/getting-started.md) | Prerequisites, install, enrol, verify |
+| [Plan a rollout](docs/guides/rollout-planning.md), [Automate enrolment](docs/guides/automation.md) | Fleet deployment |
+| [CLI](docs/reference/cli.md), [Posture report](docs/reference/posture.md), [Policy file](docs/reference/policy-file.md) | Reference |
+| [Evidence from the lab](docs/evidence.md) | Captured proof of directory authentication |
+| [AGENTS.md](AGENTS.md), [Testing](docs/dev/testing.md) | Contributors and coding agents |
+
+Open work is tracked in [GitHub issues](https://github.com/blatessa/monarchy-identity/issues).
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) (report vulnerabilities privately) · MIT, see
+[LICENSE](LICENSE).

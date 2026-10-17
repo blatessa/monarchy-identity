@@ -1,6 +1,7 @@
-# Hard-won findings
+# Findings
 
-Non-obvious things learned the hard way. Add to this file when you learn something; don't rediscover these.
+Non-obvious behaviour learned the hard way, kept so it is not rediscovered. Add to this page when you learn
+something.
 
 ## Omarchy
 - The lock screen uses its own PAM service `/etc/pam.d/omarchy-lock-password` (not package-owned). It must be edited too.

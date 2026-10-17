@@ -3,3 +3,4 @@ test/vm/images/
 test/vm/keys/
 *.pkg.tar.*
 __pycache__/
+site/

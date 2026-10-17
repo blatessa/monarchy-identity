@@ -94,7 +94,7 @@ case "${1:-}" in
     else rm -f "$hook_dst"; echo "removed $hook_dst"; fi ;;
   check)
     shift; pol="${MONARCHY_IDENTITY_POLICY:-/etc/monarchy-identity/policy.toml}"
-    [[ -r $pol ]] || { echo "no policy file at $pol (see docs/ADMIN.md)" >&2; exit 2; }
+    [[ -r $pol ]] || { echo "no policy file at $pol (see https://blatessa.github.io/monarchy-identity/reference/policy-file/)" >&2; exit 2; }
     cmd_status --json | python3 -I "$ROOT/lib/check.py" "$pol" "$@" ;;
   install-widget|remove-widget)
     [[ $EUID -ne 0 ]] || { echo "run as the desktop user, not root (Omarchy plugins live in ~/.config/omarchy/plugins)" >&2; exit 1; }

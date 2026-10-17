@@ -1,6 +1,7 @@
-# Design
+# Architecture
 
-Provider-agnostic corporate identity for Omarchy. Decisions here are settled; don't re-litigate without cause.
+monarchy-identity is provider-agnostic: a core CLI dispatches to directory-specific providers. The decisions
+here are settled; change them deliberately.
 
 ## Scope and security model
 - This package owns: directory enrolment, login policy, drift repair, posture reporting.
@@ -8,7 +9,7 @@ Provider-agnostic corporate identity for Omarchy. Decisions here are settled; do
   `managed` profile (off by default) is planned for orgs with no MDM.
 - Enforcement lives in root-owned `/etc`. The shell widget is cosmetic, never a security boundary.
 - Default is deny. Local break-glass accounts work in every mode.
-- `monarchy-identity status --json` ([POSTURE.md](../POSTURE.md)) is the integration point for MDM/osquery/Ansible.
+- `monarchy-identity status --json` ([posture report](../reference/posture.md)) is the integration point for MDM/osquery/Ansible.
 - No AUR dependencies: join with samba `net ads join`, home dirs via `pam_mkhomedir` (adcli/oddjob are AUR-only).
 - Never edit `/usr/share/omarchy/` (package-owned). Use `/etc` drop-ins and markers.
 
@@ -42,7 +43,7 @@ Local accounts are not governed by it.
 | `/etc/sssd/`, `/etc/krb5.conf`, `/etc/samba/smb.conf` | provider config |
 | `/etc/sddm.conf.d/zz-monarchy-identity*.conf` | login theme, optional autologin off (must sort AFTER Omarchy's `autologin.conf`) |
 | `/etc/sudoers.d/50-monarchy-identity` | optional `--sudo-groups` (visudo-validated) |
-| `/etc/monarchy-identity/config.toml`, `policy.toml` | our config; compliance policy |
+| `/etc/monarchy-identity/config.toml`, `policy.toml` | our configuration; compliance policy |
 
 ## Drift repair
 - `monarchy-identity-reassert.path` (root-owned systemd path unit, enabled by enroll, disabled FIRST by leave; a

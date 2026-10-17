@@ -15,8 +15,8 @@ changed later with [`policy set`](../guides/change-policy.md).
 ## How it is enforced
 
 Enforcement happens in the PAM account stage through `pam_sss`. Every service that includes Omarchy's `system-auth`
-(the login screen, `sudo`, `login`, `sshd`, polkit-less services falling back to it) gets the same decision, and the
-lock screen uses its own PAM service, `omarchy-lock-password`, which is edited the same way.
+gets the same decision (tested: `sddm`, `sudo`, `login`, `sshd`, `system-remote-login`). The lock screen uses its own
+PAM service, `omarchy-lock-password`, which is edited the same way.
 
 A user who authenticates correctly but is not permitted is refused at the account stage. The lab evidence shows a
 correct password being accepted by `pam_sss(auth)` and the sign-in then refused by `pam_sss(account)`

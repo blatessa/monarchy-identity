@@ -60,7 +60,7 @@ jobs:
         run: |
           for p in packaging/monarchy-identity-*.pkg.tar.*; do echo "== $p"; bsdtar -tf "$p" | grep -v '/$'; done
           bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/bin/monarchy-identity
-          bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/share/doc/monarchy-identity/ADMIN.md
+          bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/share/doc/monarchy-identity/getting-started.md
           bsdtar -tf packaging/monarchy-identity-0*.pkg.tar.* | grep -q usr/share/doc/monarchy-identity/img/status.png
       - name: Keep the packages
         uses: actions/upload-artifact@v4
