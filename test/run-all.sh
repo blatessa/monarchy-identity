@@ -14,6 +14,7 @@ suites=(
   "test/vm/e2e-noninteractive.sh"
   "test/vm/e2e-passwd.sh"
   "test/vm/e2e-policy.sh"
+  "test/vm/e2e-defaults.sh"
   "test/vm/e2e-account.sh"
   "test/vm/e2e-sudo.sh"
   "test/vm/e2e-expired.sh"

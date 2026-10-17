@@ -1,43 +1,44 @@
-# Login policy
+# Who may sign in
 
-The login policy decides which directory users may sign in on this machine. It is set at enrollment with `--mode` and
-changed later with [`policy set`](../guides/change-policy.md).
+A directory usually has far more people than any one laptop should admit. The **login policy** says which of them may
+sign in on an enrolled laptop. It applies to every way of signing in (login screen, lock screen, terminal, `ssh`,
+`sudo`).
 
-| Mode | Who may sign in | Required option | sssd setting |
-|---|---|---|---|
-| `groups` | Members of the listed directory groups | `--groups a,b` | `access_provider = simple`, `simple_allow_groups` |
-| `assigned` | Only the listed users | `--users u1,u2` | `access_provider = simple`, `simple_allow_users` |
-| `any` | Every user in the directory | none | `access_provider = permit` |
+**The default is deny:** when you enroll you must say who is allowed. There is no setting that quietly lets everyone in.
 
-`groups` is the default mode, and it requires `--groups`: there is no mode that allows everyone by default.
-`any` must be requested explicitly.
+## Choosing
 
-## How it is enforced
+| You say | Who may sign in | Use it when |
+|---|---|---|
+| `--groups laptop-users` | Members of that directory group (or several: `--groups a,b`) | **Almost always.** Access is granted and removed in the directory, per person, for every laptop at once. |
+| `--users alice,bob` | Only those people | A few machines, or a personal laptop. You edit each laptop to change it. |
+| `--mode any` | Everyone in the directory | Rarely, and only if the directory itself is already limited to the right people. It must be asked for explicitly. |
 
-Enforcement happens in the PAM account stage through `pam_sss`. Every service that includes Omarchy's `system-auth`
-gets the same decision (tested: `sddm`, `sudo`, `login`, `sshd`, `system-remote-login`). The lock screen uses its own
-PAM service, `omarchy-lock-password`, which is edited the same way.
+Different laptops can use different groups (for example, one group per team), so the same directory serves different
+fleets.
 
-A user who authenticates correctly but is not permitted is refused at the account stage. The [test evidence](../evidence.md) shows a
-correct password being accepted by `pam_sss(auth)` and the sign-in then refused by `pam_sss(account)`
-([Evidence](../evidence.md)).
+## What it doesn't cover
 
-## What the policy does not govern
+- **Local accounts.** They are never governed by this policy and always work, including when the directory is down.
+  That is deliberate: it is your break-glass access.
+- **Admin rights.** Signing in is separate from being an administrator. See
+  [How sign-in works](how-it-works.md#admin-rights).
+- **`su` and GPO rules.** Directory users can't `su`, and Group Policy based access rules aren't applied. See
+  [Status and limits](../status.md).
 
-- **Local accounts.** `pam_sss` is consulted first, ignores users it does not know, and the stack falls through to
-  `pam_unix` unchanged. A local break-glass account works in every mode, including when sssd is stopped or the
-  directory is unreachable.
-- **`su`.** It uses `pam_unix` directly, so directory users cannot `su`.
-- **Directory-side rules.** GPO-based access control is disabled (`ad_gpo_access_control = disabled`).
+## When a person is refused
+
+A correct password for someone who isn't allowed fails the same way as a wrong password, and the login screen doesn't
+say why. To find out, use `sudo monarchy-identity policy show` and check their group membership; see
+[Troubleshooting](../guides/troubleshooting.md). The [test evidence](../evidence.md) shows a correct password being
+accepted and the sign-in refused by policy.
+
+## Changing it
+
+[Change who may sign in](../guides/change-policy.md) shows how to change the policy on an enrolled laptop without
+re-joining the directory.
 
 ## Names
 
-sssd runs with `use_fully_qualified_names = False`, so users and groups are short names (`alice`, `laptop-users`),
-and home directories are `/home/<name>`. Group and user lists accept letters, digits and `. _ - @ \` and spaces
-inside a name, separated by commas.
-
-## Offline sign-in
-
-`cache_credentials = True`: a user who has signed in on this machine can sign in again while the domain controller is
-unreachable. A user never seen before cannot. `--offline-days N` makes cached credentials expire after N days
-without reaching a DC (`offline_credentials_expiration`); the default is no expiry.
+People and groups are used by their short names (`alice`, `laptop-users`), not with the domain attached, and home
+directories are `/home/<name>`. The names in group and user lists are separated by commas.

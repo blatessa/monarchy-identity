@@ -1,8 +1,10 @@
 # Getting started
 
 By the end of this page one Omarchy laptop is joined to your Active Directory domain, and a directory user can sign in
-on it. It takes about 15 minutes. Use a spare laptop or a virtual machine first: this tool edits the login (PAM)
+on it. It takes a short while. Use a spare laptop or a virtual machine first: this tool edits the login (PAM)
 configuration. A safety timer reverts the change if you don't confirm it, and you keep a local account that always works.
+
+Want to know what this changes on the laptop first? Read [How sign-in works on Omarchy](concepts/how-it-works.md).
 
 The example values below are `CORP.EXAMPLE.COM` (your domain), `joinuser` (an account that may join computers),
 `laptop-users` (the group allowed to sign in) and `alice` (a member of that group). Replace them with yours.
@@ -33,7 +35,7 @@ On the laptop, run these and fix anything that's off:
 ```bash
 hostnamectl hostname        # must be unique, at most 15 characters; not "omarchy" or "archlinux"
 timedatectl                 # "System clock synchronized: yes" (Kerberos fails if the clock is off by 5+ minutes)
-getent hosts corp.example.com   # the laptop's DNS must resolve your domain
+dig -t SRV _ldap._tcp.corp.example.com   # the laptop's DNS must find your domain controllers
 ```
 
 If the hostname is wrong: `sudo hostnamectl set-hostname laptop-0042`. The hostname becomes the computer's name in
@@ -55,17 +57,23 @@ Installing changes nothing yet.
 ## 4. Enroll
 
 ```bash
-sudo monarchy-identity enroll sssd \
+sudo monarchy-identity enroll \
   --realm CORP.EXAMPLE.COM --admin joinuser \
-  --mode groups --groups laptop-users \
-  --disable-autologin --confirm-within 10
+  --groups laptop-users
 ```
 
-It asks for `joinuser`'s password, joins the domain, and configures sign-in. If anything fails, it undoes everything
-and removes the computer account it created. When it finishes it prints `enrolled in CORP.EXAMPLE.COM`.
+`--groups` says who may sign in. The command asks for `joinuser`'s password, joins the domain, and configures sign-in. If
+anything fails, it undoes everything and removes the computer account it created. When it finishes it prints
+`enrolled in CORP.EXAMPLE.COM`.
 
-`--confirm-within 10` starts a 10-minute timer. If you do nothing, the laptop **leaves the domain by itself**. That is
-your safety net while you test; step 6 cancels it.
+Omarchy normally signs its local user in automatically at boot. Enrolling turns that off so the login screen appears and
+people can sign in as themselves ([why](concepts/how-it-works.md#disk-encryption-and-autologin)); add `--keep-autologin`
+if you'd rather keep it.
+
+Because you ran it at a terminal, it also starts a 10-minute safety timer. If you do nothing, the laptop **leaves the
+domain by itself**, so a bad enrollment can't lock you out. Step 6 cancels the timer. (The timer can't delete the laptop's
+computer account in the directory, because it has no password. If it fires, delete that account in the directory, or add
+`--replace-computer-account` when you enroll again.)
 
 ## 5. Sign in as a directory user
 
@@ -86,7 +94,7 @@ monarchy-identity status
 
 ![status output after enrollment](img/status.png)
 
-`enrolled: true` and `login mode: groups` mean it's in place.
+`enrolled: true` and `login mode: groups` mean it's in place. `revert pending: true` means the safety timer is still running.
 
 ## 6. Confirm
 
@@ -96,14 +104,14 @@ When `alice` could sign in and a non-member couldn't, cancel the revert timer:
 sudo monarchy-identity confirm
 ```
 
-Done: the laptop is enrolled. If something went wrong instead, wait for the timer, or undo it now with
-`sudo monarchy-identity leave --admin joinuser`.
+Done: the laptop is enrolled. If something went wrong instead, undo it now with
+`sudo monarchy-identity leave --admin joinuser` (with `--admin`, so the computer account is removed too).
 
 ## What now
 
 | You want to | Read |
 |---|---|
-| Do this for many laptops | [Plan a rollout](guides/rollout-planning.md), then [Automate enrollment](guides/automation.md) |
+| Do this for many laptops | [Roll out to a fleet](guides/rollout.md), then [Automate enrollment](guides/automation.md) |
 | Change who may sign in later | [Change who may sign in](guides/change-policy.md) |
 | Report or check laptop security settings | [Compliance checks](guides/compliance-checks.md) |
 | Something didn't work | [Troubleshooting](guides/troubleshooting.md) |

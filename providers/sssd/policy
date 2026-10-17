@@ -1,7 +1,6 @@
 #!/bin/bash
 # monarchy-identity policy show
-# monarchy-identity policy set [--mode groups|assigned|any] [--groups a,b] [--users u1,u2]
-#                              [--sudo-groups g1,g2 | -] [--offline-days N]
+# monarchy-identity policy set [--groups a,b | --users u1,u2 | --mode any] [--sudo-groups g | -] [--offline-days N]
 #
 # Change WHO may sign in (and sudo / cache lifetime) on an already-enrolled machine: no re-join, no directory
 # credentials needed. Only the options you pass change; the rest keep their current values. `--sudo-groups -`
@@ -32,8 +31,9 @@ case $cmd in
 esac
 need_root
 
+mode_given=0 groups_given=0 users_given=0
 while [[ $# -gt 0 ]]; do case $1 in
-  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;;
+  --mode) mode=$2; mode_given=1; shift 2;; --groups) groups=$2; groups_given=1; shift 2;; --users) users=$2; users_given=1; shift 2;;
   --sudo-groups) if [[ $2 == - ]]; then sudo_groups=""; else sudo_groups=$2; fi; shift 2;;
   --offline-days) offline_days=$2; shift 2;;
   *) die "unknown option $1";; esac; done
@@ -42,6 +42,9 @@ while [[ $# -gt 0 ]]; do case $1 in
 [[ $offline_days =~ ^[0-9]+$ ]] || die "invalid --offline-days '$offline_days'"
 [[ -z $groups ]] || valid_list "$groups" || die "invalid --groups '$groups'"
 [[ -z $users ]]  || valid_list "$users"  || die "invalid --users '$users'"
+if ((!mode_given)); then   # naming groups or users is enough to say which kind of policy you mean
+  if ((groups_given)); then mode=groups; elif ((users_given)); then mode=assigned; fi
+fi
 case $mode in
   groups)   [[ -n $groups ]] || die "--mode groups needs --groups (default is deny)";;
   assigned) [[ -n $users ]]  || die "--mode assigned needs --users";;

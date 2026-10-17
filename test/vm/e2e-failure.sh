@@ -41,7 +41,7 @@ echo "[wrong admin password]"
 attempt "wrong password" "" "not-the-password" --groups oi-laptop-users
 
 echo "[group that does not exist in the directory (fails AFTER the domain join)]"
-attempt "unresolvable group" "not resolvable via sssd" "$PW" --groups no-such-group-anywhere
+attempt "unresolvable group" "could not find the group" "$PW" --groups no-such-group-anywhere
 [[ $(docker exec oi-test-dc samba-tool computer list | grep -c OI-CLIENT) -eq 0 ]] && ok "unresolvable group: computer account removed from the directory too" || bad "unresolvable group: computer account left in the directory"
 
 echo "[domain controller unreachable]"

@@ -1,44 +1,41 @@
-# Safety model
+# Staying safe
 
-The risk is a PAM or nsswitch mistake that stops people signing in. The design assumes that will be attempted and
-limits the damage.
+Changing how a laptop authenticates is the riskiest thing an admin tool can do: a mistake means nobody can sign in.
+monarchy-identity is built around not letting that happen, and around undoing itself when it does.
 
-## Principles
+## The safeguards
 
-- **Default deny.** No mode admits the whole directory unless `--mode any` is given.
-- **Local accounts first.** The `pam_sss` rules fall through to `pam_unix` for any user sssd does not know.
-- **Fail closed for the directory, open for local users.** With sssd stopped, directory users are refused (about
-  three seconds in testing) and local users are unaffected. With `pam_sss.so` removed, directory users are refused
-  and local users are unaffected.
-- **Enforcement is root-owned.** The policy lives in `/etc`. The shell widget is a display, not a boundary.
-- **Verify before PAM.** `enroll` confirms the directory works (keytab authenticates, sssd online, the group
-  resolves) before the first PAM edit.
-- **Failure leaves nothing behind.** A failed `enroll` restores the machine and deletes the computer account it
-  created.
-
-## Guards on `enroll`
-
-| Guard | Behaviour |
+| Safeguard | What it does |
 |---|---|
-| Local fallback | Refused unless a local account with uid 1000-59999, a real shell and a usable password hash exists. Override: `--allow-no-local-fallback`. |
-| Computer account | An existing account of the same name is never taken over; `--replace-computer-account` is required. |
-| Hostname | Generic names and names over 15 characters are refused. |
-| Input | Realm, server, admin, groups, users, OU and numbers are validated before they reach `sssd.conf`, `smb.conf`, `krb5.conf` or sudoers. |
-| Auto-revert | `--confirm-within N` runs `leave` after N minutes unless `monarchy-identity confirm` is run. |
-| Credentials | The join password comes from stdin or a file that is a regular file, not a symlink, owned by root or the caller, with no group or other permissions. It is never put on a command line. |
+| **Local accounts always work** | The directory is consulted *in addition to* local accounts. A stopped service, a broken configuration or a missing component can't stop a local user signing in. Enrollment refuses unless a local account with a password exists. |
+| **Nothing changes until it's proven** | `enroll` checks that the laptop can really authenticate to the directory and find your group *before* it edits any sign-in configuration. |
+| **Failure undoes itself** | If enrollment fails at any point, the laptop is restored and the computer account it created is deleted. |
+| **A safety timer** | Enrolling at a terminal starts a 10-minute timer; unless you run `sudo monarchy-identity confirm` the laptop leaves the domain by itself. You confirm only after seeing a directory sign-in work. |
+| **Computer accounts aren't taken over** | If the name already exists in the directory, `enroll` stops rather than resetting another laptop's account. |
+| **Deny by default** | Nobody can sign in unless you name a group or users. |
+| **Admin input is checked** | Names, groups and settings are validated before they reach any configuration file, and the join password is never put on a command line or stored. |
 
-## Behaviour under failure
+## What happens when things break
 
 Observed in testing:
 
 | Situation | Local users | Directory users |
 |---|---|---|
-| sssd stopped | unaffected (sudo, login, SDDM, SSH) | refused quickly |
-| `pam_sss.so` missing | unaffected | refused |
-| Domain controller unreachable | unaffected | cached users can sign in; never-seen users cannot |
-| Enrollment fails partway | machine and directory unchanged | not applicable |
-| Package removed while enrolled | `pre_remove` runs `leave` first | not applicable |
-| Many rapid policy changes | sssd is not left in systemd's `start-limit-hit` state | not applicable |
+| The sign-in service (sssd) is stopped | Unaffected | Refused quickly |
+| A required component is missing | Unaffected | Refused |
+| The domain controller is unreachable | Unaffected | Anyone who signed in before can still sign in; new people can't |
+| Enrollment fails halfway | Machine and directory unchanged | n/a |
+| The package is removed while enrolled | It unenrolls the laptop first | n/a |
 
-If a machine misbehaves, switch to a text console (Ctrl+Alt+F3), sign in as the local fallback account and run
-`sudo monarchy-identity leave`.
+## If a laptop misbehaves
+
+Switch to a text console (Ctrl+Alt+F3), sign in with the local account, and run:
+
+```bash
+sudo monarchy-identity leave --admin JOINACCOUNT
+```
+
+That restores the laptop to how it was before enrolling. (`--admin` also deletes its computer account; without it the
+account stays in the directory until you remove it.)
+
+The safeguards you can adjust (and why you rarely should) are in the [CLI reference](../reference/cli.md).

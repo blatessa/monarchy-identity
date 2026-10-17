@@ -44,7 +44,7 @@ keep `schema`; breaking changes bump it.
 | `provider` | string | `sssd` or `local`. |
 | `login_mode` | string | `groups`, `assigned`, `any`, or `none`. |
 | `autologin` | boolean | Effective SDDM autologin: the merged `sddm.conf.d` result, last file wins. |
-| `revert_pending` | boolean | An unconfirmed `--confirm-within` timer is armed. |
+| `revert_pending` | boolean | An unconfirmed auto-revert timer is armed. |
 | `self_heal` | boolean | `monarchy-identity-reassert.path` is active. |
 | `wheel_members` | string | Comma-separated members of the `wheel` group. |
 | `login_theme` | string | Effective SDDM theme name. |

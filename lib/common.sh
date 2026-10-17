@@ -6,7 +6,7 @@ ETC="${MONARCHY_IDENTITY_ETC:-/etc}"   # overridable for tests
 
 log() { echo "monarchy-identity: $*" >&2; logger -t monarchy-identity -- "$*" 2>/dev/null || true; }
 die() { log "ERROR: $*"; exit 1; }
-need_root() { [[ $EUID -eq 0 ]] || die "must run as root"; }
+need_root() { [[ $EUID -eq 0 ]] || die "this needs administrator rights: run it with sudo"; }
 
 conf_get() { # conf_get key default
   local v=""
@@ -107,7 +107,9 @@ read_admin_password() {
     [[ $owner -eq 0 || $owner -eq $EUID ]] || die "password file '$f' must be owned by root or the invoking user"
     IFS= read -r pw < "$f" || [[ -n ${pw:-} ]] || die "password file '$f' is empty"
   else
+    [[ ! -t 0 ]] || printf 'Password of the directory join account: ' >&2
     IFS= read -r -s pw || die "admin password must be given on stdin, --password-file, or OI_ADMIN_PASSWORD_FILE"
+    [[ ! -t 0 ]] || echo >&2
   fi
   [[ -n $pw ]] || die "empty admin password"
 }

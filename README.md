@@ -6,24 +6,24 @@
 Directory sign-in, login policy and posture reporting for [Omarchy](https://omarchy.org). It is the identity
 component of Monarchy, a set of tools for running Omarchy as a work computer.
 
-- Joins a laptop to Active Directory or Samba AD and adds `pam_sss` to the login, lock-screen, `sudo` and `sshd`
-  PAM stacks without changing how local accounts authenticate.
-- Enforces a default-deny login policy: members of listed groups, listed users, or the whole directory.
-- Selects an SDDM theme with a username field (Omarchy's stock theme logs in only the last user).
-- Repairs its own configuration within seconds if an update or a person overwrites it.
-- Reports posture as JSON (`status --json`) and evaluates it against a policy file (`check`).
+- People sign in at the Omarchy login screen, lock screen, a terminal or `ssh` with their company username and password.
+- Nobody may sign in until you name a group (or users): access is granted and removed in the directory.
+- Local accounts always keep working, a failed enrollment undoes itself, and a first enrollment reverts on its own
+  unless you confirm it.
+- Omarchy updates that overwrite the configuration are repaired within seconds.
+- Each laptop reports its identity and security posture as JSON, and `check` evaluates it against your own policy.
 
-> **Prototype.** Verified in a VM against Samba AD. Windows AD, FreeIPA, Entra ID, Omarchy's own login screen and the
-> Quickshell lock screen are untested. Pilot on machines you can recover.
+> **Prototype.** Tested against Samba AD in a VM. Windows AD, Omarchy's own login screen and the Quickshell lock screen
+> are untested. Pilot on machines you can recover.
 
 ## Quick start
 
 ```bash
 sudo pacman -U monarchy-identity-*.pkg.tar.zst        # from a release, or: cd packaging && makepkg -si
 
-sudo monarchy-identity enroll sssd --realm CORP.EXAMPLE.COM --admin joinuser \
+sudo monarchy-identity enroll --realm CORP.EXAMPLE.COM --admin joinuser \
   --ou 'OU=Laptops,DC=corp,DC=example,DC=com' \
-  --mode groups --groups laptop-users --disable-autologin --confirm-within 10
+  --groups laptop-users
 
 monarchy-identity status                               # check, sign in as a directory user, then:
 sudo monarchy-identity confirm                         # otherwise the machine reverts itself in 10 minutes
@@ -37,10 +37,11 @@ Full documentation: **<https://blatessa.github.io/monarchy-identity/>** (sources
 
 | | |
 |---|---|
-| [Getting started](docs/getting-started.md) | Prerequisites, install, enroll, verify |
-| [Plan a rollout](docs/guides/rollout-planning.md), [Automate enrollment](docs/guides/automation.md) | Fleet deployment |
+| [How sign-in works on Omarchy](docs/concepts/how-it-works.md) | What changes on a laptop |
+| [Roll out to a fleet](docs/guides/rollout.md) | The end-to-end plan |
+| [Getting started](docs/getting-started.md) | Enroll your first laptop |
+| [Automate enrollment](docs/guides/automation.md) | MDM, Ansible, scripts |
 | [CLI](docs/reference/cli.md), [Posture report](docs/reference/posture.md), [Policy file](docs/reference/policy-file.md) | Reference |
-| [Evidence from the lab](docs/evidence.md) | Captured proof of directory authentication |
 | [AGENTS.md](AGENTS.md), [Testing](docs/dev/testing.md) | Contributors and coding agents |
 
 Open work is tracked in [GitHub issues](https://github.com/blatessa/monarchy-identity/issues).

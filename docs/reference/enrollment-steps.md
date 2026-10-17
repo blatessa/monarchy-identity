@@ -1,11 +1,14 @@
-# What enrollment changes
+# What enroll does, step by step
 
-`monarchy-identity enroll sssd` performs these steps in order. Everything before step 4 happens without touching the
+This is the internal view, for people who want to know exactly what happens to a laptop. You don't need it to use the
+tool; for the overview see [How sign-in works on Omarchy](../concepts/how-it-works.md).
+
+`monarchy-identity enroll` performs these steps in order. Everything before step 4 happens without touching the
 machine's authentication.
 
 1. Validate every argument (realm, server, admin, group and user lists, OU, confirm minutes) before anything
    changes.
-2. Check the hostname and pick the computer account name (see [Rollout planning](../guides/rollout-planning.md)).
+2. Check the hostname and pick the computer account name (see [Roll out to a fleet](../guides/rollout.md)).
 3. Check that a local account with a usable password exists; read the join password.
 4. Back up the original of each managed file to `/var/lib/monarchy-identity/backup`.
 5. Write `/etc/krb5.conf` and `/etc/samba/smb.conf`.
@@ -20,7 +23,7 @@ machine's authentication.
 11. Edit the PAM stacks with `lib/pamedit.py`.
 12. Optional pieces: SDDM autologin override, sudoers drop-in, SDDM theme.
 13. Record state in `/etc/monarchy-identity/config.toml`, enable the self-heal path unit, and schedule the
-    auto-revert if `--confirm-within` was given.
+    auto-revert (the default when run at a terminal).
 
 If anything fails after step 4, the machine is restored through the same code path as `leave`, and a computer account
 created by this run is deleted. An account that already existed is never deleted by the rollback.
@@ -50,3 +53,14 @@ follow, including next to Omarchy's `pam_systemd_home` lines. The leading `-` ma
 
 The full list is in [Files, units and variables](../reference/files.md). `leave` restores the backed-up files and
 removes the drop-ins.
+
+## Login policy in sssd
+
+| Policy | sssd setting |
+|---|---|
+| groups | `access_provider = simple`, `simple_allow_groups` |
+| assigned | `access_provider = simple`, `simple_allow_users` |
+| any | `access_provider = permit` |
+
+sssd runs with `use_fully_qualified_names = False` and `cache_credentials = True`. `--offline-days N` sets
+`offline_credentials_expiration`. `ad_gpo_access_control` is `disabled`.

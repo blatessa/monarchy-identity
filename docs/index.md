@@ -1,40 +1,42 @@
 # monarchy-identity
 
-monarchy-identity joins an [Omarchy](https://omarchy.org) laptop to a corporate directory so that directory users can
-sign in. It also enforces who may sign in, repairs its own configuration if an update overwrites it, and reports
-device posture for management tooling. It is the identity component of Monarchy, a set of tools for running Omarchy
-as a work computer.
+Company sign-in for [Omarchy](https://omarchy.org) laptops. People use the username and password they already have in
+your directory (Active Directory, today); you decide who may sign in on which laptops, and you can check the state of
+every machine.
+
+It is the identity part of **Monarchy**, a set of tools for running Omarchy as a work computer.
 
 !!! warning "Prototype"
-    Verified in a VM against Samba AD. Windows AD, FreeIPA, Entra ID, Omarchy's own Hyprland-based login screen and
-    the Quickshell lock screen have not been tested. See [Status and limits](status.md). Pilot on machines you can
+    Tested against Samba AD in a virtual machine. Windows Active Directory, Omarchy's own login screen and lock screen,
+    and real `omarchy update` runs are not tested yet. See [Status and limits](status.md) and pilot on machines you can
     recover.
 
-## What it does
+## What you get
 
-- Joins the machine to Active Directory (or Samba AD) with `net ads join` and configures sssd, Kerberos and
-  nsswitch.
-- Adds `pam_sss` to the PAM stacks used by the login screen, lock screen, `sudo`, `login` and `sshd` without
-  changing how local accounts authenticate.
-- Applies a default-deny [login policy](concepts/login-policy.md): members of listed groups, listed users, or the
-  whole directory.
-- Installs an SDDM theme with a username field, because Omarchy's stock theme logs in only the last user.
-- Re-applies its edits when a package update or a person overwrites them ([self-healing](concepts/self-healing.md)).
-- Reports posture as JSON (`status --json`) and evaluates it against a policy file (`check`).
+- **One account everywhere.** A person signs in at the Omarchy login screen, lock screen, a terminal or `ssh` with their
+  company credentials. Nobody creates accounts on laptops by hand.
+- **Access you control.** Nobody may sign in until you name a group (or users). Add or remove people in the directory.
+- **Safe by design.** Local accounts keep working whatever happens to the directory, a failed enrollment undoes itself,
+  and a safety timer reverts a bad first enrollment. See [Staying safe](concepts/safety-model.md).
+- **Stays working.** If something overwrites the configuration, a watcher repairs it within seconds (proven by simulated
+  overwrites and package upgrades; a real `omarchy update` hasn't been exercised yet).
+- **A fleet view.** Every laptop reports its identity and security posture as JSON, and one command checks it against
+  your own definition of healthy.
 
-## What it does not do
+## What it leaves to you
 
-It does not remove admin rights from local users, manage sudo beyond an optional group mapping, harden the boot
-chain, or manage fleet inventory. Use your MDM or configuration management for those; this tool reports on them.
+It doesn't remove admin rights from existing users, manage `sudo` beyond an optional group, harden boot, or keep a
+fleet inventory. Use your MDM or configuration management for those; this tool reports on them.
 
 ## Where to start
 
-| If you want to | Read |
+| You want to | Read |
 |---|---|
-| Enroll one machine in your directory | [Getting started](getting-started.md) |
-| Roll it out to a fleet | [Plan a rollout](guides/rollout-planning.md), then [Automate enrollment](guides/automation.md) |
-| Look up a flag or a file | [CLI](reference/cli.md), [Files, units and variables](reference/files.md) |
-| See proof that it authenticates against a directory | [Test evidence](evidence.md) |
-| Work on the code | [Architecture](dev/architecture.md), [Testing](dev/testing.md) |
+| Understand what changes on a laptop | [How sign-in works on Omarchy](concepts/how-it-works.md) |
+| Plan a fleet rollout | [Roll out to a fleet](guides/rollout.md) |
+| Enroll your first laptop | [Getting started](getting-started.md) |
+| Script enrollment | [Automate enrollment](guides/automation.md) |
+| Look up a command or option | [CLI reference](reference/cli.md) |
+| Fix a problem | [Troubleshooting](guides/troubleshooting.md) |
 
-Source: <https://github.com/blatessa/monarchy-identity>. MIT licensed.
+Source and issues: <https://github.com/blatessa/monarchy-identity>. MIT licensed.

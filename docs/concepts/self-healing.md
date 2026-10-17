@@ -1,23 +1,29 @@
-# Self-healing
+# Staying correct
 
-Omarchy updates, migrations and manual edits can rewrite the files that monarchy-identity manages. Three mechanisms
-re-apply them.
+Omarchy updates, its migrations and occasionally people edit the files that sign-in depends on. If one of those files
+is overwritten, directory sign-in could silently stop working. monarchy-identity watches for this and puts its changes
+back, so you don't have to.
 
-| Mechanism | Runs as | Trigger | Notes |
-|---|---|---|---|
-| `monarchy-identity-reassert.path` | root (systemd) | A change to `/etc/pam.d/system-auth`, `/etc/pam.d/omarchy-lock-password`, `/etc/nsswitch.conf`, `/etc/sddm.conf.d` or `/etc/sudoers.d` | Runs `monarchy-identity reassert` within seconds. Enabled by `enroll`, disabled first by `leave`. This is the mechanism to rely on. |
-| pacman hook (`monarchy-identity.hook`) | root | A transaction that installs or upgrades `pambase`, `sssd`, `filesystem`, `omarchy` or `omarchy-settings` | Runs `hooks/reassert.sh` after the transaction. |
-| Omarchy post-update hook | the desktop user | `omarchy update` | Optional: `monarchy-identity install-hooks`. Runs with `sudo -n`. A user can delete it, so it is a convenience, not a control. |
+## What repairs it
 
-`reassert` is idempotent. It re-applies the nsswitch and PAM edits, the autologin override, the sudoers drop-in and
-the login theme according to the saved configuration, and restarts sssd if it is not running. It fails if
-`/etc/sssd/sssd.conf` is missing, which means the machine needs re-enrollment.
+| What | When | Notes |
+|---|---|---|
+| **A watcher** (a root-owned system service) | Within seconds of a change to the sign-in, login-screen or sudo configuration | Enabled by `enroll`. This is the one to rely on; a user can't switch it off. |
+| **A package-manager hook** | After pacman updates a package that can touch those files | Runs automatically. |
+| **An `omarchy update` hook** (optional) | After `omarchy update` | `monarchy-identity install-hooks`, run as the desktop user. A user can delete it, so it's a convenience. |
 
-State-changing commands (`enroll`, `leave`, `reassert`, `confirm`, `policy set`) take a lock at
-`/run/monarchy-identity.lock`, so the path unit cannot re-add edits while `leave` is removing them.
+All of them run the same idempotent repair (`monarchy-identity reassert`), which restores the edits from the saved
+configuration and restarts the sign-in service if it stopped. Running it by hand is always safe.
 
-`status --json` reports drift: `details.pam_*` or `details.nss_sss` equal to `"false"` while `enrolled` is true.
-`self_heal` shows whether the path unit is active. See [Posture report](../reference/posture.md).
+## Seeing it
 
-A plain pacman upgrade of a package that owns a modified file writes a `.pacnew` and keeps the edited file, so drift
-normally comes from Omarchy migrations or manual edits.
+`monarchy-identity status` and `status --json` show whether the watcher is active and whether any managed file has
+drifted ([Posture report](../reference/posture.md)). A compliance policy can require the watcher
+(`require_self_heal`, see [Compliance checks](../guides/compliance-checks.md)).
+
+## If it can't repair
+
+If the saved configuration itself is gone, repair reports that the laptop needs to be enrolled again. Leaving the
+directory (`leave`) turns the watcher off first, so it never fights an intentional removal.
+
+Which files, services and hooks are involved is listed in [Files, units and variables](../reference/files.md).

@@ -35,11 +35,13 @@ Read-only. Without `--json` it prints `enrolled`, `provider`, `login mode`, `aut
 ## enroll
 
 ```text
-monarchy-identity enroll <provider> [options]
+monarchy-identity enroll --realm REALM (--groups A,B | --users U1,U2 | --mode any) [options]
 ```
 
-Runs `providers/<provider>/enroll`. Options for the `sssd` provider (the only directory provider) follow. The join
-account's password is read from `--password-file`, `OI_ADMIN_PASSWORD_FILE`, or the first line of stdin.
+Joins the directory and sets who may sign in. `sssd` (Active Directory) is the only provider, so it is the default;
+`enroll sssd ...` and `enroll --help` also work. The join account's password is prompted for at a terminal, or read from
+`--password-file`, `OI_ADMIN_PASSWORD_FILE`, or the first line of stdin. Running it at a terminal also starts a safety
+timer (see below).
 
 **Directory**
 
@@ -57,9 +59,12 @@ account's password is read from `--password-file`, `OI_ADMIN_PASSWORD_FILE`, or 
 
 | Option | Default | Description |
 |---|---|---|
-| `--mode groups\|assigned\|any` | `groups` | Who may sign in. |
-| `--groups a,b` | | Required for `groups`. |
-| `--users u1,u2` | | Required for `assigned`. |
+| `--groups a,b` | | Members of these directory groups may sign in. |
+| `--users u1,u2` | | Only these users may sign in. |
+| `--mode any` | | Everyone in the directory. Must be asked for. |
+
+One of the three is required: nobody can sign in by default. `--groups` or `--users` on its own implies the mode;
+`--mode groups` and `--mode assigned` are accepted for clarity.
 
 **Optional features**
 
@@ -67,14 +72,14 @@ account's password is read from `--password-file`, `OI_ADMIN_PASSWORD_FILE`, or 
 |---|---|---|
 | `--sudo-groups g1,g2` | none | Give these directory groups full sudo through `/etc/sudoers.d/50-monarchy-identity`. Letters, digits, `. _ -`. |
 | `--offline-days N` | `0` (never) | Cached credentials expire after N days without reaching a DC. |
-| `--disable-autologin` | off | Override SDDM autologin. |
+| `--keep-autologin` | off | Keep Omarchy's automatic sign-in at boot. By default enrolling turns it off so the login screen appears. (`--disable-autologin` is accepted and is now the default.) |
 | `--keep-login-theme` | off | Do not switch SDDM to the `monarchy-identity` theme. |
 
 **Safety and automation**
 
 | Option | Default | Description |
 |---|---|---|
-| `--confirm-within MINUTES` | `0` (off) | Run `leave` after this many minutes unless `confirm` is run. |
+| `--confirm-within MINUTES` | `10` at a terminal, `0` for scripts | Run `leave` after this many minutes unless `confirm` is run. Default is 10 when run by a person at a terminal (not with `--password-file`, `--if-needed`, piped input or no TTY); `0` disables. |
 | `--allow-no-local-fallback` | off | Skip the check that a local account with a usable password exists. |
 | `--if-needed` | off | If already enrolled in the same realm, converge the policy without re-joining. Fails for a different realm. See [Automate enrollment](../guides/automation.md). |
 
@@ -95,7 +100,7 @@ that is not enrolled (provider `local`) it does nothing.
 
 ```text
 monarchy-identity policy show
-monarchy-identity policy set [--mode M] [--groups a,b] [--users u1,u2] [--sudo-groups g1,g2|-] [--offline-days N]
+monarchy-identity policy set [--groups a,b | --users u1,u2 | --mode any] [--sudo-groups g1,g2|-] [--offline-days N]
 ```
 
 `show` prints realm, login mode, groups, users, sudo groups, offline days and the computer name. `set` changes only

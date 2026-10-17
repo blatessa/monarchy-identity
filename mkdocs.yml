@@ -34,17 +34,18 @@ markdown_extensions:
 
 nav:
   - Overview: index.md
-  - Getting started: getting-started.md
-  - Concepts:
-      - Login policy: concepts/login-policy.md
-      - What enrollment changes: concepts/enrollment.md
-      - Self-healing: concepts/self-healing.md
-      - Safety model: concepts/safety-model.md
-  - Guides:
-      - Plan a rollout: guides/rollout-planning.md
+  - Understand:
+      - How sign-in works on Omarchy: concepts/how-it-works.md
+      - Who may sign in: concepts/login-policy.md
+      - Staying safe: concepts/safety-model.md
+      - Staying correct: concepts/self-healing.md
+  - Roll out:
+      - Roll out to a fleet: guides/rollout.md
+      - Getting started (one laptop): getting-started.md
       - Enroll safely: guides/enroll-safely.md
-      - Change who may sign in: guides/change-policy.md
       - Automate enrollment: guides/automation.md
+  - Operate:
+      - Change who may sign in: guides/change-policy.md
       - Compliance checks: guides/compliance-checks.md
       - Omarchy integration: guides/omarchy-integration.md
       - Leave and uninstall: guides/leave-and-uninstall.md
@@ -55,6 +56,7 @@ nav:
       - Compliance policy file: reference/policy-file.md
       - Configuration file: reference/config-file.md
       - Files, units and variables: reference/files.md
+      - What enroll does, step by step: reference/enrollment-steps.md
   - Providers:
       - Overview: providers/index.md
       - sssd (Active Directory): providers/sssd.md

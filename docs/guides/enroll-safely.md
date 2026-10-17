@@ -1,20 +1,20 @@
 # Enroll safely
 
-## Dead-man's switch
+## The safety timer
 
-Pass `--confirm-within MINUTES` on the first enrollment of any machine:
-
-```bash
-sudo monarchy-identity enroll sssd --realm CORP.EXAMPLE.COM --admin joinuser \
-  --mode groups --groups laptop-users --confirm-within 10
-```
-
-`enroll` schedules a transient systemd timer (`monarchy-identity-revert`) that runs `monarchy-identity leave` after
-the given number of minutes. To keep the enrollment, sign in as a directory user from another session, then run:
+When you run `enroll` at a terminal, it arms a 10-minute revert. To keep the enrollment, sign in as a directory user
+from another session, then run:
 
 ```bash
 sudo monarchy-identity confirm
 ```
+
+Scripted runs (`--password-file`, `--if-needed`, piped input, no TTY) don't arm it, so automation isn't surprised.
+Use `--confirm-within MINUTES` to choose a different delay or to arm it in a script, and `--confirm-within 0` to turn
+it off.
+
+The revert is a transient systemd timer (`monarchy-identity-revert`) that runs `monarchy-identity leave` after
+the delay.
 
 `status --json` reports `revert_pending` while the timer is armed. The timer's `leave` has no directory credentials,
 so a reverted machine leaves its computer account in the directory; delete it, or re-enroll that name with

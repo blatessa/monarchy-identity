@@ -6,7 +6,7 @@ fixtures (not a full Omarchy install). The images are command output captured fr
 PNG, not screen recordings. Sign-ins were made over SSH, which uses the same `system-auth` stack as the login screen.
 Omarchy's own login screen and lock screen have not been tested; see [Status and limits](status.md).
 
-The policy used is `--mode groups --groups oi-laptop-users`. `alice` and `bob` are members, `carol` is a directory
+The policy used is `--groups oi-laptop-users`. `alice` and `bob` are members, `carol` is a directory
 user outside the group.
 
 ## The directory authenticates users and applies the policy

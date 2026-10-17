@@ -29,11 +29,12 @@ Rapid restarts hit systemd's start limit; monarchy-identity's own commands reset
 
 | Message contains | Cause and fix |
 |---|---|
+| `say who may sign in` | Add `--groups` or `--users` (or `--mode any`). Nobody can sign in by default. |
 | `a computer account 'NAME$' already exists` | See [Enroll safely](enroll-safely.md): `--computer-name` or `--replace-computer-account`. |
 | `the generic '...'` | Set a unique hostname or pass `--computer-name`. |
 | `longer than 15 characters` | Shorten the hostname or pass `--computer-name`. |
 | `no local account with a usable password exists` | Create a local user with a password (or `--allow-no-local-fallback`, not recommended). |
-| `group '...' not resolvable via sssd; refusing to modify PAM` | The group name is wrong, the DC is unreachable, or the join account cannot read it. Nothing was changed. |
+| `could not find the group '...' in the directory` | The group name is wrong, the DC is unreachable, or the join account cannot read it. Nothing was changed. |
 | `already enrolled in '...'` | You used `--if-needed` with a different realm. Run `leave` first. |
 | `password file ... accessible by group/other` | `chmod 600` it. |
 
@@ -50,4 +51,6 @@ terminal and waits.
 
 ## Last resort
 
-From a text console or SSH as the local fallback account: `sudo monarchy-identity leave`.
+From a text console or SSH as the local fallback account: `sudo monarchy-identity leave --admin JOINACCOUNT` (without
+`--admin` it still restores the laptop but leaves its computer account in the directory; delete that account, or enroll
+again with `--replace-computer-account`).

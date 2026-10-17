@@ -21,11 +21,11 @@ pam_stock && ok "nothing was modified (PAM still stock)" || bad "PAM modified de
 [[ $(st) == *'"enrolled":false'* ]] && ok "not enrolled" || bad "state changed"
 out=$(enroll --allow-no-local-fallback); [[ $out == *"enrolled in"* ]] && ok "--allow-no-local-fallback overrides" || bad "override failed: $out"
 leave; "${V[@]}" 'sudo passwd -u tester' >/dev/null 2>&1
-out=$(enroll); [[ $out == *"local fallback accounts: tester"* && $out == *"enrolled in"* ]] && ok "allowed with a usable local account (tester)" || bad "fallback not detected: $out"
+out=$(enroll); [[ $out == *"local accounts that keep working: tester"* && $out == *"enrolled in"* ]] && ok "allowed with a usable local account (tester)" || bad "fallback not detected: $out"
 leave
 
 echo "[auto-revert: unconfirmed]"
-out=$(enroll --confirm-within 1); [[ $out == *"AUTO-REVERT in 1 min"* ]] && ok "enroll schedules auto-revert" || bad "no schedule: $out"
+out=$(enroll --confirm-within 1); [[ $out == *"leave the domain again in 1 min"* ]] && ok "enroll schedules auto-revert" || bad "no schedule: $out"
 [[ $(st) == *'"revert_pending":true'* && $(st) == *'"enrolled":true'* ]] && ok "status: enrolled, revert_pending" || bad "status: $(st)"
 echo "  ...waiting for the timer (up to 150s)"
 for _ in $(seq 30); do sleep 5; [[ $(st) == *'"enrolled":false'* ]] && break; done
@@ -36,6 +36,11 @@ pam_stock && ok "PAM back to stock after auto-revert" || bad "PAM not stock afte
 # would clear that account before re-enrolling the same name; enrollment now refuses to take it over silently.
 [[ $(docker exec oi-test-dc samba-tool computer list | grep -cxF 'OI-CLIENT$') -eq 1 ]] && ok "auto-revert left the computer account in the directory (no credentials to delete it)" || bad "expected a leftover computer account"
 docker exec oi-test-dc samba-tool computer delete 'OI-CLIENT$' >/dev/null 2>&1
+echo "[auto-revert: default for a person at a terminal]"
+out=$(echo "$PW" | "${V[@]}" -tt "$ENR" 2>&1 | tr -d '\r'); [[ $out == *"leave the domain again in 10 min"* ]] && ok "armed by default when run at a TTY" || bad "no default revert at a TTY: $out"
+"${V[@]}" 'sudo ~/oi/bin/monarchy-identity confirm' >/dev/null 2>&1; leave
+out=$(enroll); [[ $out == *"enrolled in"* && $out != *"SAFETY TIMER"* ]] && ok "not armed for scripted runs (no TTY)" || bad "armed without a TTY: $out"
+leave
 echo "[auto-revert: confirmed]"
 out=$(enroll --confirm-within 1); [[ $out == *"enrolled in"* ]] || bad "enroll: $out"
 out=$("${V[@]}" 'sudo ~/oi/bin/monarchy-identity confirm' 2>&1); [[ $out == *"auto-revert cancelled"* ]] && ok "confirm cancels the timer" || bad "confirm: $out"

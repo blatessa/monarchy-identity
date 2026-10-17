@@ -11,7 +11,7 @@
 | `/etc/krb5.conf` | Written | Original restored or removed |
 | `/etc/samba/smb.conf` | Written | Original restored or removed |
 | `/etc/krb5.keytab` | Machine keytab | Original restored or removed |
-| `/etc/sddm.conf.d/zz-monarchy-identity.conf` | Autologin override (`--disable-autologin`) | Removed |
+| `/etc/sddm.conf.d/zz-monarchy-identity.conf` | Autologin override (the default; skipped with `--keep-autologin`) | Removed |
 | `/etc/sddm.conf.d/zz-monarchy-identity-theme.conf` | Selects the `monarchy-identity` theme | Removed |
 | `/etc/sudoers.d/50-monarchy-identity` | Group sudo rules (`--sudo-groups`), mode 0440 | Removed |
 | `/etc/monarchy-identity/config.toml` | [Configuration](config-file.md) | Reset to `provider = "local"` |
@@ -40,7 +40,7 @@ file that did not exist). `leave` also clears `/var/lib/sss/db` and `/var/lib/ss
 |---|---|---|
 | `monarchy-identity-reassert.path` | package | Triggers the service when a managed file changes. Enabled by `enroll`, disabled first by `leave`. |
 | `monarchy-identity-reassert.service` | package | Runs `monarchy-identity reassert` once. |
-| `monarchy-identity-revert.timer` / `.service` | transient, created by `--confirm-within` | Runs `leave` after the delay. Stopped by `confirm`. |
+| `monarchy-identity-revert.timer` / `.service` | transient, created by the auto-revert | Runs `leave` after the delay. Stopped by `confirm`. |
 
 ## Environment variables
 

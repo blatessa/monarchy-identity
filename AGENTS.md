@@ -66,7 +66,9 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 | `status --json` fields (`lib/posture.sh`, `bin/`) | `docs/reference/posture.md` |
 | `policy.toml` rules (`lib/check.py`, `packaging/policy.example.toml`) | `docs/reference/policy-file.md`, `docs/guides/compliance-checks.md` |
 | `config.toml` keys, files or services we write | `docs/reference/config-file.md`, `docs/reference/files.md` |
-| Login policy, safety, drift repair behaviour | `docs/concepts/*` |
+| Login policy, safety, drift repair, how sign-in behaves on Omarchy | `docs/concepts/*` |
+| Rollout advice, decisions, operating the fleet | `docs/guides/rollout.md` and the guides |
+| What `enroll` does internally (files, steps, PAM) | `docs/reference/enrollment-steps.md`, `docs/reference/files.md` |
 | Provider behaviour or a new provider | `docs/providers/*` |
 | Verified/unverified status, known limits | `docs/status.md` |
 | Lab, test, release workflow | `docs/dev/testing.md` |
@@ -77,6 +79,10 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 - Provider contract: `enroll` verifies the directory works BEFORE touching PAM and rolls back fully on failure; `unenroll` restores the pre-enrollment state exactly. State goes in `/etc/monarchy-identity/config.toml` (flat `key = "value"`), originals in `/var/lib/monarchy-identity/backup`.
 - Restart sssd ONLY via `sssd_restart` (systemd start-limit). Never call `sssctl` without `</dev/null` and `timeout` (it can prompt and hang, holding the CLI flock).
 - Test inputs that go through ssh must be `printf %q`-quoted; use `grep -F` for computer names (`$` is a regex anchor).
+- **Defaults over configuration; don't expose implementation.** The person using this is an administrator, not a
+  maintainer. A safe behaviour should be the default (or implied by what they already said), not a flag they must
+  know about. Name things in their terms (sign-in, laptop, group) in the CLI output, help and docs; keep `pam_*`, file
+  paths, units and sssd details in the reference and `docs/dev/`. A new option needs a reason a default can't cover.
 - Match the surrounding code's style and comment density. Small, focused commits; explain why in the message.
 
 ## Skills (project procedures, load on demand)

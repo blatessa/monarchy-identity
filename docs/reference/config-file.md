@@ -18,7 +18,7 @@ changes.
 | `server` | host or empty | Pinned DC; empty means DNS discovery. |
 | `groups` | comma list | Permitted groups (`groups` mode). |
 | `users` | comma list | Permitted users (`assigned` mode). |
-| `autologin_disabled` | `true`, `false` | `--disable-autologin` was set. |
+| `autologin_disabled` | `true`, `false` | Autologin was turned off (the default; `--keep-autologin` leaves it false). |
 | `login_theme` | `identity`, `stock` | Whether the `monarchy-identity` SDDM theme is selected (`stock` = `--keep-login-theme`). |
 | `sudo_groups` | comma list | Groups in the sudoers drop-in. |
 | `offline_days` | number | Cached credential lifetime; `0` is unlimited. |

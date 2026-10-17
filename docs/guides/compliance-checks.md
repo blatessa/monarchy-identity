@@ -1,7 +1,11 @@
 # Compliance checks
 
-`monarchy-identity check` evaluates the posture report against a policy file and exits with a status an MDM,
-Ansible or cron job can act on.
+Signing in with company credentials is one part of a laptop being in good shape. Others are whether the disk is
+encrypted, whether a firewall is running, whether autologin is off and whether the screen locks. `monarchy-identity check`
+turns your answer into pass or fail, per laptop, so your MDM, Ansible or a cron job can act on the result.
+
+You write down what "healthy" means once, in a policy file. Every rule you list is checked and every rule you leave out
+is ignored.
 
 1. Copy the example and edit it:
 

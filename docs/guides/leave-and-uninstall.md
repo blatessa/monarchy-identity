@@ -6,10 +6,10 @@
 sudo monarchy-identity leave --admin joinuser --password-file /root/join.pw
 ```
 
-`leave` runs, in order: disable the self-heal path unit, remove the SDDM autologin override and theme drop-in,
-remove the sudoers drop-in, remove the PAM edits, remove `sss` from nsswitch, stop and disable sssd, leave the
-domain, restore the backed-up `krb5.conf`, `smb.conf`, `sssd.conf` and `krb5.keytab`, clear the sssd cache, and
-record `provider = "local"`.
+`leave` returns the laptop to exactly how it was before enrolling: the sign-in configuration, login theme, autologin
+setting and any `sudo` rule are restored from the backups taken at enrollment, the sign-in service is stopped, the
+laptop leaves the domain, and the watcher is switched off first so it can't undo the removal. Local accounts are
+untouched throughout. The step-by-step is in [What enroll does](../reference/enrollment-steps.md).
 
 With `--admin USER` (password from stdin or `--password-file`), the computer account is deleted from the directory.
 Without it, `leave` tries the machine's own credentials and, if that fails, logs a warning and leaves the account.

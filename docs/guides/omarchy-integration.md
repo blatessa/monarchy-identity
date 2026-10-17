@@ -1,48 +1,50 @@
 # Omarchy integration
 
+How enrollment fits into the parts of Omarchy people see and the parts that update underneath you.
+
 ## Login screen
 
-Omarchy's SDDM theme logs in `userModel.lastUser` and has no username field, so a directory user cannot type a name.
-Enrollment writes `/etc/sddm.conf.d/zz-monarchy-identity-theme.conf` selecting the `monarchy-identity` theme (the
-same look, plus an editable username line). The file name sorts after Omarchy's drop-ins, and SDDM applies the
-last value. Skip it with `--keep-login-theme`. `status --json` reports `login_theme` and `username_field`.
+Omarchy's stock login screen signs in whoever used it last and has no username box, so a directory user couldn't type
+their name. Enrollment switches the login screen to the `monarchy-identity` theme: Omarchy's own look plus one line for
+the username. It follows Omarchy's artwork, so theme changes carry over.
 
-The theme's images are symlinks to Omarchy's own, so the look follows Omarchy.
+Pass `--keep-login-theme` to opt out; directory users then can't sign in at the login screen (terminals and `ssh`
+still work). `status --json` reports `login_theme` and `username_field`.
 
 ## Autologin
 
-`--disable-autologin` writes `/etc/sddm.conf.d/zz-monarchy-identity.conf` with an empty `[Autologin] User=`. It has
-to sort after Omarchy's `autologin.conf`. `status` reports the effective value (all drop-ins merged), and `reassert`
-keeps the override; `leave` removes it.
+By default Omarchy signs the first user in automatically at boot on an encrypted disk: the disk passphrase is the
+login. If people sign in with their company account, the login screen should appear instead, so enrolling turns
+autologin off. Pass `--keep-autologin` to keep it. `monarchy-identity status` shows the effective setting, and the
+[compliance policy](compliance-checks.md) can require it off (`forbid_autologin`). `leave` restores the previous setting.
 
 ## Lock screen
 
-Omarchy's lock screen authenticates through its own PAM service, `/etc/pam.d/omarchy-lock-password`. Enrollment
-edits it like `system-auth`, so directory users unlock with their directory password.
+Omarchy's lock screen has its own sign-in configuration. Enrollment updates it too, so directory users unlock with
+their directory password.
 
-## `omarchy update` hook
+## Updates
+
+Omarchy updates and migrations can rewrite sign-in configuration. A watcher repairs it automatically
+([Staying correct](../concepts/self-healing.md)). If you also want a repair right after `omarchy update`, install the
+optional hook as the desktop user:
 
 ```bash
-monarchy-identity install-hooks     # as the desktop user, not root
+monarchy-identity install-hooks
 monarchy-identity remove-hooks
 ```
 
-This installs `10-monarchy-identity-reassert` as an Omarchy `post-update` hook (using `omarchy hook install` when
-`omarchy` is on `PATH`, otherwise copying it to `~/.config/omarchy/hooks/post-update.d/`). The hook runs as the user
-and calls `sudo -n monarchy-identity reassert`. It is optional; the root-owned path unit
-([Self-healing](../concepts/self-healing.md)) does the same without it.
+It is a convenience; the watcher does not depend on it.
 
 ## Status widget
 
-`monarchy-identity-shell` ships a Quickshell bar widget (`monarchy-identity.status`):
+`monarchy-identity-shell` adds an optional widget to the Omarchy bar showing enrollment, login mode and warnings
+(autologin on, local admins present):
 
 ```bash
 monarchy-identity install-widget --enable    # as the desktop user
 monarchy-identity remove-widget
 ```
 
-It copies the widget to `~/.config/omarchy/plugins/monarchy-identity.status/`, validating it first with
-`omarchy plugin validate` when available, and `--enable` runs `omarchy plugin enable ... --section right`. The widget
-shows enrollment, login mode and warnings (autologin on, local `wheel` members, or `identity: unavailable` if the
-CLI fails). The widget has not been loaded in a live Omarchy shell yet. It is cosmetic: it runs no privileged
-command and enforces nothing.
+The widget is a display only: it runs no privileged command and enforces nothing, so hiding it changes nothing about who
+can sign in. It has not been loaded in a live Omarchy shell yet.
