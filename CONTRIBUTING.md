@@ -1,6 +1,6 @@
 # Contributing
 
-Contributor and agent guidance lives in [CLAUDE.md](CLAUDE.md) (rules, layout, conventions),
+Contributor and agent guidance lives in [AGENTS.md](AGENTS.md) (rules, layout, conventions),
 [docs/dev/TESTING.md](docs/dev/TESTING.md) (the lab) and [docs/dev/DESIGN.md](docs/dev/DESIGN.md).
 
 - **Never test PAM/sssd/SDDM changes on your own laptop.** Use the lab in `test/`.
