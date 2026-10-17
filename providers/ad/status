@@ -1,9 +1,8 @@
 #!/bin/bash
-# prints key=value health lines for the core status command
+# prints key=value health lines for the core status command (the core adds the PAM ones)
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/ad/lib.sh"
 chk() { "$@" >/dev/null 2>&1 && echo true || echo false; }
 echo "sssd_active=$(chk systemctl is-active --quiet sssd)"
 echo "nss_sss=$(chk grep -qE '^passwd:.*\bsss\b' "$ETC/nsswitch.conf")"
-for f in "${PAM_FILES[@]}"; do echo "pam_${f//-/_}=$(chk python3 -I "$PAMEDIT" check "$ETC/pam.d/$f")"; done
 if [[ $EUID -eq 0 ]]; then echo "domain_joined=$(chk net ads testjoin)"; else echo "domain_joined=unknown"; fi

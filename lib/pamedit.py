@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Idempotently add/remove pam_sss (+ mkhomedir) in an Omarchy PAM service file.
+"""Idempotently add/remove a provider's PAM module (+ mkhomedir) in an Omarchy PAM service file.
 
-usage: pamedit.py apply|remove|check FILE
+usage: pamedit.py apply FILE MODULE [TYPE=ARGS ...]    e.g. apply /etc/pam.d/system-auth pam_sss.so auth=forward_pass
+       pamedit.py remove|check FILE
 
-Design (see docs/dev/architecture.md): local users must keep working untouched, so pam_sss is tried FIRST
-and ignored for users it does not know ("default=ignore"); on success it skips the rest of the
+The provider names the module and its arguments per stack (TYPE is auth, account, password or session); the rules
+around it are fixed here. Design (see docs/dev/architecture.md): local users must keep working untouched, so the
+module is tried FIRST and ignored for users it does not know ("default=ignore"); on success it skips the rest of the
 auth stack (pam_unix + faillock authfail) with a skip count computed from the real file, which
 keeps it correct next to Omarchy's pam_systemd_home skip lines.
-Every inserted block is wrapped in BEGIN/END markers so `remove` is exact.
+Every inserted block is wrapped in BEGIN/END markers so `remove` is exact, whatever module was inserted.
 
-SAFETY (learned the hard way): if pam_sss.so is missing or sssd is down, authentication for LOCAL users must be
+SAFETY (learned the hard way): if the module is missing or its daemon is down, authentication for LOCAL users must be
 unaffected. Every rule is "-"-prefixed (silent when the module can't load) and the account rule maps
-user_unknown / authinfo_unavail / module_unknown to ignore. Only a real answer from pam_sss (denied, expired,
+user_unknown / authinfo_unavail / module_unknown to ignore. Only a real answer from the module (denied, expired,
 new token required) may fail a login. With a plain `default=bad` a missing module failed EVERY login, local
 users and root included, even sshd.
 """
@@ -56,7 +58,23 @@ def block(rule):
     return [BEGIN + "\n", rule + "\n", END + "\n"]
 
 
-def apply(lines):
+TYPES = ("auth", "account", "password", "session")
+
+
+def parse_module(argv):
+    """MODULE [TYPE=ARGS ...] -> (module, {type: " args" or ""}); refuses anything that could add a PAM line."""
+    if not argv or not re.fullmatch(r"pam_[A-Za-z0-9_]+\.so", argv[0]):
+        sys.exit("pamedit: expected a PAM module name like pam_sss.so")
+    args = dict.fromkeys(TYPES, "")
+    for a in argv[1:]:
+        t, _, v = a.partition("=")
+        if t not in TYPES or not re.fullmatch(r"[A-Za-z0-9_.,:/=@ -]*", v):
+            sys.exit(f"pamedit: bad module argument {a!r} (expected TYPE=ARGS, TYPE one of {', '.join(TYPES)})")
+        args[t] = " " + " ".join(v.split()) if v.strip() else ""
+    return argv[0], args
+
+
+def apply(lines, module, args):
     lines = strip_blocks(lines)
     # --- auth: before the first of (pam_systemd_home | pam_unix) in the auth stack
     first = None
@@ -73,7 +91,7 @@ def apply(lines):
         else:
             skip = count_rules(lines, "auth", first, fail)
         lines[first:first] = block(
-            f"-auth      [success={skip} default=ignore]  pam_sss.so forward_pass")
+            f"-auth      [success={skip} default=ignore]  {module}{args['auth']}")
     # --- account: before first of (pam_systemd_home | pam_unix) account rule
     first = None
     for pat in (r"pam_systemd_home\.so", r"pam_unix\.so"):
@@ -84,8 +102,8 @@ def apply(lines):
     if first is not None and u is not None:
         skip = count_rules(lines, "account", first, u)
         lines[first:first] = block(
-            f"-account   [success={skip} user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]  pam_sss.so")
-    # --- password: same pattern as auth (pam_sss first; unknown/local users are ignored and fall through)
+            f"-account   [success={skip} user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]  {module}{args['account']}")
+    # --- password: same pattern as auth (the module first; unknown/local users are ignored and fall through)
     first = None
     for pat in (r"pam_systemd_home\.so", r"pam_unix\.so"):
         i = find(lines, "password", pat)
@@ -95,7 +113,7 @@ def apply(lines):
     if first is not None and u is not None:
         skip = count_rules(lines, "password", first, u)
         lines[first:first] = block(
-            f"-password  [success={skip} default=ignore]  pam_sss.so")
+            f"-password  [success={skip} default=ignore]  {module}{args['password']}")
     # --- session: at the top of the session block
     s = None
     for i, ln in enumerate(lines):
@@ -105,20 +123,23 @@ def apply(lines):
     if s is not None and find(lines, "session", r"pam_unix\.so") is not None:
         lines[s:s] = [BEGIN + "\n",
                       "session    required   pam_mkhomedir.so umask=0077\n",
-                      "-session   optional   pam_sss.so\n",
+                      f"-session   optional   {module}{args['session']}\n",
                       END + "\n"]
     return lines
 
 
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] not in ("apply", "remove", "check"):
+    mode = sys.argv[1] if len(sys.argv) > 2 else ""
+    if mode not in ("apply", "remove", "check") or (mode != "apply" and len(sys.argv) != 3):
         sys.exit(__doc__)
-    mode, path = sys.argv[1], sys.argv[2]
+    path = sys.argv[2]
+    if mode == "apply":
+        module, args = parse_module(sys.argv[3:])
     with open(path) as f:
         lines = f.readlines()
     if mode == "check":
         sys.exit(0 if any(ln.strip() == BEGIN for ln in lines) else 1)
-    new = apply(lines) if mode == "apply" else strip_blocks(lines)
+    new = apply(lines, module, args) if mode == "apply" else strip_blocks(lines)
     if new != lines:
         tmp = path + ".oi-tmp"
         with open(tmp, "w") as f:

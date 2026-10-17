@@ -1,8 +1,6 @@
 # Active Directory provider internals (joins with samba, signs in through sssd). Sourced by its scripts.
 PROVIDER=ad
 source "$OI_ROOT/lib/common.sh"
-PAMEDIT="$OI_ROOT/lib/pamedit.py"
-PAM_FILES=(system-auth omarchy-lock-password)
 
 realm_lc() { echo "$1" | tr 'A-Z' 'a-z'; }
 
@@ -109,28 +107,15 @@ nss_apply() {
 }
 nss_remove() { sed -i -E '/^(passwd|group|shadow):/ s/[[:space:]]+sss\b//' "$ETC/nsswitch.conf"; }
 
-pam_apply()  { local f; for f in "${PAM_FILES[@]}"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" apply "$ETC/pam.d/$f"; done; return 0; }
-pam_remove() { local f; for f in "${PAM_FILES[@]}"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" remove "$ETC/pam.d/$f"; done; return 0; }
-
 # --- input validation ---------------------------------------------------------------------------
-# These values are written into sssd.conf / smb.conf / krb5.conf. Reject anything that could inject
-# extra config lines or shell metacharacters; names are restricted to what directories really use.
+# These values are written into sssd.conf / smb.conf / krb5.conf (the core validates --groups / --users).
 valid_host()  { [[ $1 =~ ^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$ ]]; }
 valid_realm() { [[ $1 =~ ^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$ && $1 == *.* ]]; }
 valid_admin() { [[ $1 =~ ^[A-Za-z0-9._@\\-]{1,128}$ ]]; }
-valid_list()  { # comma-separated names; letters digits . _ - @ space \ ; no leading/trailing space, no empties
-  local item IFS=,; [[ -n $1 ]] || return 1
-  for item in $1; do
-    [[ $item =~ ^[A-Za-z0-9._@\\-]([A-Za-z0-9._@\\ -]{0,126}[A-Za-z0-9._@\\-])?$ ]] || return 1
-  done
-  [[ $1 != *,, && $1 != ,* && $1 != *,  ]]
-}
-validate_enroll_args() { # realm server admin groups users
+validate_enroll_args() { # realm server admin
   valid_realm "$1" || die "invalid --realm '$1' (expected a DNS name like corp.example.com)"
   [[ -z $2 ]] || valid_host "$2" || die "invalid --server '$2'"
   valid_admin "$3" || die "invalid --admin '$3'"
-  [[ -z $4 ]] || valid_list "$4" || die "invalid --groups '$4' (comma-separated names; letters, digits, . _ - @ space)"
-  [[ -z $5 ]] || valid_list "$5" || die "invalid --users '$5' (comma-separated names; letters, digits, . _ - @ space)"
 }
 
 # --- directory lookups before joining ------------------------------------------------------------
@@ -179,14 +164,8 @@ dn_to_createcomputer() {
 }
 
 # --- persisted state ----------------------------------------------------------------------------
-# sssd_save_state: writes /etc/monarchy-identity/config.toml from these globals:
-#   realm server mode groups users disable_autologin keep_theme sudo_groups offline_days nb ou
-sssd_save_state() {
-  conf_write provider="$PROVIDER" login_mode="$mode" realm="$realm" server="$server" groups="$groups" users="$users" \
-    autologin_disabled="$([[ ${disable_autologin:-0} == 1 ]] && echo true || echo false)" \
-    login_theme="$([[ ${keep_theme:-0} == 1 ]] && echo stock || echo identity)" \
-    sudo_groups="$sudo_groups" offline_days="$offline_days" computer_name="$nb" ou="${ou:-}"
-}
+# The AD keys in /etc/monarchy-identity/config.toml (the core keeps provider, policy and desktop keys next to them).
+ad_save_state() { conf_set realm="$realm" server="$server" computer_name="$nb" ou="${ou:-}"; }
 
 # sssd_restart: (re)start sssd without ever tripping systemd's start-rate limit. Several quick restarts in a
 # row (policy changes, reassert, restore paths; or an MDM looping over a fleet) hit "start-limit-hit" and leave

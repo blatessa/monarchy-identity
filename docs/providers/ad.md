@@ -7,7 +7,7 @@ computer account, and people sign in through `sssd`, the standard Linux director
 sudo monarchy-identity enroll ad --realm CORP.EXAMPLE.COM --admin joinuser --groups laptop-users
 ```
 
-`ad` is the only provider today, so `monarchy-identity enroll --realm ...` without the name works too.
+While `ad` is the only provider installed, `monarchy-identity enroll --realm ...` without the name works too.
 
 ## Terms
 

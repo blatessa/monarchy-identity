@@ -39,7 +39,8 @@ Paths come from the `MONARCHY_IDENTITY_*` overrides. Knobs are `STUB_*` variable
 | `refused` | Everything `enroll` must refuse before sign-in changes: bad input, wrong password, unknown group, DC down, colliding or generic names, unsafe password files. Each refusal leaves the temp `/etc` unchanged. |
 | `policy` | Implied modes, `policy set` changing only what's passed, refusals, `--if-needed`, generated `sssd.conf` and sudoers, autologin |
 | `enroll` | `--computer-name`, `--ou`, password sources, `--replace-computer-account`, re-running a half-finished enrollment, login theme, hook and widget installers |
-| `pam` | PAM/nsswitch/SDDM edits on Omarchy's real files: apply, remove, idempotent, skip counts; `leave` removes only marked files; autologin merge order |
+| `pam` | PAM/nsswitch/SDDM edits on Omarchy's real files: apply, remove, idempotent, skip counts, another provider's module, unsafe module arguments refused; `leave` removes only marked files; autologin merge order |
+| `provider` | The provider contract, against `test/unit/stub-provider` installed next to `ad`: the core validates shared options, the provider gets only its own plus the resolved policy, its PAM module is inserted, `policy`, `--if-needed`, `status`, `reassert`, `leave` |
 | `status` | `status --json` shape and that its checks follow reality |
 | `validation`, `naming` | Input validators, computer names and OU conversion |
 

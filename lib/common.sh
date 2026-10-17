@@ -7,17 +7,26 @@ log() { echo "monarchy-identity: $*" >&2; logger -t monarchy-identity -- "$*" 2>
 die() { log "ERROR: $*"; exit 1; }
 need_root() { [[ $EUID -eq 0 ]] || die "this needs administrator rights: run it with sudo"; }
 
-conf_get() { # conf_get key default
+kv_get() { # kv_get file key default: a value from a flat `key = "value"` file
   local v=""
-  [[ -r $OI_CONF ]] && v=$(sed -n "s/^$1[[:space:]]*=[[:space:]]*\"\?\([^\"]*\)\"\?$/\1/p" "$OI_CONF" | head -1)
-  echo "${v:-${2:-}}"
+  [[ -r $1 ]] && v=$(sed -n "s/^$2[[:space:]]*=[[:space:]]*\"\?\([^\"]*\)\"\?$/\1/p" "$1" | head -1)
+  echo "${v:-${3:-}}"
 }
+conf_get() { kv_get "$OI_CONF" "$@"; }   # conf_get key default
 
 conf_write() { # conf_write key=value ... (rewrites whole file, root:root 0644)
   install -d -m 0755 "$(dirname "$OI_CONF")"
   : > "$OI_CONF.tmp"
   local kv; for kv in "$@"; do printf '%s = "%s"\n' "${kv%%=*}" "${kv#*=}" >> "$OI_CONF.tmp"; done
   chmod 0644 "$OI_CONF.tmp"; mv "$OI_CONF.tmp" "$OI_CONF"
+}
+conf_set() { # conf_set key=value ...: changes these keys and keeps the others (the core's and the provider's)
+  local kv keep=()
+  if [[ -r $OI_CONF ]]; then
+    while IFS= read -r kv; do [[ " ${*%%=*} " == *" ${kv%%=*} "* ]] || keep+=("$kv"); done \
+      < <(sed -n 's/^\([A-Za-z0-9_]*\)[[:space:]]*=[[:space:]]*"\?\([^"]*\)"\?$/\1=\2/p' "$OI_CONF")
+  fi
+  conf_write "${keep[@]}" "$@"
 }
 
 # Files we write carry this marker; `leave` deletes only files that have it.
@@ -54,6 +63,34 @@ sddm_autologin_disable() { # idempotent: only writes when content differs
 }
 sddm_autologin_restore() { rm -f "$SDDM_OVERRIDE"; }
 
+# --- PAM -----------------------------------------------------------------------------------------
+# Every Omarchy sign-in funnels into system-auth; the lock screen has its own service. The module comes from the
+# provider's pam.conf (module = "pam_x.so", plus optional per-stack arguments: auth = "...", account = "...", ...);
+# pamedit.py adds the safety rules. Removal is by marker, so it needs no provider.
+PAMEDIT="$OI_ROOT/lib/pamedit.py"
+PAM_FILES=(system-auth omarchy-lock-password)
+pam_apply() { # pam_apply PROVIDER
+  local pc="$OI_ROOT/providers/$1/pam.conf" module t a f args=()
+  module=$(kv_get "$pc" module "")
+  [[ -n $module ]] || die "provider '$1' names no PAM module (expected module = \"pam_....so\" in $pc)"
+  for t in auth account password session; do a=$(kv_get "$pc" "$t" ""); [[ -z $a ]] || args+=("$t=$a"); done
+  for f in "${PAM_FILES[@]}"; do
+    if [[ -f $ETC/pam.d/$f ]]; then python3 -I "$PAMEDIT" apply "$ETC/pam.d/$f" "$module" "${args[@]}" || die "could not edit $ETC/pam.d/$f"; fi
+  done
+}
+pam_remove() { local f; for f in "${PAM_FILES[@]}"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" remove "$ETC/pam.d/$f"; done; return 0; }
+
+# --- who may sign in: names in --groups / --users ---------------------------------------------------
+# These values end up in provider config files. Reject anything that could inject extra config lines or shell
+# metacharacters; names are restricted to what directories really use.
+valid_list()  { # comma-separated names; letters digits . _ - @ space \ ; no leading/trailing space, no empties
+  local item IFS=,; [[ -n $1 ]] || return 1
+  for item in $1; do
+    [[ $item =~ ^[A-Za-z0-9._@\\-]([A-Za-z0-9._@\\ -]{0,126}[A-Za-z0-9._@\\-])?$ ]] || return 1
+  done
+  [[ $1 != *,, && $1 != ,* && $1 != *,  ]]
+}
+
 # --- serialization -------------------------------------------------------------------------------
 # Every state-changing command takes this lock, so a post-update reassert can never interleave with
 # enroll/leave (it would otherwise re-add edits that leave is removing).
@@ -61,7 +98,8 @@ OI_LOCK="${MONARCHY_IDENTITY_LOCK:-/run/monarchy-identity.lock}"
 oi_lock() { exec 9>"$OI_LOCK" && flock 9; }
 
 # --- admin credential input ---------------------------------------------------------------------
-# read_admin_password [file]: sets $pw from FILE (or $OI_ADMIN_PASSWORD_FILE), else first line of stdin.
+# read_admin_password [file]: sets $pw from FILE (or $OI_ADMIN_PASSWORD_FILE, which the core sets from --password-file),
+# else first line of stdin.
 # A password file must be a regular file owned by root or the caller with no group/other permissions.
 read_admin_password() {
   local f=${1:-${OI_ADMIN_PASSWORD_FILE:-}}

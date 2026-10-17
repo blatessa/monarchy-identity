@@ -29,7 +29,8 @@ jobs:
         run: |
           shellcheck -S error -s bash $(git ls-files '*.sh') bin/monarchy-identity \
             providers/*/detect providers/*/enroll providers/*/unenroll providers/*/reassert providers/*/status \
-            test/unit/stubs/*
+            providers/*/policy providers/*/matches test/unit/stubs/* \
+            test/unit/stub-provider/{detect,enroll,matches,policy,reassert,status,unenroll}
       - name: Python syntax
         run: python3 -m py_compile lib/*.py
       - name: Allow user namespaces (the unit tests run the CLI as fake root with unshare -r)

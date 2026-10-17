@@ -1,79 +1,39 @@
 #!/bin/bash
-# monarchy-identity enroll --realm CORP.EXAMPLE.COM --groups laptop-users [--admin USER] [options]   (join password is prompted)
-#
-# Directory:
+# monarchy-identity enroll ad --realm CORP.EXAMPLE.COM [--admin USER] [options]   (join password is prompted)
 #   --realm R                   AD/Samba realm (required)
 #   --server HOST               a DC; omit to discover DCs through DNS SRV records
 #   --admin USER                account allowed to join computers (default Administrator)
-#   --password-file FILE        read the admin password from a 0600 file (or $OI_ADMIN_PASSWORD_FILE)
 #   --computer-name NAME        directory computer account name (default: this hostname; must be unique)
 #   --ou 'OU=Laptops,DC=..'     create the computer account in this OU
 #   --replace-computer-account  take over an existing account of that name (refused by default)
-# Who may sign in (nobody unless you say so):
-#   --groups a,b                members of these directory groups may sign in
-#   --users u1,u2                only these users may sign in
-#   --mode any                  everyone in the directory (explicit opt-in)
-# Optional:
-#   --sudo-groups g1,g2         directory groups that get sudo (visudo-validated drop-in)
-#   --offline-days N            cached credentials stop working after N days offline (default: never)
-#   --keep-autologin            keep Omarchy's automatic sign-in at boot (by default it is turned off so the login
-#                               screen appears; --disable-autologin is accepted and is the default)
-#   --keep-login-theme          do not switch SDDM to the theme with a username field
-# Automation:
-#   --if-needed                 already enrolled in this realm? just converge the policy (no re-join), exit 0
+#
+# Called by the core with the resolved policy in $OI_LOGIN_MODE, $OI_GROUPS, $OI_USERS, $OI_OFFLINE_DAYS. Joins, makes
+# sssd enforce the policy and waits until the directory answers; the core then edits PAM. Prints "REALM as NAME".
 set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/ad/lib.sh"
-case " $* " in *" --help "*|*" -h "*) sed -n '2,/^set -euo/{/^set -euo/d;s/^# \{0,1\}//;p}' "$0"; exit 0;; esac
+case " $* " in *" --help "*|*" -h "*) sed -n '2,/^#$/{/^#$/d;s/^# \{0,1\}//;p}' "$0"; exit 0;; esac
 need_root
 
-offline_days=0 sudo_groups="" keep_theme=0 pwfile="" disable_autologin=1
-realm="" server="" admin="Administrator" mode="" groups="" users=""
-computer_name="" ou="" replace_account=0 if_needed=0
+mode=$OI_LOGIN_MODE groups=$OI_GROUPS users=$OI_USERS offline_days=$OI_OFFLINE_DAYS
+realm="" server="" admin="Administrator" computer_name="" ou="" replace_account=0
 while [[ $# -gt 0 ]]; do case $1 in
   --realm) realm=$2; shift 2;; --server) server=$2; shift 2;; --admin) admin=$2; shift 2;;
-  --mode) mode=$2; shift 2;; --groups) groups=$2; shift 2;; --users) users=$2; shift 2;;
-  --password-file) pwfile=$2; shift 2;; --computer-name) computer_name=$2; shift 2;; --ou) ou=$2; shift 2;;
+  --computer-name) computer_name=$2; shift 2;; --ou) ou=$2; shift 2;;
   --replace-computer-account) replace_account=1; shift;;
-  --sudo-groups) sudo_groups=$2; shift 2;; --offline-days) offline_days=$2; shift 2;;
-  --disable-autologin) disable_autologin=1; shift;; --keep-autologin) disable_autologin=0; shift;; --keep-login-theme) keep_theme=1; shift;;
-  --if-needed) if_needed=1; shift;;
   *) die "unknown option $1";; esac; done
 
 # ---- validate everything BEFORE touching anything -------------------------------------------------
 [[ -n $realm ]] || die "--realm is required (--server is optional: omit it to discover DCs through DNS)"
-[[ -z $sudo_groups ]] || valid_sudo_groups "$sudo_groups" || die "invalid --sudo-groups '$sudo_groups' (letters, digits, . _ - only; no spaces)"
-[[ $offline_days =~ ^[0-9]+$ ]] || die "invalid --offline-days '$offline_days' (whole days; 0 = never expire)"
-if [[ -z $mode ]]; then   # saying who may sign in is enough; --mode is only needed for 'any'
-  if [[ -n $groups ]]; then mode=groups; elif [[ -n $users ]]; then mode=assigned
-  else die "say who may sign in: --groups GROUP[,GROUP] (members of those directory groups) or --users USER[,USER]. Nobody can sign in by default; --mode any admits the whole directory"; fi
-fi
-validate_enroll_args "$realm" "$server" "$admin" "$groups" "$users"
-case $mode in
-  groups)   [[ -n $groups ]] || die "--mode groups needs --groups (default is deny)";;
-  assigned) [[ -n $users ]]  || die "--mode assigned needs --users";;
-  any) ;; *) die "bad --mode";;
-esac
+validate_enroll_args "$realm" "$server" "$admin"
 if [[ -n $ou ]]; then
   valid_ou_dn "$ou" || die "invalid --ou '$ou' (expected a DN like OU=Laptops,DC=corp,DC=example,DC=com)"
   ou_path=$(dn_to_createcomputer "$ou") || die "invalid --ou '$ou'"
 else ou_path=""; fi
 
-# ---- already enrolled? converge instead of re-joining (idempotent for MDM / Ansible) --------------
-if ((if_needed)) && [[ $(conf_get provider local) == "$PROVIDER" ]]; then
-  cur=$(conf_get realm "")
-  [[ ${cur,,} == "${realm,,}" ]] || die "already enrolled in '$cur'; run 'monarchy-identity leave' before enrolling in '$realm'"
-  log "already enrolled in $cur: converging policy without re-joining"
-  pargs=(set --mode "$mode" --offline-days "$offline_days" --sudo-groups "${sudo_groups:--}")
-  [[ -z $groups ]] || pargs+=(--groups "$groups"); [[ -z $users ]] || pargs+=(--users "$users")
-  "$OI_ROOT/providers/ad/policy" "${pargs[@]}"
-  ((!disable_autologin)) || sddm_autologin_disable
-  exit 0
-fi
-
 nb=$(pick_computer_name "$computer_name")      # dies with a clear reason for generic / too-long hostnames
 for c in sssd net python3; do command -v $c >/dev/null || die "missing dependency: $c"; done
-read_admin_password "$pwfile"
+read_admin_password
 
 server_args "$server"
 d=$(realm_lc "$realm"); fqdn="${nb,,}.$d"
@@ -117,13 +77,6 @@ if [[ $mode == groups ]]; then probe=${groups%%,*}
   timeout 60 bash -c 'until getent group "$1" >/dev/null 2>&1; do sleep 1; done' _ "$probe" \
     || die "joined, but sssd cannot see the group '$probe' yet; sign-in is not switched on. Re-run this command once the directory is reachable"
 fi
-pam_apply
-((!disable_autologin)) || sddm_autologin_disable
-[[ -z $sudo_groups ]] || sudoers_apply "$sudo_groups"
-if ((!keep_theme)); then
-  sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the monarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"
-fi
-sssd_save_state
+ad_save_state
 pw=""
-log "enrolled in $realm as $nb (login mode: $mode)"
-[[ -z $(sddm_autologin_user 2>/dev/null) ]] || log "NOTE: Omarchy autologin is on, so this laptop signs in its local user automatically at boot. Re-run with --disable-autologin (or: monarchy-identity policy set) if people should sign in themselves."
+echo "$realm as $nb"

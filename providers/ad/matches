@@ -1,0 +1,11 @@
+#!/bin/bash
+# For `enroll --if-needed`: given the enroll options, print what this laptop is enrolled as if it is the same realm
+# (the core then only converges the policy); refuse a different one.
+set -euo pipefail
+export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
+source "$OI_ROOT/providers/ad/lib.sh"
+realm=""
+while [[ $# -gt 0 ]]; do [[ $1 == --realm ]] && realm=${2:-}; shift; done
+cur=$(conf_get realm "")
+[[ ${cur,,} == "${realm,,}" ]] || die "already enrolled in '$cur'; run 'monarchy-identity leave' before enrolling in '$realm'"
+echo "$cur as $(conf_get computer_name "")"

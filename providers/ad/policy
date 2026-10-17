@@ -1,65 +1,27 @@
 #!/bin/bash
-# monarchy-identity policy show
-# monarchy-identity policy set [--groups a,b | --users u1,u2 | --mode any] [--sudo-groups g | -] [--offline-days N]
-#
-# Change WHO may sign in (and sudo / cache lifetime) on an already-enrolled machine: no re-join, no directory
-# credentials needed. Only the options you pass change; the rest keep their current values. `--sudo-groups -`
-# removes sudo access. A change that leaves mode=groups with no groups, or names a group the directory does not
-# have, is refused before anything is written.
+# policy show: the AD lines of `monarchy-identity policy show` (the core prints who may sign in).
+# policy apply: enforce the policy the core resolved ($OI_LOGIN_MODE, $OI_GROUPS, $OI_USERS, $OI_OFFLINE_DAYS) on an
+# enrolled machine: no re-join, no directory credentials. Refuses a group sssd cannot resolve before writing anything.
 set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/ad/lib.sh"
 
-[[ $(conf_get provider local) == "$PROVIDER" ]] || die "this machine is not enrolled with Active Directory"
-
-# current state
-realm=$(conf_get realm ""); server=$(conf_get server ""); mode=$(conf_get login_mode groups)
-groups=$(conf_get groups ""); users=$(conf_get users ""); sudo_groups=$(conf_get sudo_groups "")
-offline_days=$(conf_get offline_days 0); nb=$(conf_get computer_name ""); ou=$(conf_get ou "")
-disable_autologin=$([[ $(conf_get autologin_disabled false) == true ]] && echo 1 || echo 0)
-keep_theme=$([[ $(conf_get login_theme identity) == stock ]] && echo 1 || echo 0)
+realm=$(conf_get realm ""); server=$(conf_get server ""); nb=$(conf_get computer_name ""); ou=$(conf_get ou "")
 [[ -n $nb ]] || nb=$(pick_computer_name "")   # enrollments made before computer_name was recorded
 
-cmd=${1:-}; shift || true
-case $cmd in
-  show)
-    echo "realm:         $realm"; echo "login mode:    $mode"; echo "groups:        ${groups:--}"
-    echo "users:         ${users:--}"; echo "sudo groups:   ${sudo_groups:--}"; echo "offline days:  $offline_days (0 = never)"
-    echo "computer:      $nb${ou:+ in $ou}"; exit 0 ;;
-  set) ;;
-  *) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+case ${1:-} in
+  show) echo "realm:         $realm"; echo "computer:      $nb${ou:+ in $ou}" ;;
+  apply)
+    need_root
+    mode=$OI_LOGIN_MODE groups=$OI_GROUPS users=$OI_USERS offline_days=$OI_OFFLINE_DAYS
+    if [[ $mode == groups ]]; then   # sssd resolves groups whatever the current access rule is
+      IFS=, read -ra gl <<<"$groups"
+      for g in "${gl[@]}"; do getent group "$g" >/dev/null 2>&1 || die "the directory has no group named '$g' (or it cannot be reached); policy unchanged"; done
+    fi
+    d=$(realm_lc "$realm"); fqdn="${nb,,}.$d"
+    write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn" "$nb" "$offline_days"
+    sssd_restart
+    wait_sssd_online "$d" 30 || log "WARNING: sssd did not report online within 30s (directory unreachable?); policy is applied and will take effect when it reconnects"
+    ;;
+  *) die "usage: policy show|apply" ;;
 esac
-need_root
-
-mode_given=0 groups_given=0 users_given=0
-while [[ $# -gt 0 ]]; do case $1 in
-  --mode) mode=$2; mode_given=1; shift 2;; --groups) groups=$2; groups_given=1; shift 2;; --users) users=$2; users_given=1; shift 2;;
-  --sudo-groups) if [[ $2 == - ]]; then sudo_groups=""; else sudo_groups=$2; fi; shift 2;;
-  --offline-days) offline_days=$2; shift 2;;
-  *) die "unknown option $1";; esac; done
-
-[[ -z $sudo_groups ]] || valid_sudo_groups "$sudo_groups" || die "invalid --sudo-groups '$sudo_groups'"
-[[ $offline_days =~ ^[0-9]+$ ]] || die "invalid --offline-days '$offline_days'"
-[[ -z $groups ]] || valid_list "$groups" || die "invalid --groups '$groups'"
-[[ -z $users ]]  || valid_list "$users"  || die "invalid --users '$users'"
-if ((!mode_given)); then   # naming groups or users is enough to say which kind of policy you mean
-  if ((groups_given)); then mode=groups; elif ((users_given)); then mode=assigned; fi
-fi
-case $mode in
-  groups)   [[ -n $groups ]] || die "--mode groups needs --groups (default is deny)";;
-  assigned) [[ -n $users ]]  || die "--mode assigned needs --users";;
-  any) ;; *) die "bad --mode '$mode' (groups|assigned|any)";;
-esac
-
-if [[ $mode == groups ]]; then   # sssd resolves groups whatever the current access rule is
-  IFS=, read -ra gl <<<"$groups"
-  for g in "${gl[@]}"; do getent group "$g" >/dev/null 2>&1 || die "the directory has no group named '$g' (or it cannot be reached); policy unchanged"; done
-fi
-
-d=$(realm_lc "$realm"); fqdn="${nb,,}.$d"
-write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn" "$nb" "$offline_days"
-sssd_restart
-wait_sssd_online "$d" 30 || log "WARNING: sssd did not report online within 30s (directory unreachable?); policy is applied and will take effect when it reconnects"
-if [[ -n $sudo_groups ]]; then sudoers_apply "$sudo_groups"; else sudoers_remove; fi
-sssd_save_state
-log "policy updated: mode=$mode groups=${groups:--} users=${users:--} sudo=${sudo_groups:--} offline_days=$offline_days"

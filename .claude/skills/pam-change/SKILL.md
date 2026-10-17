@@ -9,7 +9,7 @@ A mistake here locks users (including root, over SSH) out of a machine. The host
 
 ## Rules every edit must satisfy
 1. Goes through `lib/pamedit.py` (BEGIN/END `monarchy-identity` markers, skip counts computed from the real file). Other files: use `/etc` drop-ins with unique names; never edit `/usr/share/omarchy`.
-2. Every PAM rule is `-`-prefixed and safe when `pam_sss.so` is missing or sssd is down. Account rules map `user_unknown`, `authinfo_unavail`, `module_unknown` to `ignore`. Local users and root must be unaffected. Read the header of `lib/pamedit.py`: a plain `default=bad` once failed EVERY login.
+2. Every PAM rule is `-`-prefixed and safe when the provider's module (`pam_sss.so` for ad) is missing or its daemon is down. The rules live in `pamedit.py`; a provider only names the module and arguments in `pam.conf`. Account rules map `user_unknown`, `authinfo_unavail`, `module_unknown` to `ignore`. Local users and root must be unaffected. Read the header of `lib/pamedit.py`: a plain `default=bad` once failed EVERY login.
 3. Idempotent (`apply` twice = once) and exactly reversible (`remove` restores byte-identical). Add the check.
 4. `reassert` re-applies it (the pacman hook runs that after updates), `status` reports when it's missing, and `leave` removes it.
 5. Both Omarchy services that matter are covered: `/etc/pam.d/system-auth` (everything funnels into it) and `/etc/pam.d/omarchy-lock-password` (lock screen). `su` uses pam_unix directly; there's no `polkit-1` service.

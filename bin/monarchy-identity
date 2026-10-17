@@ -13,7 +13,7 @@ usage() {
 Usage: monarchy-identity <command>
 
   status [--json]            Show enrollment and sign-in state
-  enroll --realm R --groups G  Join the directory and set who may sign in (see: enroll --help)
+  enroll [PROVIDER] ...      Join the directory and set who may sign in (see: enroll --help)
   leave                      Leave the directory and remove this tool's sign-in changes
   policy show|set [opts]     Show or change who may sign in without re-joining: --groups --users --sudo-groups --offline-days
   reassert                   Re-apply managed /etc edits (run after updates; root)
@@ -36,10 +36,14 @@ cmd_status() {
   mode=$(conf_get login_mode none)
   [[ $provider != local ]] && enrolled=true
   autologin_enabled && autologin=true
-  local details="" k v
+  local details="" k v f
   if [[ $enrolled == true && -x $ROOT/providers/$provider/status ]]; then
     while IFS='=' read -r k v; do details+="${details:+,}\"$k\":\"$(json_escape "$v")\""; done \
       < <("$ROOT/providers/$provider/status" 2>/dev/null)
+    for f in "${PAM_FILES[@]}"; do   # the PAM edit is the core's, whatever the provider
+      v=false; python3 -I "$PAMEDIT" check "$ETC/pam.d/$f" 2>/dev/null && v=true
+      details+="${details:+,}\"pam_${f//-/_}\":\"$v\""
+    done
   fi
   if ((json)); then
     printf '{"schema":2,"enrolled":%s,"provider":"%s","login_mode":"%s","autologin":%s,"login_theme":"%s","username_field":%s,"details":{%s}}\n' \
@@ -51,7 +55,8 @@ cmd_status() {
   fi
 }
 
-cmd_providers() { ls "$ROOT/providers"; }
+directory_providers() { local d; for d in "$ROOT"/providers/*/; do d=${d%/}; echo "${d##*/}"; done; }
+cmd_providers() { directory_providers; }
 
 run_provider() { # run_provider <provider> <action> [args]
   local p=$1 a=$2; shift 2
@@ -60,13 +65,173 @@ run_provider() { # run_provider <provider> <action> [args]
   "$s" "$@"
 }
 
+# --- who may sign in, and the other options every directory shares ---------------------------------------------
+# The core parses and validates these; a provider gets only its own options, and the resolved policy as
+# OI_LOGIN_MODE (groups|assigned|any), OI_GROUPS, OI_USERS, OI_OFFLINE_DAYS. Callers set the globals to start from.
+POLICY_HELP='Who may sign in (nobody unless you say so):
+  --groups a,b                members of these directory groups may sign in
+  --users u1,u2               only these users may sign in
+  --mode any                  everyone in the directory (explicit opt-in)
+  --sudo-groups g1,g2         directory groups that get sudo (visudo-validated drop-in; "-" for none)
+  --offline-days N            cached credentials stop working after N days offline (default: never)'
+ENROLL_HELP='Options:
+  --keep-autologin            keep Omarchy'"'"'s automatic sign-in at boot (by default it is turned off so the login
+                              screen appears)
+  --keep-login-theme          keep Omarchy'"'"'s stock login screen (it has no username field)
+  --password-file FILE        read the enrollment password from a 0600 file (or $OI_ADMIN_PASSWORD_FILE)
+  --if-needed                 already enrolled with this directory? just converge the policy, exit 0'
+
+parse_opts() { # parse_opts enroll|policy ARGS...: shared options into the globals; the rest into PARGS (enroll only)
+  local cmd=$1 n; shift; PARGS=()
+  while [[ $# -gt 0 ]]; do
+    n=2
+    case $cmd:$1 in
+      *:--mode) mode=${2-}; mode_given=1;;
+      *:--groups) groups=${2-}; groups_given=1;;
+      *:--users) users=${2-}; users_given=1;;
+      *:--sudo-groups) sudo_groups=${2-}; [[ $sudo_groups != - ]] || sudo_groups="";;
+      *:--offline-days) offline_days=${2-};;
+      enroll:--password-file) export OI_ADMIN_PASSWORD_FILE=${2-};;
+      enroll:--keep-autologin) disable_autologin=0; n=1;;
+      enroll:--disable-autologin) disable_autologin=1; n=1;;   # the default; still accepted
+      enroll:--keep-login-theme) keep_theme=1; n=1;;
+      enroll:--if-needed) if_needed=1; n=1;;
+      enroll:*) PARGS+=("$1"); n=1;;
+      *) die "unknown option $1";;
+    esac
+    [[ $# -ge $n ]] || die "$1 needs a value"
+    shift "$n"
+  done
+}
+
+resolve_policy() { # validates the globals, works out the mode, and exports the policy for the provider
+  [[ -z $sudo_groups ]] || valid_sudo_groups "$sudo_groups" || die "invalid --sudo-groups '$sudo_groups' (letters, digits, . _ - only; no spaces)"
+  [[ $offline_days =~ ^[0-9]+$ ]] || die "invalid --offline-days '$offline_days' (whole days; 0 = never expire)"
+  [[ -z $groups ]] || valid_list "$groups" || die "invalid --groups '$groups' (comma-separated names; letters, digits, . _ - @ space)"
+  [[ -z $users ]]  || valid_list "$users"  || die "invalid --users '$users' (comma-separated names; letters, digits, . _ - @ space)"
+  if ((!mode_given)); then   # naming groups or users is enough to say which kind of policy you mean
+    if ((groups_given)); then mode=groups; elif ((users_given)); then mode=assigned; fi
+  fi
+  case $mode in
+    groups)   [[ -n $groups ]] || die "--mode groups needs --groups (default is deny)";;
+    assigned) [[ -n $users ]]  || die "--mode assigned needs --users";;
+    any) ;;
+    "") die "say who may sign in: --groups GROUP[,GROUP] (members of those directory groups) or --users USER[,USER]. Nobody can sign in by default; --mode any admits the whole directory";;
+    *) die "bad --mode '$mode' (groups|assigned|any)";;
+  esac
+  export OI_LOGIN_MODE=$mode OI_GROUPS=$groups OI_USERS=$users OI_OFFLINE_DAYS=$offline_days
+}
+
+save_policy() {
+  conf_set login_mode="$mode" groups="$groups" users="$users" sudo_groups="$sudo_groups" offline_days="$offline_days"
+}
+apply_sudo() { if [[ -n $sudo_groups ]]; then sudoers_apply "$sudo_groups"; else sudoers_remove; fi; }
+
+# The desktop side of an enrollment, from config.toml: PAM with the provider's module, autologin, sudo, login theme.
+# enroll and reassert both end here; every step is idempotent.
+apply_sign_in() { # apply_sign_in PROVIDER
+  pam_apply "$1"
+  if [[ $(conf_get autologin_disabled false) == true ]]; then sddm_autologin_disable; else sddm_autologin_restore; fi
+  sudo_groups=$(conf_get sudo_groups ""); apply_sudo
+  if [[ $(conf_get login_theme identity) == identity ]]; then
+    sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the monarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"
+  else sddm_theme_restore; fi
+}
+
+pick_provider() { # pick_provider [NAME]: the provider enroll should use; sets P and says whether NAME was consumed
+  P=""; local all; all=$(directory_providers)
+  if [[ -n ${1:-} && $1 != -* ]]; then
+    grep -qxF -- "$1" <<<"$all" || die "no provider named '$1' (installed: $(paste -sd, <<<"$all"))"
+    P=$1; return 0
+  fi
+  [[ $(grep -c . <<<"$all") -eq 1 ]] && P=$all
+  return 1
+}
+
+cmd_enroll() {
+  if pick_provider "${1:-}"; then shift; fi
+  if [[ " $* " == *" --help "* || " $* " == *" -h "* ]]; then
+    printf 'Usage: monarchy-identity enroll [PROVIDER] [provider options] (--groups A,B | --users U1,U2 | --mode any) [options]\n\n%s\n%s\n' "$POLICY_HELP" "$ENROLL_HELP"
+    if [[ -n $P ]]; then printf '\nProvider options (%s):\n' "$P"; run_provider "$P" enroll --help; else printf '\nProviders: %s\n' "$(directory_providers | paste -sd, -)"; fi
+    exit 0
+  fi
+  need_root
+  [[ -n $P ]] || die "name the directory provider: monarchy-identity enroll PROVIDER ... (installed: $(directory_providers | paste -sd, -))"
+  local mode="" groups="" users="" sudo_groups="" offline_days=0 mode_given=0 groups_given=0 users_given=0
+  local disable_autologin=1 keep_theme=0 if_needed=0 cur desc
+  parse_opts enroll "$@"; resolve_policy
+  cur=$(conf_get provider local)
+  [[ $cur == local || $cur == "$P" ]] || die "already enrolled with '$cur'; run 'monarchy-identity leave' before enrolling with '$P'"
+  if ((if_needed)) && [[ $cur == "$P" ]]; then
+    desc=$(run_provider "$P" matches "${PARGS[@]}") || exit 1; desc=${desc##*$'\n'}
+    log "already enrolled in $desc: converging policy without re-joining"
+    run_provider "$P" policy apply || exit 1
+  else
+    desc=$(run_provider "$P" enroll "${PARGS[@]}") || exit 1   # registered, and the directory answers
+    desc=${desc##*$'\n'}   # its last line names the enrollment
+  fi
+  # Record the enrollment before switching sign-in on, so `leave` undoes it and a re-run converges if a step below fails.
+  conf_set provider="$P" autologin_disabled="$( ((disable_autologin)) && echo true || echo false)" \
+    login_theme="$( ((keep_theme)) && echo stock || echo identity)"
+  save_policy
+  apply_sign_in "$P"
+  log "enrolled in $desc (login mode: $mode)"
+  [[ -z $(sddm_autologin_user 2>/dev/null) ]] || log "NOTE: Omarchy autologin is on (--keep-autologin), so this laptop signs in its local user automatically at boot. Re-run enroll --if-needed without it if people should sign in themselves."
+}
+
+cmd_policy() {
+  local p; p=$(conf_get provider local)
+  case ${1:-} in
+    show|set) [[ $p != local ]] || die "this machine is not enrolled in a directory" ;;
+    *) printf 'Usage: monarchy-identity policy show\n       monarchy-identity policy set [options]\n\nChange who may sign in (and sudo / cache lifetime) without enrolling again. Only the options you pass change.\n\n%s\n' "$POLICY_HELP"; exit 1 ;;
+  esac
+  local mode groups users sudo_groups offline_days mode_given=0 groups_given=0 users_given=0
+  mode=$(conf_get login_mode groups); groups=$(conf_get groups ""); users=$(conf_get users "")
+  sudo_groups=$(conf_get sudo_groups ""); offline_days=$(conf_get offline_days 0)
+  if [[ $1 == show ]]; then
+    run_provider "$p" policy show
+    echo "login mode:    $mode"; echo "groups:        ${groups:--}"; echo "users:         ${users:--}"
+    echo "sudo groups:   ${sudo_groups:--}"; echo "offline days:  $offline_days (0 = never)"
+    return 0
+  fi
+  shift; need_root
+  parse_opts policy "$@"; resolve_policy
+  run_provider "$p" policy apply || exit 1
+  apply_sudo
+  save_policy
+  log "policy updated: mode=$mode groups=${groups:--} users=${users:--} sudo=${sudo_groups:--} offline_days=$offline_days"
+}
+
+cmd_reassert() {
+  local p; p=$(conf_get provider local)
+  [[ $p != local ]] || return 0
+  need_root
+  run_provider "$p" reassert || exit 1
+  apply_sign_in "$p"
+  log "reasserted sign-in configuration"
+}
+
+cmd_leave() {
+  need_root
+  local p quiet=0 args=(); p=$(conf_get provider local)
+  while [[ $# -gt 0 ]]; do case $1 in
+    --quiet) quiet=1; shift;;
+    --password-file) [[ $# -ge 2 ]] || die "$1 needs a value"; export OI_ADMIN_PASSWORD_FILE=$2; shift 2;;
+    *) args+=("$1"); shift;;
+  esac; done
+  pam_remove                     # PAM first: stop consulting the directory before anything else changes
+  sddm_autologin_restore; sddm_theme_restore; sudoers_remove
+  [[ $p != local ]] || return 0
+  run_provider "$p" unenroll "${args[@]}" || die "could not finish leaving '$p'; run leave again"
+  conf_write provider=local login_mode=none
+  ((quiet)) || log "left the directory; sign-in changes removed"
+}
+
 case "${1:-}" in enroll|leave|reassert|policy) [[ $EUID -eq 0 ]] && oi_lock ;; esac
 case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;
-  enroll) shift; p=ad   # the only provider today, so naming it is optional: `enroll ad ...` also works
-    if [[ ${1:-} == [a-z]* ]]; then p=$1; shift; fi
-    run_provider "$p" enroll "$@" ;;
+  enroll) shift; cmd_enroll "$@" ;;
   install-hooks|remove-hooks)
     [[ $EUID -ne 0 ]] || { echo "run as the desktop user, not root (Omarchy hooks live in ~/.config/omarchy/hooks)" >&2; exit 1; }
     hook_name=10-monarchy-identity-reassert; hook_src="$ROOT/hooks/post-update.d/$hook_name"
@@ -91,9 +256,9 @@ case "${1:-}" in
       echo "installed $wid -> $wdst"
       if [[ ${2:-} == --enable ]]; then omarchy plugin enable "$wid" --section right; else echo "enable it with: omarchy plugin enable $wid --section right"; fi
     fi ;;
-  policy) shift; run_provider "$(conf_get provider local)" policy "$@" ;;
-  reassert) run_provider "$(conf_get provider local)" reassert ;;
-  leave) shift; run_provider "$(conf_get provider local)" unenroll "$@" ;;
+  policy) shift; cmd_policy "$@" ;;
+  reassert) cmd_reassert ;;
+  leave) shift; cmd_leave "$@" ;;
   -h|--help|"") usage ;;
   *) usage; exit 1 ;;
 esac

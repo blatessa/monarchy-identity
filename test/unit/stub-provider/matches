@@ -1,0 +1,10 @@
+#!/bin/bash
+# Stub provider for test/unit/provider.sh: the provider contract (docs/dev/writing-a-provider.md) without a directory.
+# Logs each call, with the arguments and the policy the core passed, to $STUB_LOG.
+set -euo pipefail
+source "$OI_ROOT/lib/common.sh"
+called() { echo "stub $* | ${OI_LOGIN_MODE-}|${OI_GROUPS-}|${OI_USERS-}|${OI_OFFLINE_DAYS-}|${OI_ADMIN_PASSWORD_FILE-}" >> "$STUB_LOG"; }
+called matches "$@"
+tenant=""; while [[ $# -gt 0 ]]; do [[ $1 == --tenant ]] && tenant=${2:-}; shift; done
+[[ $tenant == "$(conf_get tenant)" ]] || die "already enrolled in '$(conf_get tenant)'"
+echo "$tenant"

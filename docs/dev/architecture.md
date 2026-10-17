@@ -31,21 +31,25 @@ hit a command line or disk.
 ## Layers
 
 1. **Core CLI** (`bin/monarchy-identity`): `status | enroll | leave | policy | reassert | install-hooks |
-   install-widget | providers`. Dispatches to the provider named in the config file; state-changing commands take
-   `flock /run/monarchy-identity.lock` so a hook-triggered `reassert` can't interleave with `enroll`/`leave`.
+   install-widget | providers`. Parses the options every directory shares, runs the provider named in the config file
+   for the directory part, and does the shared steps (PAM, SDDM, sudoers, policy state) around it. State-changing
+   commands take `flock /run/monarchy-identity.lock` so a hook-triggered `reassert` can't interleave with
+   `enroll`/`leave`.
 2. **Providers** (`providers/<name>/`): the directory-specific part. See [Writing a provider](writing-a-provider.md).
 3. **Shared helpers** (`lib/common.sh`, `lib/pamedit.py`).
 
 ## Enrollment order, and why
 
-Every provider follows the same order: check, register, prove the directory answers, then PAM. The AD provider's
+Every provider follows the same order: check, register, prove the directory answers, then PAM. The core validates the
+shared options before the provider runs, and edits PAM only after the provider's `enroll` succeeded. The AD provider's
 `enroll` checks everything it can against the directory **before** joining: the join password, that each `--groups`
 entry exists, and whether a computer account of that name already belongs to another machine (it may reuse one only if
 this machine is already joined with it, `net ads testjoin -P`, or with `--replace-computer-account`). Then it joins,
 starts sssd, waits until a group resolves through sssd, and only then edits PAM.
 
 There is no rollback. A failure after the join leaves PAM untouched; re-running `enroll` picks up where it stopped,
-and `leave` cleans up. The join password is read from a prompt, a 0600 file or stdin, never argv.
+and `leave` cleans up. The core records the enrollment just before it edits PAM, so a failure in one of its own steps
+still leaves something `leave` and a re-run know about. The join password is read from a prompt, a 0600 file or stdin, never argv.
 
 ## Files on an enrolled machine (AD provider)
 
@@ -53,7 +57,7 @@ The PAM, nsswitch, SDDM and sudoers rows apply to every provider; the rest are t
 
 | Path | Change | On `leave` |
 |---|---|---|
-| `/etc/pam.d/system-auth`, `/etc/pam.d/omarchy-lock-password` | `pam_sss`/`pam_mkhomedir` block between `# BEGIN/END monarchy-identity` | Block removed |
+| `/etc/pam.d/system-auth`, `/etc/pam.d/omarchy-lock-password` | The provider's module (`pam_sss`) and `pam_mkhomedir`, between `# BEGIN/END monarchy-identity` | Block removed |
 | `/etc/nsswitch.conf` | `sss` added to `passwd`, `group`, `shadow` | `sss` removed |
 | `/etc/sssd/sssd.conf`, `/etc/krb5.conf`, `/etc/samba/smb.conf` | Written, with a `# managed by monarchy-identity` first line | Deleted if they carry the marker |
 | `/etc/krb5.keytab` | Machine keytab | Deleted |
@@ -66,8 +70,9 @@ Everything else stays in `/etc` drop-ins or marked blocks; never edit `/usr/shar
 
 ## The PAM edit
 
-This is the one place a mistake locks people out. Today the inserted module is `pam_sss` (the AD provider); a provider
-with another PAM module needs `pamedit.py` to take the module from the provider, with the same safety rules. `lib/pamedit.py apply|remove|check FILE` inserts, between markers:
+This is the one place a mistake locks people out, so the rules are the core's and the provider only names its module
+and arguments (`providers/<name>/pam.conf`). `lib/pamedit.py apply FILE MODULE [TYPE=ARGS ...]` inserts, between
+markers (here for the AD provider, `pam_sss.so auth=forward_pass`):
 
 ```text
 -auth      [success=N default=ignore]  pam_sss.so forward_pass
@@ -77,13 +82,16 @@ session    required   pam_mkhomedir.so umask=0077
 -session   optional   pam_sss.so
 ```
 
-`N` is computed from the file so a `pam_sss` success skips `pam_unix`/`pam_faillock`, including next to Omarchy's
-`pam_systemd_home` lines. The `-` prefix and the `ignore` mappings mean a missing module or stopped sssd can't fail a
-local login; only a definite answer from `pam_sss` can. `remove` restores the file byte for byte.
+`N` is computed from the file so a module success skips `pam_unix`/`pam_faillock`, including next to Omarchy's
+`pam_systemd_home` lines. The `-` prefix and the `ignore` mappings mean a missing module or stopped daemon can't fail a
+local login; only a definite answer from the module can. Module names and arguments are restricted to characters that
+can't start another rule or control field. `remove FILE` restores the file byte for byte, whatever module was
+inserted.
 
 ## Keeping it working after updates
 
-`reassert` re-applies nsswitch, PAM, SDDM and sudoers edits from `config.toml` and starts sssd if stopped. It runs:
+`reassert` re-applies PAM, SDDM and sudoers edits from `config.toml`, after the provider's own `reassert` (for AD:
+nsswitch, and starting sssd if stopped). It runs:
 
 - from the pacman hook (`packaging/monarchy-identity.hook`) after transactions on `pambase`, `sssd`, `filesystem`,
   `omarchy`, `omarchy-settings`;
@@ -91,4 +99,4 @@ local login; only a definite answer from `pam_sss` can. `remove` restores the fi
 
 There is deliberately no file watcher: guarding config against a local admin is an MDM's job, not ours.
 
-The AD provider's generated sssd/krb5/samba config is in `providers/ad/lib.sh`; its state keys are in `sssd_save_state`.
+The AD provider's generated sssd/krb5/samba config is in `providers/ad/lib.sh`; its state keys are in `ad_save_state`.
