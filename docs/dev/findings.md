@@ -64,6 +64,10 @@ captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
 - The NetBIOS domain name is not the realm's first label (`badcaptcha.net` can be `BAD`). `smb.conf` `workgroup` must be the
   NetBIOS name or `net ads join` fails, and the script hides its output. `enroll` asks the DC (`net ads lookup`, `Pre-Win2k Domain:`).
   The lab's `corp.test`/`CORP` hid this; found on a real Windows Server 2025 DC.
+- Omarchy's theme switch writes browser policy as root and grants that to `%wheel` only. A directory user is in no local group, so
+  every login showed a graphical password prompt (real hardware, Oct 2026). `enroll` mirrors that one narrow rule for the sign-in
+  groups (`51-monarchy-identity-theme`); making them wheel would hand out full sudo. `su`/`su-l` on Arch use `pam_unix` directly, so
+  `su - user` can never test directory sign-in: use a console login or the greeter.
 
 ## Conventions that came from these
 - Anything the CLI sources must also be installed by `packaging/PKGBUILD` (`e2e-package.sh` catches misses).

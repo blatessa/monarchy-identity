@@ -18,7 +18,7 @@ sandbox() {
   T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
   export ETC_T="$T/etc" MONARCHY_IDENTITY_ETC="$T/etc" MONARCHY_IDENTITY_ROOT="$REPO" HOME="$T/home"
   export MONARCHY_IDENTITY_CONF="$T/etc/monarchy-identity/config.toml" MONARCHY_IDENTITY_SDDM_CONF_D="$T/etc/sddm.conf.d"
-  export MONARCHY_IDENTITY_SUDOERS="$T/etc/sudoers.d/50-monarchy-identity" MONARCHY_IDENTITY_LOCK="$T/lock"
+  export MONARCHY_IDENTITY_SUDOERS="$T/etc/sudoers.d/50-monarchy-identity" MONARCHY_IDENTITY_SUDOERS_THEME="$T/etc/sudoers.d/51-monarchy-identity-theme" MONARCHY_IDENTITY_LOCK="$T/lock"
   export MONARCHY_IDENTITY_SDDM_THEMES="$T/themes" MONARCHY_IDENTITY_SSS_DIR="$T/sss"
   export STUB_STATE="$T/state" STUB_LOG="$T/calls.log" STUB_PW="$PW" STUB_HOSTNAME=oi-client
   export STUB_GROUPS=oi-laptop-users,oi-admins STUB_COMPUTERS="" PATH="$REPO/test/unit/stubs:$PATH"
