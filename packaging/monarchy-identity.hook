@@ -7,6 +7,7 @@ Target = sssd
 Target = filesystem
 Target = omarchy
 Target = omarchy-settings
+Target = monarchy-identity
 
 [Action]
 Description = Re-asserting monarchy-identity PAM/NSS/SDDM configuration...

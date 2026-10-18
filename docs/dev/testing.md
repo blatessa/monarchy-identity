@@ -138,7 +138,8 @@ explicit check (`e2e`, `unit/refused`) instead of relying on a second run.
 newer push cancels the run in progress):
 
 - **Unit tests and lint**: shellcheck (errors only), Python syntax, the fast layer (`test/unit/run.sh`), the hook test.
-- **Build the Arch package**: `makepkg` in an `archlinux:base-devel` container and a check of the package contents.
+- **Build the Arch package**: `packaging/build-local.sh` (makepkg on the checkout) in an `archlinux:base-devel`
+  container and a check of the package contents.
 
 The lab suites need KVM and Docker and run locally.
 `.github/workflows/docs.yml` builds this site with `mkdocs build --strict` on pull requests and deploys it to GitHub

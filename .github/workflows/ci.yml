@@ -54,7 +54,7 @@ jobs:
           useradd -m builder
           chown -R builder: "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          cd packaging && su builder -c 'makepkg -f --nodeps --noconfirm'
+          su builder -c 'packaging/build-local.sh --nodeps --noconfirm'
       - name: Check package contents
         run: |
           for p in packaging/monarchy-identity-*.pkg.tar.*; do echo "== $p"; bsdtar -tf "$p" | grep -v '/$'; done

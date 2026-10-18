@@ -20,7 +20,7 @@ It only does sign-in. Device management (compliance, inventory, hardening) belon
 ## Quick start
 
 ```bash
-sudo pacman -U monarchy-identity-*.pkg.tar.zst        # from a release, or: cd packaging && makepkg -si
+sudo pacman -U monarchy-identity-*.pkg.tar.zst        # from a release, or from a checkout: packaging/build-local.sh -si
 sudo monarchy-identity enroll ad --realm CORP.EXAMPLE.COM --admin joinuser --groups laptop-users   # Active Directory
 monarchy-identity status
 ```
