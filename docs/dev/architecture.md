@@ -31,6 +31,27 @@ hit a command line or disk.
   repo's copy carries the checksum (ours says `SKIP`: the file is inside the tarball it would checksum).
   `packaging/build-local.sh` builds from a checkout (CI, the lab) by packing the working tree under the tarball's name.
 
+### Directory clients
+
+A provider's directory client is its own package, never bundled into `monarchy-identity`. Our package is `arch=any`
+scripts that release on their own schedule; a client is usually compiled, has its own security releases and licence,
+and is dead weight (more installed sign-in code) on a laptop that uses a different directory. `monarchy-identity`
+lists each client in `optdepends`, and the provider's `enroll` refuses, before changing anything, with the exact
+package to install when its client is missing.
+
+**Entra ID: himmelblau** (the only complete Linux client: PAM, NSS and the device broker). It isn't in the Arch
+repositories and the AUR package is unmaintained, so we write its recipe (`packaging/himmelblau/PKGBUILD`) and ask
+`omacom/omarchy-pkgs` to carry it next to ours, so laptops get it and its security fixes through `omarchy update`.
+
+- Built from upstream's public release tags (GPL-3.0). Upstream's prebuilt stable DEB/RPM packages are
+  subscription-only; we don't use or redistribute them.
+- Pinned to the current stable major (4.x); we follow its point releases, and a himmelblau security release is a
+  himmelblau package bump, not a `monarchy-identity` release. Moving to a new major is a deliberate change, tested in
+  the lab against the test tenant.
+- Rejected: bundling it into our package (above); shipping it only from our GitHub releases (installed by hand, fixes
+  don't arrive with `omarchy update`); waiting for an official Arch package (no sign of one); writing our own Entra
+  client (device registration, the token broker and MFA are a large security-sensitive client, out of scope).
+
 ## Layers
 
 1. **Core CLI** (`bin/monarchy-identity`): `status | enroll | leave | policy | reassert | install-hooks |
