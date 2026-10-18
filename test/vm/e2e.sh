@@ -15,9 +15,10 @@ fresh
 
 echo "[the directory says no: nothing changes]"
 out=$(echo wrong | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll$(q $LAB --groups oi-laptop-users)" 2>&1)
-[[ $out == *"could not search the directory"* ]] && ok "wrong password refused" || bad "wrong password: $out"
+[[ $out == *"wrong password, or no account named 'Administrator'"* ]] && ok "wrong password refused, and said so" || bad "wrong password: $out"
+[[ $(enroll --mode any --ou OU=Gone,DC=corp,DC=test) == *"the directory has no OU 'OU=Gone,DC=corp,DC=test'"* ]] && ok "join into a missing OU refused, and said so" || bad "missing OU"
 [[ $(enroll --groups oi-laptop-users,no-such-group) == *"has no group named: no-such-group"* ]] && ok "unknown group refused" || bad "unknown group"
-check "PAM still stock after both refusals" pam_stock
+check "PAM still stock after these refusals" pam_stock
 
 echo "[enroll]"
 enroll_ok --groups oi-laptop-users --sudo-groups oi-admins

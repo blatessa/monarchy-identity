@@ -22,11 +22,19 @@ oi_user enroll --help; [[ $OUT == *"--groups a,b"* && $RC -eq 0 ]] && ok "enroll
 oi_user enroll --realm CORP.TEST "${G[@]}"; [[ $OUT == *"administrator rights"* ]] && ok "non-root refused" || bad "non-root: $OUT"
 
 echo "[the directory says no]"
-PWIN=wrong enroll "${G[@]}";                   refused "wrong password"     "could not search the directory"
+PWIN=wrong enroll "${G[@]}";                   refused "wrong password"     "wrong password, or no account named 'Administrator'"
+PWIN=wrong enroll --mode any;                  refused "wrong password, no groups to check" "wrong password, or no account named 'Administrator'"
 enroll --groups oi-laptop-users,no-such-group; refused "unknown group"      "has no group named: no-such-group"
-STUB_DC_DOWN=1 enroll "${G[@]}";               refused "DC down"            "could not search the directory"
+STUB_DC_DOWN=1 enroll "${G[@]}";               refused "DC down"            "no domain controller answered at dc.corp.test"
+STUB_NO_DNS=1 enroll "${G[@]}";                refused "DC name unresolvable" "'dc.corp.test' does not resolve"
+STUB_NO_DNS=1 oi enroll --realm CORP.TEST "${G[@]}"; refused "no DNS for the domain" "DNS has no domain controllers for corp.test"
+STUB_JOIN_FAIL="Invalid configuration (\"workgroup\" set to 'X', should be 'CORP')" enroll "${G[@]}"
+refused "join refused" "the directory refused the join: Invalid configuration (\"workgroup\" set to 'X', should be 'CORP')"
+STUB_JOIN_FAIL='failed to precreate account in ou ou=Gone,dc=corp,dc=test: No such object' enroll "${G[@]}" --ou OU=Gone,DC=corp,DC=test
+refused "join into a missing OU" "the directory has no OU 'OU=Gone,DC=corp,DC=test'"
 
 echo "[computer names]"
+: > "$STUB_LOG"
 STUB_COMPUTERS=OI-CLIENT enroll "${G[@]}";     refused "another laptop's account" "DIFFERENT laptop"
 called "net ads join" && bad "joined over another laptop's account" || ok "no join was attempted"
 for hn in omarchy archlinux; do STUB_HOSTNAME=$hn enroll "${G[@]}"; refused "hostname $hn" "generic '$hn'"; done

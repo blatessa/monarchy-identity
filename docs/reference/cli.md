@@ -39,7 +39,9 @@ every option, and `enroll PROVIDER --help` adds that provider's. A laptop enroll
 before enrolling with another.
 
 Before it changes anything, `enroll` checks what the directory can check (credentials, that the groups you named
-exist), so typos fail without touching the laptop.
+exist), so typos fail without touching the laptop. A refusal says why: a wrong password, a domain controller DNS
+can't find and one that doesn't answer each read differently, and a refused join shows the directory's reason. Each
+provider page lists the common messages, for example [Active Directory](../providers/ad.md#troubleshooting).
 
 **Provider options** are on each provider's page, for example [Active Directory](../providers/ad.md#enroll-options)
 (`--realm`, `--admin`, `--ou`, ...).

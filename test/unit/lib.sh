@@ -22,7 +22,7 @@ sandbox() {
   export MONARCHY_IDENTITY_SDDM_THEMES="$T/themes" MONARCHY_IDENTITY_SSS_DIR="$T/sss"
   export STUB_STATE="$T/state" STUB_LOG="$T/calls.log" STUB_PW="$PW" STUB_HOSTNAME=oi-client
   export STUB_GROUPS=oi-laptop-users,oi-admins STUB_COMPUTERS="" PATH="$REPO/test/unit/stubs:$PATH"
-  unset STUB_DC_DOWN STUB_VISUDO_FAIL STUB_KINIT_FAIL STUB_JOINED OI_ADMIN_PASSWORD_FILE
+  unset STUB_DC_DOWN STUB_NO_DNS STUB_JOIN_FAIL STUB_VISUDO_FAIL STUB_KINIT_FAIL STUB_JOINED OI_ADMIN_PASSWORD_FILE
   mkdir -p "$T/etc/sudoers.d" "$T/etc/polkit-1/rules.d" "$T/state" "$T/home" "$T/sss/db" "$T/sss/mc" "$T/themes"
   cp -r "$FIX/pam.d" "$T/etc/pam.d"; cp -r "$FIX/sddm.conf.d" "$T/etc/sddm.conf.d"
   printf 'passwd: files systemd\ngroup: files [SUCCESS=merge] systemd\nshadow: files systemd\nhosts: files dns\n' > "$T/etc/nsswitch.conf"
