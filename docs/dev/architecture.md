@@ -65,7 +65,7 @@ The PAM, nsswitch, SDDM and sudoers rows apply to every provider; the rest are t
 | `/etc/sddm.conf.d/zz-monarchy-identity-theme.conf` | Selects `sddm-theme/monarchy-identity` | Deleted |
 | `/etc/sudoers.d/50-monarchy-identity` | `%group ALL=(ALL:ALL) ALL`, visudo-validated, 0440 | Deleted |
 | `/etc/sudoers.d/51-monarchy-identity-theme` | The sign-in groups (or users) may run Omarchy's `omarchy-theme-set-browser-policy` with a six-hex-digit argument without a password; absent for `--mode any` | Deleted |
-| `/etc/polkit-1/rules.d/49-monarchy-identity.rules` | Admin identities for graphical admin prompts: `wheel` plus the sudo groups (only when polkit's rules directory exists) | Deleted |
+| `/etc/polkit-1/rules.d/49-monarchy-identity.rules` | Admin identities for graphical admin prompts: `wheel` plus the sudo groups, with an admin who asks listed first (only when polkit's rules directory exists) | Deleted |
 | `/etc/monarchy-identity/config.toml` | Provider and policy state | Reset to `provider = "local"` |
 
 Everything else stays in `/etc` drop-ins or marked blocks; never edit `/usr/share/omarchy/` (package-owned).
@@ -96,7 +96,9 @@ gets directory sign-in with no edit of its own, or is deliberately left alone:
 - **Admin prompts (`polkit-1`)** include `system-auth` (a vendor file in `/usr/lib/pam.d/`), so a directory admin
   answers with their directory password. polkit asks in a sandboxed, socket-activated helper (`polkit-agent-helper@`,
   `ProtectSystem=strict`, `PrivateNetwork`); `pam_sss` works there because it only needs sssd's socket. Which accounts
-  count as admins is `49-monarchy-identity.rules` (above). `e2e.sh` answers a real prompt.
+  count as admins is `49-monarchy-identity.rules` (above). Omarchy's dialog asks as the first account polkit offers and
+  shows no choice, so the rule lists the person asking first when they are an admin: they answer with their own
+  password. Showing or choosing the account is the dialog's, and upstream's. `e2e.sh` answers a real prompt.
 - **`su` is not edited.** Arch's `su`/`su-l` call `pam_unix` directly rather than including `system-auth`, so a
   directory user's password never works there; root `su` to anyone still does (`pam_rootok`). Editing a stack we
   don't otherwise touch would be a second lockout surface to keep across updates for a command Omarchy doesn't use;

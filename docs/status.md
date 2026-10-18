@@ -44,9 +44,8 @@ On an Omarchy laptop enrolled in a Windows Server 2025 domain (one domain contro
   console or in your web portal.
 - **`su`** doesn't work for directory users on Arch (it never asks the directory). Use `sudo`, or `sudo -iu` to
   become another user.
-- **Graphical admin prompts.** People in the admin group are accepted as administrators, but Omarchy's prompt asks for
-  the first local administrator's password and gives no way to choose another account
-  ([#34](https://github.com/blatessa/monarchy-identity/issues/34)).
+- **Graphical admin prompts** don't say whose password they want. People in the admin group are asked for their own;
+  anyone else is asked for an administrator's (the first local one), with no way to choose another account.
 - **Omarchy is built for one person per laptop.** The browser colour is one setting for the whole machine, and the
   second person to run `omarchy update` fails because the first one's log file is in the way. Both are Omarchy's.
 - **`sudo`** is all-or-nothing per group.

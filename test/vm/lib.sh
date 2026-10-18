@@ -23,7 +23,8 @@ has_account() { dc computer list | grep -qxF "$1"; }   # -F: the $ of a computer
 # pt [--session] SERVICE USER PASSWORD [--chauthtok NEW]: runs the real PAM stack in the VM; prints ALLOWED/DENIED/...
 pt() { "${V[@]}" "sudo python3 -I /tmp/pamtest.py$(q "$@")" 2>&1; }
 expect() { local want=$1 desc=$2 out; shift 2; out=$(pt "$@"); [[ $out == "$want"* ]] && ok "$desc" || bad "$desc (got: ${out:-<nothing>})"; }
-# admin_prompt IDENTITY PASSWORD: answer a real polkit admin prompt as IDENTITY; prints AUTHORIZED/REFUSED/NOT-OFFERED
+# admin_prompt IDENTITY PASSWORD: answer a real polkit admin prompt as IDENTITY ("-": the first offered), asked by tester;
+# prints AUTHORIZED/REFUSED/NOT-OFFERED and the identity
 admin_prompt() { "${V[@]}" "python3 -I /tmp/adminprompt.py$(q "$@")" 2>&1; }
 reset_locks() { "${V[@]}" 'for u in alice bob carol dave tester; do sudo faillock --user $u --reset 2>/dev/null; done; true'; }
 pam_stock() { local f; for f in system-auth omarchy-lock-password; do "${V[@]}" "cat /etc/pam.d/$f" | diff -q - "fixtures/pam.d/$f" >/dev/null || return 1; done; }

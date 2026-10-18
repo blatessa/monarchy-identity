@@ -37,9 +37,12 @@ check "carol (refused) got no home" "${V[@]}" 'test ! -e /home/carol'
 echo "[admin prompts: a real polkit prompt, through its sandboxed helper]"
 check "polkit's agent helper is socket-activated, as on Omarchy" "${V[@]}" 'systemctl is-active -q polkit-agent-helper.socket'
 reset_locks
-for a in "AUTHORIZED|alice (oi-admins) answers with her directory password|alice|$PW" "REFUSED|alice, wrong password|alice|wrong" \
-         "NOT-OFFERED|bob (not in oi-admins) is not offered as an admin|bob|$PW" "AUTHORIZED|tester (local admin) still answers|tester|tester"; do
-  IFS='|' read -r want desc who pw <<<"$a"; out=$(admin_prompt "$who" "$pw")
+# WANT|DESC|ASKER|IDENTITY|PASSWORD. Identity "-" answers as the first offered, as Omarchy's dialog does (no choice shown)
+for a in "AUTHORIZED|alice (oi-admins) answers with her directory password|tester|alice|$PW" "REFUSED|alice, wrong password|tester|alice|wrong" \
+         "NOT-OFFERED|bob (not in oi-admins) is not offered as an admin|tester|bob|$PW" "AUTHORIZED|tester (local admin) still answers|tester|tester|tester" \
+         "AUTHORIZED alice|alice asking: the prompt asks for her own password|alice|-|$PW" \
+         "AUTHORIZED tester|bob asking: the prompt asks for an admin's password|bob|-|tester"; do
+  IFS='|' read -r want desc asker who pw <<<"$a"; out=$("${V[@]}" "sudo -u $asker python3 -I /tmp/adminprompt.py$(q "$who" "$pw")" 2>&1)
   [[ $out == "$want"* ]] && ok "$desc" || bad "$desc (got: ${out:-<nothing>})"
 done
 
