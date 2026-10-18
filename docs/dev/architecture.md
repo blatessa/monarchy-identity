@@ -40,17 +40,24 @@ lists each client in `optdepends`, and the provider's `enroll` refuses, before c
 package to install when its client is missing.
 
 **Entra ID: himmelblau** (the only complete Linux client: PAM, NSS and the device broker). It isn't in the Arch
-repositories and the AUR package is unmaintained, so we write its recipe (`packaging/himmelblau/PKGBUILD`) and ask
-`omacom/omarchy-pkgs` to carry it next to ours, so laptops get it and its security fixes through `omarchy update`.
+repositories and the AUR package is unmaintained, so we contributed a recipe to `omacom/omarchy-pkgs`
+(`pkgbuilds/himmelblau`), where laptops get it and its security fixes through `omarchy update`. There's no copy here:
+the lab installs it from that repo like a laptop does. `enroll` never installs packages (pacman's job, and our pacman
+hook would run `reassert` against the lock `enroll` holds).
 
 - Built from upstream's public release tags (GPL-3.0). Upstream's prebuilt stable DEB/RPM packages are
   subscription-only; we don't use or redistribute them.
-- Pinned to the current stable major (4.x); we follow its point releases, and a himmelblau security release is a
-  himmelblau package bump, not a `monarchy-identity` release. Moving to a new major is a deliberate change, tested in
+- Pinned to the current stable major (4.x): the recipe's upstream watch only matches 4.x tags, so point releases
+  arrive automatically, and a himmelblau security release is a himmelblau package bump, not a `monarchy-identity`
+  release. Moving to a new major is a deliberate change, tested in
   the lab against the test tenant.
 - Rejected: bundling it into our package (above); shipping it only from our GitHub releases (installed by hand, fixes
   don't arrive with `omarchy update`); waiting for an official Arch package (no sign of one); writing our own Entra
   client (device registration, the token broker and MFA are a large security-sensitive client, out of scope).
+- Unlike upstream's packaging, installing it configures nothing (the Arch norm, as with sssd): no PAM or nsswitch
+  edits, and the files that act on their own (sshd drop-in, display manager override, browser policies) are examples
+  under `/usr/share/doc/himmelblau`. Upstream's scriptlet also re-adds nsswitch entries on every upgrade, which would
+  undo `leave`. `enroll entra` makes these edits itself.
 
 ## Layers
 
