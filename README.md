@@ -1,7 +1,7 @@
 # monarchy-identity
 
 [![CI](https://github.com/blatessa/monarchy-identity/actions/workflows/ci.yml/badge.svg)](https://github.com/blatessa/monarchy-identity/actions/workflows/ci.yml)
-[![Docs](https://github.com/blatessa/monarchy-identity/actions/workflows/docs.yml/badge.svg)](https://blatessa.github.io/monarchy-identity/)
+[![Docs](https://github.com/blatessa/monarchy-identity/actions/workflows/docs.yml/badge.svg)](https://docs.monarchy.run/monarchy-identity/)
 
 Directory sign-in for [Omarchy](https://omarchy.org). A small utility that connects a laptop to your company directory
 and lets people sign in with their company account: at the login screen, the lock screen, a terminal, `ssh` and `sudo`.
@@ -27,7 +27,7 @@ monarchy-identity status
 
 ## Documentation
 
-**<https://blatessa.github.io/monarchy-identity/>** (sources in [`docs/`](docs/)): start with
+**<https://docs.monarchy.run/monarchy-identity/>** (sources in [`docs/`](docs/)): start with
 [Getting started](docs/getting-started.md). Contributors and coding agents: [AGENTS.md](AGENTS.md) and the
 [development docs](docs/dev/architecture.md).
 
