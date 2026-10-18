@@ -23,6 +23,13 @@ check "PAM still stock after these refusals" pam_stock
 echo "[enroll]"
 enroll_ok --groups oi-laptop-users --sudo-groups oi-admins
 s=$(st); [[ $s == *'"enrolled":true'* && $s == *'"login_mode":"groups"'* && $s != *'"false"'* ]] && ok "status: enrolled, groups, every check true" || bad "status: $s"
+THEME_SUDO=/etc/sudoers.d/51-monarchy-identity-theme POLKIT=/etc/polkit-1/rules.d/49-monarchy-identity.rules
+[[ $("${V[@]}" "sudo stat -c '%a %U' $THEME_SUDO /etc/sudoers.d/50-monarchy-identity $POLKIT" 2>&1 | paste -sd,) == "440 root,440 root,644 root" ]] \
+  && ok "sudoers drop-ins (0440) and the polkit rule (0644) written, root-owned" || bad "drop-ins: $("${V[@]}" "sudo ls -l $THEME_SUDO /etc/sudoers.d/50-monarchy-identity $POLKIT" 2>&1)"
+check "visudo accepts the real sudoers files" "${V[@]}" 'sudo visudo -c >/dev/null'
+"${V[@]}" 'sudo sudo -n -l -U alice' 2>/dev/null | grep -q 'NOPASSWD: .*omarchy-theme-set-browser-policy' && ok "theme rule: alice (allowed group) may set the browser colour without a password" || bad "theme rule not granted to alice"
+! "${V[@]}" 'sudo sudo -n -l -U carol' 2>/dev/null | grep -q omarchy-theme-set-browser-policy && ok "theme rule: carol (not allowed) gets nothing" || bad "theme rule granted to carol"
+"${V[@]}" "sudo grep -q oi-admins $POLKIT" && ok "polkit rule names the sudo group" || bad "polkit rule: $("${V[@]}" "sudo cat $POLKIT" 2>&1)"
 
 echo "[sign-in on every service]"
 for svc in system-auth omarchy-lock-password sddm sudo login sshd system-remote-login polkit-1; do
@@ -76,6 +83,7 @@ check "sssctl config-check accepts the generated sssd.conf" "${V[@]}" 'sudo time
 scli policy set --groups oi-laptop-users --sudo-groups - --offline-days 0 >/dev/null
 allowed carol && bad "groups again: carol allowed" || ok "groups again: carol denied"
 can_sudo alice && bad "alice kept sudo" || ok "--sudo-groups - removed sudo"
+check "... and the polkit rule" "${V[@]}" "test ! -e $POLKIT"
 [[ $(admin_prompt alice "$PW") == NOT-OFFERED* ]] && ok "... and alice is no longer offered at admin prompts" || bad "alice still an admin at prompts"
 for _ in 1 2 3; do scli policy set --mode any >/dev/null; scli policy set --groups oi-laptop-users >/dev/null; done
 [[ $("${V[@]}" 'systemctl is-active sssd') == active ]] && allowed bob && ok "6 quick restarts: sssd active, sign-in works" || bad "systemd start limit tripped"
@@ -97,6 +105,7 @@ echo "[leave]"
 leave
 check "PAM back to stock" pam_stock
 check "nsswitch has no sss" "${V[@]}" '! grep -qE "^(passwd|group|shadow):.*sss" /etc/nsswitch.conf'
+check "sudoers drop-ins and the polkit rule removed" "${V[@]}" "sudo test ! -e $THEME_SUDO -a ! -e /etc/sudoers.d/50-monarchy-identity -a ! -e $POLKIT"
 check "sssd, krb5 and samba config removed" "${V[@]}" 'sudo test ! -e /etc/sssd/sssd.conf -a ! -e /etc/krb5.conf -a ! -e /etc/samba/smb.conf -a ! -e /etc/krb5.keytab'
 check "computer account deleted" bash -c '! docker exec oi-test-dc samba-tool computer list | grep -qxF "OI-CLIENT\$"'
 [[ $(st) == *'"enrolled":false'* ]] && ok "status: not enrolled" || bad "status after leave: $(st)"
