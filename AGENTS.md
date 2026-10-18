@@ -99,6 +99,11 @@ lab unless the issue says otherwise. Take the highest-priority open issue withou
 what done looks like. Close it from the PR (`Fixes #N`). If you find new work, open an issue in the same shape rather
 than expanding the current change.
 
+**Release first.** While a release project is open, take work from it before anything else: today that's
+[monarchy-identity 0.1.0](https://github.com/users/blatessa/projects/3) (issues labelled `0.1.0`). Its README has the
+release order and the rules: set the item to In Progress when you start; the owner does anything outward-facing.
+Don't add items to it yourself; ask the owner.
+
 ## Workflow
 Branch from `main`, open a PR, let CI run; releases are cut by tagging `vX.Y.Z` (see the `release` skill; the tag must match `pkgver`).
 Security issues: private advisory (see `SECURITY.md`), not a public issue.
