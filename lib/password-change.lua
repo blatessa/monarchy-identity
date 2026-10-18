@@ -22,6 +22,10 @@ hl.config({
 })
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
 
+-- foot with none of the person's own config, and without its shortcuts that start programs (Ctrl+Shift+N opens a
+-- shell), so the form is the only way out.
+local FOOT = "foot --config=/dev/null -o key-bindings.spawn-terminal=none -o key-bindings.show-urls-launch=none "
+
 hl.on("hyprland.start", function()
-  hl.exec_cmd("foot " .. os.getenv("OI_FORM") .. "; hyprctl dispatch 'hl.dsp.exit()'")
+  hl.exec_cmd(FOOT .. os.getenv("OI_FORM") .. "; hyprctl dispatch 'hl.dsp.exit()'")
 end)
