@@ -11,6 +11,9 @@ if [[ ${1:-} == --fixtures ]]; then
   # lab reset: stale computer accounts in the directory (enrollment now refuses to take over an existing one)
   for c in 'OI-CLIENT$' 'LAPTOP-0042$' 'LAPTOP-0099$'; do docker exec oi-test-dc samba-tool computer delete "$c" >/dev/null 2>&1 || true; done
   vm 'sudo systemctl stop sddm 2>/dev/null; sudo pacman -R --noconfirm monarchy-identity >/dev/null 2>&1; sudo rm -f /etc/sddm.conf.d/zz-vm-x11.conf; true'
+  # faillock counts failures by name for 15 minutes, across suites: suites that run back to back would lock their test
+  # users (deny=10). By file, because `faillock --user` needs the user to exist and suites delete theirs.
+  vm 'sudo rm -f /run/faillock/*'
 fi
 [[ ${1:-} == --fixtures ]] && tar -C "$H/fixtures" -czf - pam.d sddm.conf.d | vm 'sudo tar -xzf - -C /etc --no-same-owner && sudo chown -R root:root /etc/pam.d /etc/sddm.conf.d'
 echo deployed

@@ -100,9 +100,11 @@ sleep 3; shot 8-change-password
 ./qmon.py type wrong-password; ./qmon.py key ret; sleep 8; shot 8b-wrong-current
 n=$(greeter_up); ./qmon.py key n
 wait_for 40 '[[ $(greeter_up) -gt $n ]]' && ! dave_has Hyprland >/dev/null && ok "  wrong current password, 'Back to sign-in': the login screen, no desktop" || { bad "back to sign-in"; shot 8c-stuck; diag; }
-sleep 4; "${V[@]}" 'sudo faillock --user dave --reset' 2>/dev/null
-./qmon.py key ctrl-a; ./qmon.py type dave; ./qmon.py key ret; sleep 1; ./qmon.py type "$PW"; ./qmon.py key ret   # focus is on the password after a sign-in
-[[ $(dave_has foot) ]] || { ./qmon.py key shift-tab; sleep 1; ./qmon.py key ctrl-a; ./qmon.py type dave; ./qmon.py key ret; sleep 1; ./qmon.py type "$PW"; ./qmon.py key ret; }
+"${V[@]}" 'sudo faillock --user dave --reset' 2>/dev/null
+# The login screen now remembers dave with focus on the password; start it as for the first sign-in instead, so what is
+# typed lands where it's meant to (a retry typed while a refusal is in flight gets cleared by it).
+last_session /usr/share/wayland-sessions/hyprland.desktop; greeter_restart
+./qmon.py type dave; ./qmon.py key ret; sleep 1; ./qmon.py type "$PW"; ./qmon.py key ret
 wait_for 60 'dave_has foot >/dev/null' && ok "  signs in again: the screen again" || { bad "no change-password screen the second time"; shot 8d; diag; }
 sleep 3; ./qmon.py type "$PW"; ./qmon.py key ret; sleep 3; ./qmon.py type "$NEW"; ./qmon.py key ret; sleep 2; ./qmon.py type "$NEW"; ./qmon.py key ret
 sleep 3; shot 9-changed
