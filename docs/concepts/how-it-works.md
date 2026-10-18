@@ -53,6 +53,5 @@ turns it back on.
 ## Updates
 
 Omarchy updates sometimes overwrite the sign-in configuration. monarchy-identity puts its part back after every package
-update, and after its own upgrades, so directory sign-in keeps working with nothing to set up. To also repair right
-after `omarchy update`, install Omarchy's post-update hook as the desktop user with `monarchy-identity install-hooks`.
+update, and after its own upgrades, so directory sign-in keeps working with nothing to set up.
 `sudo monarchy-identity reassert` repairs it by hand, and is safe to run any time.
