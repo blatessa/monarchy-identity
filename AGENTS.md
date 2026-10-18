@@ -80,7 +80,7 @@ Lab credentials are throwaway and loopback-only: Administrator/alice/bob/carol, 
 
 ## Conventions
 - Bash with `set -euo pipefail`; quote everything; no new runtime deps without updating PKGBUILD.
-- Provider contract (`docs/dev/writing-a-provider.md`): what's shared across directories lives in the core (shared options, PAM, SDDM, sudoers; a provider gets its own options and the resolved policy); `enroll` checks everything the directory can reject before registering, and the core edits PAM last; a re-run picks up after a failure (no rollback machinery). `unenroll` removes every change enroll made. State goes in `/etc/monarchy-identity/config.toml` (flat `key = "value"`). See `docs/dev/writing-a-provider.md`.
+- Provider contract (`docs/dev/writing-a-provider.md`): what's shared across directories lives in the core (shared options, PAM, SDDM, sudoers; a provider gets its own options and the resolved policy); `enroll` checks everything the directory can reject before registering, and the core edits PAM last; a re-run picks up after a failure (no rollback machinery). `unenroll` removes every change enroll made. The admin's choices are in `/etc/monarchy-identity/config.toml`, what enroll did in `/var/lib/monarchy-identity/state.toml` (`state_set`; both flat `key = "value"`). See `docs/dev/writing-a-provider.md`.
 - Restart sssd ONLY via `sssd_restart` (systemd start-limit). Never call `sssctl` without `</dev/null` and `timeout` (it can prompt and hang, holding the CLI flock).
 - Test inputs that go through ssh must be `printf %q`-quoted; use `grep -F` for computer names (`$` is a regex anchor).
 - **Defaults over configuration; don't expose implementation.** The person using this is an administrator, not a

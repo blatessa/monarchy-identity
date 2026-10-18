@@ -122,7 +122,7 @@ before=$(dc computer show 'OI-CLIENT$' | grep -E '^(pwdLastSet|whenChanged)')
 out=$("${V[@]}" "sudo OI_ADMIN_PASSWORD_FILE=/root/oi.pw ~/oi/bin/monarchy-identity enroll$(q $LAB --groups oi-laptop-users --replace-computer-account) </dev/null" 2>&1); reset_locks
 [[ $out == *"enrolled in"* ]] && ok "took over the existing account" || { bad "replace"; sed 's/^/      /' <<<"$out"; }
 echo "[an enrollment that stopped before sign-in was switched on can simply be re-run]"
-"${V[@]}" 'sudo python3 -I ~/oi/lib/pamedit.py remove /etc/pam.d/system-auth; printf "provider = \"local\"\n" | sudo tee /etc/monarchy-identity/config.toml >/dev/null'
+"${V[@]}" 'sudo python3 -I ~/oi/lib/pamedit.py remove /etc/pam.d/system-auth; sudo rm -f /var/lib/monarchy-identity/state.toml; sudo truncate -s0 /etc/monarchy-identity/config.toml'
 out=$(enroll --groups oi-laptop-users)
 [[ $out == *"reusing existing computer account"* && $out == *"enrolled in"* ]] && ok "re-run reuses this laptop's own account, no flag needed" || { bad "re-run"; sed 's/^/      /' <<<"$out"; }
 expect ALLOWED "alice signs in" system-auth alice "$PW"

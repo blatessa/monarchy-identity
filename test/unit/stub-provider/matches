@@ -6,5 +6,5 @@ source "$OI_ROOT/lib/common.sh"
 called() { echo "stub $* | ${OI_LOGIN_MODE-}|${OI_GROUPS-}|${OI_USERS-}|${OI_OFFLINE_DAYS-}|${OI_ADMIN_PASSWORD_FILE-}" >> "$STUB_LOG"; }
 called matches "$@"
 tenant=""; while [[ $# -gt 0 ]]; do [[ $1 == --tenant ]] && tenant=${2:-}; shift; done
-[[ $tenant == "$(conf_get tenant)" ]] || die "already enrolled in '$(conf_get tenant)'"
+[[ $tenant == "$(state_get tenant)" ]] || die "already enrolled in '$(state_get tenant)'"
 echo "$tenant"

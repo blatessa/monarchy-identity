@@ -10,7 +10,7 @@ A provider is `providers/<name>/` with executables `detect`, `enroll`, `matches`
 Contract (full table in `docs/dev/writing-a-provider.md`):
 - `enroll`: validate its own options first, check everything the directory can reject (credentials, group names, colliding computer account) **before registering**, enforce the policy, prove the directory answers; never touch PAM (the core does it after). Print one line naming the enrollment. No rollback machinery: a re-run must pick up where a failed run stopped.
 - `matches`, `policy show|apply`, `unenroll`, `reassert`, `status`, `detect`: see the doc. `test/unit/stub-provider/` is a minimal complete example; `test/unit/provider.sh` checks the contract.
-- State goes in `/etc/monarchy-identity/config.toml` via `conf_set` (flat `key = "value"`). `packaging/PKGBUILD` copies `providers/` whole.
+- Enrollment state goes in `/var/lib/monarchy-identity/state.toml` via `state_set` (flat `key = "value"`); `config.toml` is the admin's policy, not the provider's. `packaging/PKGBUILD` copies `providers/` whole.
 
 Read `docs/dev/writing-a-provider.md` first: it says what the core owns and what a provider owns. Every directory is first-class; nothing outside `providers/<name>/` may assume AD. Scope: a provider feature belongs here only if it authenticates or authorizes directory users (`docs/dev/architecture.md#scope`).
 

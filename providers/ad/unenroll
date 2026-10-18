@@ -5,7 +5,7 @@ set -uo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/ad/lib.sh"
 need_root
-server_args "$(conf_get server)"
+server_args "$(state_get server)"
 admin=""
 while [[ $# -gt 0 ]]; do case $1 in --admin) admin=$2; shift 2;; *) die "unknown option $1";; esac; done
 nss_remove

@@ -65,12 +65,20 @@ The PAM, nsswitch, SDDM and sudoers rows apply to every provider; the rest are t
 | `/etc/sudoers.d/50-monarchy-identity` | `%group ALL=(ALL:ALL) ALL`, visudo-validated, 0440 | Deleted |
 | `/etc/sudoers.d/51-monarchy-identity-theme` | The sign-in groups (or users) may run Omarchy's `omarchy-theme-set-browser-policy` with a six-hex-digit argument without a password; absent for `--mode any` | Deleted |
 | `/etc/polkit-1/rules.d/49-monarchy-identity.rules` | Admin identities for graphical admin prompts: `wheel` plus the sudo groups, with an admin who asks listed first (only when polkit's rules directory exists) | Deleted |
-| `/etc/monarchy-identity/config.toml` | Provider and policy state | Reset to `provider = "local"` |
+| `/etc/monarchy-identity/config.toml` | What the admin chose: who may sign in, sudo groups, offline days, autologin, login theme | Emptied |
+| `/var/lib/monarchy-identity/state.toml` | What enroll did: the provider, and the provider's own keys (for AD: realm, server, computer name, OU) | Deleted |
 
-`config.toml` (and each provider's `pam.conf`) is a flat subset of TOML: `key = "value"` lines, `#` comments and blank
-lines, values escaped with `\"`, `\\`, `\n`, `\t`. `lib/common.sh` reads and writes it (`conf_get`, `conf_set`); a
-line outside that shape, an unknown escape or a repeated key stops every command that reads the file, naming the line,
-rather than falling back to defaults. An MDM may manage the file, so it is parsed strictly, not guessed at.
+The admin's choices and the enrollment are separate files so an MDM can manage `config.toml` without clobbering the
+enrollment, and enrolling never rewrites keys the MDM didn't mention. Being enrolled means `state.toml` names a
+provider. Enrollments from before the split kept everything in `config.toml`: until a root command runs, the state is
+read from there, and the first `enroll`, `policy set`, `reassert` or `leave` moves every key that isn't the admin's
+into `state.toml` (`state_migrate`, under the lock).
+
+Both files (and each provider's `pam.conf`) are a flat subset of TOML: `key = "value"` lines, `#` comments and blank
+lines, values escaped with `\"`, `\\`, `\n`, `\t`. `lib/common.sh` reads and writes them (`conf_get`/`conf_set`,
+`state_get`/`state_set`); a line outside that shape, an unknown escape or a repeated key stops every command that reads
+the file, naming the line, rather than falling back to defaults. An MDM may manage `config.toml`, so it is parsed
+strictly, not guessed at.
 
 Everything else stays in `/etc` drop-ins or marked blocks; never edit `/usr/share/omarchy/` (package-owned).
 
@@ -110,7 +118,7 @@ gets directory sign-in with no edit of its own, or is deliberately left alone:
 
 ## Keeping it working after updates
 
-`reassert` re-applies PAM, SDDM and sudoers edits from `config.toml`, after the provider's own `reassert` (for AD:
+`reassert` re-applies PAM, SDDM and sudoers edits from `config.toml` and `state.toml`, after the provider's own `reassert` (for AD:
 nsswitch, and starting sssd if stopped). It runs:
 
 - from the pacman hook (`packaging/monarchy-identity.hook`) after transactions on `pambase`, `sssd`, `filesystem`,

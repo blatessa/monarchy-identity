@@ -6,7 +6,6 @@ ROOT="${MONARCHY_IDENTITY_ROOT:-/usr/share/monarchy-identity}"
 [[ -d $ROOT/providers ]] || ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 export OI_ROOT="$ROOT"
 source "$ROOT/lib/common.sh"
-CONF="$OI_CONF"
 
 usage() {
   cat <<EOF
@@ -30,7 +29,7 @@ autologin_enabled() { [[ -n $(sddm_autologin_user) ]]; }
 cmd_status() {
   local json=0; [[ ${1:-} == --json ]] && json=1
   local provider mode enrolled=false autologin=false
-  provider=$(conf_get provider local)
+  provider=$(state_get provider local)
   mode=$(conf_get login_mode none)
   [[ $provider != local ]] && enrolled=true
   autologin_enabled && autologin=true
@@ -128,7 +127,7 @@ apply_sudo() { # from the globals: sudo + polkit admin for the sudo groups, and 
   sudoers_theme_apply "$mode" "$groups" "$users"
 }
 
-# The desktop side of an enrollment, from config.toml: PAM with the provider's module, autologin, sudo, login theme.
+# The desktop side of an enrollment, from the admin's config: PAM with the provider's module, autologin, sudo, login theme.
 # enroll and reassert both end here; every step is idempotent.
 apply_sign_in() { # apply_sign_in PROVIDER
   pam_apply "$1"
@@ -163,7 +162,7 @@ cmd_enroll() {
   local mode="" groups="" users="" sudo_groups="" offline_days=0 mode_given=0 groups_given=0 users_given=0
   local disable_autologin=1 keep_theme=0 if_needed=0 cur desc
   parse_opts enroll "$@"; resolve_policy
-  cur=$(conf_get provider local)
+  cur=$(state_get provider local)
   [[ $cur == local || $cur == "$P" ]] || die "already enrolled with '$cur'; run 'monarchy-identity leave' before enrolling with '$P'"
   if ((if_needed)) && [[ $cur == "$P" ]]; then
     desc=$(run_provider "$P" matches "${PARGS[@]}") || exit 1; desc=${desc##*$'\n'}
@@ -174,7 +173,8 @@ cmd_enroll() {
     desc=${desc##*$'\n'}   # its last line names the enrollment
   fi
   # Record the enrollment before switching sign-in on, so `leave` undoes it and a re-run converges if a step below fails.
-  conf_set provider="$P" autologin_disabled="$( ((disable_autologin)) && echo true || echo false)" \
+  state_set provider="$P"
+  conf_set autologin_disabled="$( ((disable_autologin)) && echo true || echo false)" \
     login_theme="$( ((keep_theme)) && echo stock || echo identity)"
   save_policy
   apply_sign_in "$P"
@@ -183,7 +183,7 @@ cmd_enroll() {
 }
 
 cmd_policy() {
-  local p; p=$(conf_get provider local)
+  local p; p=$(state_get provider local)
   case ${1:-} in
     show|set) [[ $p != local ]] || die "this machine is not enrolled in a directory" ;;
     *) printf 'Usage: monarchy-identity policy show\n       monarchy-identity policy set [options]\n\nChange who may sign in (and sudo / cache lifetime) without enrolling again. Only the options you pass change.\n\n%s\n' "$POLICY_HELP"; exit 1 ;;
@@ -206,7 +206,7 @@ cmd_policy() {
 }
 
 cmd_reassert() {
-  local p; p=$(conf_get provider local)
+  local p; p=$(state_get provider local)
   [[ $p != local ]] || return 0
   need_root
   run_provider "$p" reassert || exit 1
@@ -216,7 +216,7 @@ cmd_reassert() {
 
 cmd_leave() {
   need_root
-  local p quiet=0 args=(); p=$(conf_get provider local)
+  local p quiet=0 args=(); p=$(state_get provider local)
   while [[ $# -gt 0 ]]; do case $1 in
     --quiet) quiet=1; shift;;
     --password-file) [[ $# -ge 2 ]] || die "$1 needs a value"; export OI_ADMIN_PASSWORD_FILE=$2; shift 2;;
@@ -226,12 +226,12 @@ cmd_leave() {
   sddm_autologin_restore; sddm_theme_restore; sudoers_remove
   [[ $p != local ]] || return 0
   run_provider "$p" unenroll "${args[@]}" || die "could not finish leaving '$p'; run leave again"
-  conf_write provider=local login_mode=none
+  rm -f "$OI_STATE"; conf_write   # the policy enroll recorded goes too
   ((quiet)) || log "left the directory; sign-in changes removed"
 }
 
-case "${1:-}" in enroll|leave|reassert|policy) [[ $EUID -eq 0 ]] && oi_lock ;; esac
 case "${1:-}" in status|enroll|leave|reassert|policy) conf_check ;; esac   # here, not in a $(conf_get ...) that can't stop us
+case "${1:-}" in enroll|leave|reassert|policy) [[ $EUID -eq 0 ]] && { oi_lock; state_migrate; } ;; esac
 case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;

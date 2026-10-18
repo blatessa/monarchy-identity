@@ -6,7 +6,7 @@ source "$OI_ROOT/lib/common.sh"
 called() { echo "stub $* | ${OI_LOGIN_MODE-}|${OI_GROUPS-}|${OI_USERS-}|${OI_OFFLINE_DAYS-}|${OI_ADMIN_PASSWORD_FILE-}" >> "$STUB_LOG"; }
 called policy "$@"
 case ${1:-} in
-  show) echo "tenant:        $(conf_get tenant)" ;;
+  show) echo "tenant:        $(state_get tenant)" ;;
   apply) need_root; [[ -z ${STUB_REFUSE:-} ]] || die "the stub directory says no" ;;
   *) exit 1 ;;
 esac

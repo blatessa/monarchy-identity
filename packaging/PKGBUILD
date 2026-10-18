@@ -38,6 +38,7 @@ package_monarchy-identity() {
     ln -s "../omarchy/$a.png" "$pkgdir/usr/share/sddm/themes/monarchy-identity/$a.png"
   done
   install -Dm644 "$_root/packaging/config.toml" "$pkgdir/etc/monarchy-identity/config.toml"
+  install -dm755 "$pkgdir/var/lib/monarchy-identity"   # state.toml, written by enroll
   # documentation sources (the published site is built from these with mkdocs); images are referenced relatively
   install -d "$pkgdir/usr/share/doc/monarchy-identity"
   cp -a "$_root/docs/." "$pkgdir/usr/share/doc/monarchy-identity/"
