@@ -9,7 +9,7 @@ pt_as() { local u=$1; shift; "${V[@]}" "sudo -u $u python3 -I /tmp/pamtest.py$(q
 can_sudo() { "${V[@]}" "sudo sudo -l -U $1 2>&1" | grep -q "(ALL : ALL) ALL"; }
 allowed() { reset_locks; [[ $(pt sddm "$1" "$PW") == ALLOWED* ]]; }
 trap 'dc user setpassword alice --newpassword="$PW" >/dev/null; dc ou delete "OU=Laptops,DC=corp,DC=test" >/dev/null; for c in "OI-CLIENT\$" "LAPTOP-0042\$"; do dc computer delete "$c" >/dev/null; done
-  "${V[@]}" "echo tester:tester | sudo chpasswd; test -e $SSS.off && sudo mv $SSS.off $SSS; sudo rm -f /root/oi.pw" >/dev/null 2>&1' EXIT
+  "${V[@]}" "echo tester:tester | sudo chpasswd; test -e $SSS.off && sudo mv $SSS.off $SSS; sudo rm -f /root/oi.pw; for u in carol bob; do grep -q \"^\$u:\" /etc/passwd && sudo userdel -r \$u; done" >/dev/null 2>&1' EXIT
 fresh
 "${V[@]}" 'sudo rm -rf /home/alice /home/bob /home/carol'
 
@@ -116,6 +116,20 @@ check "sssd, krb5 and samba config removed" "${V[@]}" 'sudo test ! -e /etc/sssd/
 check "computer account deleted" bash -c '! docker exec oi-test-dc samba-tool computer list | grep -qxF "OI-CLIENT\$"'
 [[ $(st) == *'"enrolled":false'* ]] && ok "status: not enrolled" || bad "status after leave: $(st)"
 expect ALLOWED "tester (local) fine after leave" system-auth tester tester
+
+echo "[a local account with a directory user's name stays local]"
+# Made before enrolling (useradd refuses a name the directory already answers for). carol: directory user outside the
+# group; bob: directory user in it. Both local, in wheel, with their own passwords.
+"${V[@]}" 'for u in carol bob; do sudo useradd -m -G wheel $u && echo "$u:Local-pw1" | sudo chpasswd; done'
+enroll_ok --groups oi-laptop-users
+"${V[@]}" 'for u in carol bob; do sudo faillock --user $u --reset; done'
+for svc in system-auth sddm sudo omarchy-lock-password; do
+  expect ALLOWED "$svc: local carol, local password (directory carol is not allowed)" "$svc" carol Local-pw1
+  expect DENIED  "$svc: local bob, directory bob's password" "$svc" bob "$PW"
+done
+expect ALLOWED "alice (directory) still signs in" system-auth alice "$PW"
+leave
+"${V[@]}" 'for u in carol bob; do sudo userdel -r $u; done' >/dev/null 2>&1
 
 echo "[enroll options against the real directory: --computer-name, --ou, --password-file]"
 "${V[@]}" "sudo install -m 600 /dev/null /root/oi.pw && echo '$PW' | sudo tee /root/oi.pw >/dev/null"

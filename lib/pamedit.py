@@ -10,6 +10,9 @@ around it are fixed here. Design (see docs/dev/architecture.md): local users mus
 module is tried FIRST and ignored for users it does not know ("default=ignore"); on success it skips the rest of the
 auth stack (pam_unix + faillock authfail) with a skip count computed from the real file, which
 keeps it correct next to Omarchy's pam_systemd_home skip lines.
+Accounts in /etc/passwd skip the module (pam_localuser): the directory never decides for a local account, even one
+that shares a name with a directory user (it would deny the owner their own account, or let the directory user in as
+it, with its local groups). Local entries already win in nsswitch, so this is the same answer.
 Every inserted block is wrapped in BEGIN/END markers so `remove` is exact, whatever module was inserted.
 
 SAFETY (learned the hard way): if the module is missing or its daemon is down, authentication for LOCAL users must be
@@ -59,6 +62,12 @@ def block(rule):
     return [BEGIN + "\n", rule + "\n", END + "\n"]
 
 
+def guarded(kind, rule):
+    """A block whose rule local accounts skip (pam_localuser succeeds for names in /etc/passwd)."""
+    guard = f"-{kind:<9} [success=1 default=ignore]  pam_localuser.so"
+    return [BEGIN + "\n", guard + "\n", rule + "\n", END + "\n"]
+
+
 TYPES = ("auth", "account", "password", "session")
 
 
@@ -91,7 +100,7 @@ def apply(lines, module, args):
             skip = count_rules(lines, "auth", first, u)
         else:
             skip = count_rules(lines, "auth", first, fail)
-        lines[first:first] = block(
+        lines[first:first] = guarded("auth",
             f"-auth      [success={skip} default=ignore]  {module}{args['auth']}")
     # --- account: before first of (pam_systemd_home | pam_unix) account rule
     first = None
@@ -102,7 +111,7 @@ def apply(lines, module, args):
     u = find(lines, "account", r"pam_unix\.so")
     if first is not None and u is not None:
         skip = count_rules(lines, "account", first, u)
-        lines[first:first] = block(
+        lines[first:first] = guarded("account",
             f"-account   [success={skip} user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]  {module}{args['account']}")
     # --- password: same pattern as auth (the module first; unknown/local users are ignored and fall through)
     first = None
@@ -113,7 +122,7 @@ def apply(lines, module, args):
     u = find(lines, "password", r"pam_unix\.so")
     if first is not None and u is not None:
         skip = count_rules(lines, "password", first, u)
-        lines[first:first] = block(
+        lines[first:first] = guarded("password",
             f"-password  [success={skip} default=ignore]  {module}{args['password']}")
     # --- session: at the top of the session block
     s = None
@@ -124,6 +133,7 @@ def apply(lines, module, args):
     if s is not None and find(lines, "session", r"pam_unix\.so") is not None:
         lines[s:s] = [BEGIN + "\n",
                       "session    required   pam_mkhomedir.so umask=0077\n",
+                      "-session   [success=1 default=ignore]  pam_localuser.so\n",
                       f"-session   optional   {module}{args['session']}\n",
                       END + "\n"]
     return lines

@@ -96,16 +96,24 @@ and arguments (`providers/<name>/pam.conf`). `lib/pamedit.py apply FILE MODULE [
 markers (here for the AD provider, `pam_sss.so auth=forward_pass`):
 
 ```text
+-auth      [success=1 default=ignore]  pam_localuser.so
 -auth      [success=N default=ignore]  pam_sss.so forward_pass
+-account   [success=1 default=ignore]  pam_localuser.so
 -account   [success=N user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]  pam_sss.so
+-password  [success=1 default=ignore]  pam_localuser.so
 -password  [success=N default=ignore]  pam_sss.so
 session    required   pam_mkhomedir.so umask=0077
+-session   [success=1 default=ignore]  pam_localuser.so
 -session   optional   pam_sss.so
 ```
 
 `N` is computed from the file so a module success skips `pam_unix`/`pam_faillock`, including next to Omarchy's
 `pam_systemd_home` lines. The `-` prefix and the `ignore` mappings mean a missing module or stopped daemon can't fail a
-local login; only a definite answer from the module can. Module names and arguments are restricted to characters that
+local login; only a definite answer from the module can. `pam_localuser` (part of Linux-PAM) skips the module for
+names in `/etc/passwd`, so the directory never answers for a local account, even one with a directory user's name:
+nsswitch already resolves the local entry first, and without the guard the directory's "not allowed" locked the owner
+out of their account, or the directory user's password opened it, local groups (`wheel`) included. `lib/password-expired`
+skips local accounts for the same reason. Module names and arguments are restricted to characters that
 can't start another rule or control field. `remove FILE` restores the file byte for byte, whatever module was
 inserted.
 
