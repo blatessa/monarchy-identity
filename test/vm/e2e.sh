@@ -85,6 +85,12 @@ allowed carol && bad "groups again: carol allowed" || ok "groups again: carol de
 can_sudo alice && bad "alice kept sudo" || ok "--sudo-groups - removed sudo"
 check "... and the polkit rule" "${V[@]}" "test ! -e $POLKIT"
 [[ $(admin_prompt alice "$PW") == NOT-OFFERED* ]] && ok "... and alice is no longer offered at admin prompts" || bad "alice still an admin at prompts"
+keytab=$("${V[@]}" 'sudo stat -c %Y /etc/krb5.keytab')
+out=$(enroll --users alice --if-needed)
+[[ $out == *"converging policy without re-joining"* && $("${V[@]}" 'sudo stat -c %Y /etc/krb5.keytab') == "$keytab" ]] \
+  && ok "enroll --if-needed on an enrolled laptop: policy converged, not re-joined" || { bad "--if-needed: $out"; }
+allowed alice && ! allowed bob && ok "  ... and the new policy is in force (only alice)" || bad "--if-needed policy not applied"
+enroll --groups oi-laptop-users --if-needed >/dev/null
 for _ in 1 2 3; do scli policy set --mode any >/dev/null; scli policy set --groups oi-laptop-users >/dev/null; done
 [[ $("${V[@]}" 'systemctl is-active sssd') == active ]] && allowed bob && ok "6 quick restarts: sssd active, sign-in works" || bad "systemd start limit tripped"
 
