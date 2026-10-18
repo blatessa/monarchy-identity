@@ -5,7 +5,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc='Directory sign-in for Omarchy'
 arch=(any)
-url='https://github.com/blatessa/monarchy-identity'
+url='https://docs.monarchy.run/monarchy-identity/'
 license=('MIT')
 options=(!strip)
 
