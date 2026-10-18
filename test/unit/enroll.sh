@@ -44,7 +44,7 @@ sandbox; before=$(cat "$T"/etc/pam.d/* "$T/etc/nsswitch.conf")
 STUB_KINIT_FAIL=1 enroll "${G[@]}"
 [[ $RC -ne 0 && $OUT == *"keytab does not authenticate"* ]] && ok "refused" || bad "kinit failure: $OUT"
 [[ $(cat "$T"/etc/pam.d/* "$T/etc/nsswitch.conf") == "$before" ]] && ok "PAM and nsswitch untouched" || bad "sign-in changed"
-[[ ! -e $MONARCHY_IDENTITY_CONF ]] && ok "no state recorded for an enrollment that did not finish" || bad "config.toml written"
+[[ ! -e $MONARCHY_IDENTITY_CONF && ! -e $MONARCHY_IDENTITY_STATE ]] && ok "nothing recorded for an enrollment that did not finish" || bad "config or state written"
 
 echo "[login theme]"
 sandbox; enroll "${G[@]}"

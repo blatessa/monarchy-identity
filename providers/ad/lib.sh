@@ -195,8 +195,8 @@ dn_to_createcomputer() {
 }
 
 # --- persisted state ----------------------------------------------------------------------------
-# The AD keys in /etc/monarchy-identity/config.toml (the core keeps provider, policy and desktop keys next to them).
-ad_save_state() { conf_set realm="$realm" server="$server" computer_name="$nb" ou="${ou:-}"; }
+# What this enrollment is (the core keeps provider next to it; the policy is in the admin's config).
+ad_save_state() { state_set realm="$realm" server="$server" computer_name="$nb" ou="${ou:-}"; }
 
 # sssd_restart: (re)start sssd without ever tripping systemd's start-rate limit. Several quick restarts in a
 # row (policy changes, reassert, restore paths; or an MDM looping over a fleet) hit "start-limit-hit" and leave

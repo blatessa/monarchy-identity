@@ -6,7 +6,7 @@ set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/ad/lib.sh"
 
-realm=$(conf_get realm ""); server=$(conf_get server ""); nb=$(conf_get computer_name ""); ou=$(conf_get ou "")
+realm=$(state_get realm ""); server=$(state_get server ""); nb=$(state_get computer_name ""); ou=$(state_get ou "")
 [[ -n $nb ]] || nb=$(pick_computer_name "")   # enrollments made before computer_name was recorded
 
 case ${1:-} in

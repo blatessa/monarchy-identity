@@ -39,7 +39,7 @@ oi reassert
 echo "[policy set: --users alone implies assigned; only what's passed changes]"
 : > "$STUB_LOG"; oi policy set --users alice
 [[ $OUT == *"mode=assigned"* ]] && conf "simple_allow_users = alice" && ok "policy set --users" || bad "policy set --users: $OUT"
-[[ $(cfg realm) == CORP.TEST && $(cfg sudo_groups) == oi-admins && -f $SUDOERS ]] && ok "realm and sudo untouched by a change that didn't mention them" || bad "state lost"
+[[ $(st realm) == CORP.TEST && $(cfg sudo_groups) == oi-admins && -f $SUDOERS ]] && ok "realm and sudo untouched by a change that didn't mention them" || bad "state lost"
 ! called "net ads join" && ok "no re-join" || bad "re-joined"
 
 echo "[policy set: any, offline days]"

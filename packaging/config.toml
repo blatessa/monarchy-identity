@@ -1,3 +1,2 @@
-# monarchy-identity system configuration (root-owned). Managed by `monarchy-identity enroll`.
-provider = "local"
-login_mode = "none"
+# monarchy-identity: who may sign in and how the login screen behaves (root-owned). `monarchy-identity enroll` and
+# `policy set` write it; an MDM may manage it instead. The enrollment itself is in /var/lib/monarchy-identity/state.toml.

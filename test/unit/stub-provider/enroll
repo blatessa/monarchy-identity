@@ -11,5 +11,5 @@ tenant=""
 while [[ $# -gt 0 ]]; do case $1 in --tenant) tenant=$2; shift 2;; *) die "unknown option $1";; esac; done
 [[ -n $tenant ]] || die "--tenant is required"
 [[ -z ${STUB_REFUSE:-} ]] || die "the stub directory says no"
-conf_set tenant="$tenant"
+state_set tenant="$tenant"
 echo "$tenant"

@@ -1,5 +1,6 @@
 # shared helpers for providers. Sourced, not executed.
-OI_CONF="${MONARCHY_IDENTITY_CONF:-/etc/monarchy-identity/config.toml}"
+OI_CONF="${MONARCHY_IDENTITY_CONF:-/etc/monarchy-identity/config.toml}"     # what the admin chose: who may sign in, desktop
+OI_STATE="${MONARCHY_IDENTITY_STATE:-/var/lib/monarchy-identity/state.toml}" # what enroll did: provider, and the provider's keys
 OI_ROOT="${OI_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ETC="${MONARCHY_IDENTITY_ETC:-/etc}"   # overridable for tests
 
@@ -8,7 +9,8 @@ die() { log "ERROR: $*"; exit 1; }
 need_root() { [[ $EUID -eq 0 ]] || die "this needs administrator rights: run it with sudo"; }
 
 # --- config files ----------------------------------------------------------------------------------
-# config.toml and the providers' pam.conf are a flat subset of TOML: `key = "value"` lines, # comments, blank lines.
+# Two files, so an MDM can manage the admin's choices without touching the enrollment, and the other way round.
+# config.toml, state.toml and the providers' pam.conf are a flat subset of TOML: `key = "value"` lines, # comments, blank lines.
 # Values are basic strings with the escapes \" \\ \n \t. Anything else is refused with its line number rather than
 # guessed at: these files decide who may sign in, and an MDM may write them.
 declare -gA OI_KV=(); OI_KV_KEYS=()
@@ -40,10 +42,13 @@ kv_get() { # kv_get file key default: a value from a config file (the default wh
   printf '%s\n' "${v:-${3:-}}"
 }
 conf_get() { kv_get "$OI_CONF" "$@"; }   # conf_get key default
-conf_check() { kv_read "$OI_CONF"; }     # dies on a malformed config.toml (run in the main shell, not in $(...))
+state_get() { # state_get key default; enrollments made before the split kept state in config.toml until state_migrate
+  if [[ -e $OI_STATE ]]; then kv_get "$OI_STATE" "$@"; else kv_get "$OI_CONF" "$@"; fi
+}
+conf_check() { kv_read "$OI_CONF"; kv_read "$OI_STATE"; }   # dies on a malformed file (run in the main shell, not in $(...))
 
-conf_write() { # conf_write key=value ... (rewrites whole file, root:root 0644)
-  local kv k v out=""
+kv_write() { # kv_write FILE key=value ... (rewrites the whole file, 0644)
+  local f=$1 kv k v out=""; shift
   for kv in "$@"; do
     k=${kv%%=*} v=${kv#*=}
     [[ $k =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid config key '$k'"
@@ -51,15 +56,33 @@ conf_write() { # conf_write key=value ... (rewrites whole file, root:root 0644)
     [[ ! $v =~ [[:cntrl:]] ]] || die "the value for $k has control characters"
     out+="$k = \"$v\""$'\n'
   done
-  install -d -m 0755 "$(dirname "$OI_CONF")"
-  printf '%s' "$out" > "$OI_CONF.tmp"
-  chmod 0644 "$OI_CONF.tmp"; mv "$OI_CONF.tmp" "$OI_CONF"
+  install -d -m 0755 "$(dirname "$f")"
+  printf '%s' "$out" > "$f.tmp"
+  chmod 0644 "$f.tmp"; mv "$f.tmp" "$f"
 }
-conf_set() { # conf_set key=value ...: changes these keys and keeps the others (the core's and the provider's)
-  local kv k keep=() new=" ${*%%=*} "
-  kv_read "$OI_CONF"
+kv_set() { # kv_set FILE key=value ...: changes these keys and keeps the others
+  local f=$1 kv k keep=(); shift; local new=" ${*%%=*} "
+  kv_read "$f"
   for k in "${OI_KV_KEYS[@]}"; do [[ $new == *" $k "* ]] || keep+=("$k=${OI_KV[$k]}"); done
-  conf_write "${keep[@]}" "$@"
+  kv_write "$f" "${keep[@]}" "$@"
+}
+conf_write() { kv_write "$OI_CONF" "$@"; }
+conf_set() { kv_set "$OI_CONF" "$@"; }
+state_set() { kv_set "$OI_STATE" "$@"; }
+
+# The admin's keys; anything else in config.toml is enrollment state from before the split, which state_migrate moves
+# (once, as root, before a command changes anything).
+CONF_KEYS=" login_mode groups users sudo_groups offline_days autologin_disabled login_theme "
+state_migrate() {
+  [[ ! -e $OI_STATE && -f $OI_CONF ]] || return 0
+  local k conf=() state=()
+  kv_read "$OI_CONF"
+  for k in "${OI_KV_KEYS[@]}"; do
+    if [[ $CONF_KEYS == *" $k "* ]]; then conf+=("$k=${OI_KV[$k]}"); else state+=("$k=${OI_KV[$k]}"); fi
+  done
+  ((${#state[@]})) || return 0
+  kv_write "$OI_STATE" "${state[@]}"; kv_write "$OI_CONF" "${conf[@]}"
+  log "moved enrollment state from $OI_CONF to $OI_STATE"
 }
 
 # Files we write carry this marker; `leave` deletes only files that have it.

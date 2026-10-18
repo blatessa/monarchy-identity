@@ -13,7 +13,7 @@ particular directory.
 | `--sudo-groups`, `--offline-days`, autologin, login theme, `--if-needed`, `--password-file` | Naming the PAM module that authenticates them, and configuring it |
 | Editing PAM with the provider's module, through `lib/pamedit.py` | Enforcing the resolved login policy with the directory's mechanism |
 | SDDM, sudoers, the pacman/Omarchy hooks | Its own options (`--realm`, `--tenant`, ...) and their validation |
-| The policy keys in `config.toml` | Its own keys there, its `details` health keys and its docs page |
+| The policy keys in `config.toml`, `provider` in `state.toml` | Its own keys in `state.toml`, its `details` health keys and its docs page |
 
 `enroll` runs: the core validates the shared options, the provider's `enroll` registers and proves the directory
 answers, then the core records the enrollment and switches sign-in on (PAM, autologin, sudoers, login theme).
@@ -21,14 +21,14 @@ answers, then the core records the enrollment and switches sign-in on (PAM, auto
 
 ## Scripts
 
-Each runs with `$OI_ROOT` set and sources `lib/common.sh` (`die`, `log`, `need_root`, `conf_get`, `conf_set`,
+Each runs with `$OI_ROOT` set and sources `lib/common.sh` (`die`, `log`, `need_root`, `state_get`, `state_set`,
 `read_admin_password`, ...). The core passes the resolved policy in the environment: `OI_LOGIN_MODE`
 (`groups`, `assigned` or `any`), `OI_GROUPS`, `OI_USERS`, `OI_OFFLINE_DAYS`; and `OI_ADMIN_PASSWORD_FILE` when
 `--password-file` was given (`read_admin_password` reads it, or standard input).
 
 | Script | Called by | Contract |
 |---|---|---|
-| `enroll [own options]` | `enroll <name>` | Validate its options, check everything the directory can reject, register, enforce the policy, make users resolve, wait until the directory answers. Must not touch PAM, SDDM or sudoers. Save its state with `conf_set`. On success print one line naming the enrollment (`CORP.EXAMPLE.COM as LAPTOP-0042`). `--help` prints its options. |
+| `enroll [own options]` | `enroll <name>` | Validate its options, check everything the directory can reject, register, enforce the policy, make users resolve, wait until the directory answers. Must not touch PAM, SDDM or sudoers. Save what it needs to find the enrollment again with `state_set` (never in `config.toml`, which is the admin's). On success print one line naming the enrollment (`CORP.EXAMPLE.COM as LAPTOP-0042`). `--help` prints its options. |
 | `matches [own options]` | `enroll --if-needed` on an enrolled laptop | Print the enrollment line if these options describe the current enrollment (the core then only converges the policy); fail with a clear message if not. |
 | `policy show` | `policy show` | Print the provider's lines (the directory, the device name); the core prints the policy. |
 | `policy apply` | `policy set`, `enroll --if-needed` | Enforce the resolved policy on an enrolled laptop; refuse (changing nothing) what the directory can't honour. |
@@ -38,7 +38,7 @@ Each runs with `$OI_ROOT` set and sources `lib/common.sh` (`die`, `log`, `need_r
 | `detect` | (reserved) | Exit 0 if prerequisites are installed. |
 | `pam.conf` (a file) | the core's PAM edit | `module = "pam_x.so"`, plus optional arguments per stack: `auth = "..."`, `account`, `password`, `session`. |
 
-The active provider is `provider` in `/etc/monarchy-identity/config.toml`. `test/unit/stub-provider/` is a complete
+The active provider is `provider` in `/var/lib/monarchy-identity/state.toml`. `test/unit/stub-provider/` is a complete
 provider with no directory behind it, and `test/unit/provider.sh` checks the contract against it.
 
 ## Rules for every provider

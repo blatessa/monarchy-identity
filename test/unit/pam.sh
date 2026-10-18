@@ -68,7 +68,7 @@ for f in system-auth omarchy-lock-password; do cmp -s "$FIX/pam.d/$f" "$T/etc/pa
 grep -qE '^(passwd|group|shadow):.*sss' "$T/etc/nsswitch.conf" && bad "sss still in nsswitch" || ok "nsswitch has no sss"
 [[ ! -e $T/etc/sssd/sssd.conf && ! -e $T/etc/samba/smb.conf && ! -e $T/etc/krb5.keytab ]] && ok "sssd.conf, smb.conf and the keytab removed" || bad "files left"
 [[ -f $T/etc/krb5.conf ]] && ok "a krb5.conf we did not write is kept" || bad "deleted a file that was not ours"
-[[ $(cfg provider) == local ]] && ok "state: local" || bad "state: $(cat "$MONARCHY_IDENTITY_CONF")"
+[[ ! -e $MONARCHY_IDENTITY_STATE && -z $(cfg login_mode) ]] && ok "not enrolled: state removed, policy cleared" || bad "state: $(cat "$MONARCHY_IDENTITY_STATE" "$MONARCHY_IDENTITY_CONF" 2>&1)"
 [[ -z $(ls "$T/sss/db" "$T/sss/mc" 2>/dev/null | grep -v ":$") ]] && ok "sssd cache cleared" || bad "cache left"
 [[ $(grep -c . "$T/etc/nsswitch.conf") == 4 ]] && ok "nsswitch.conf otherwise intact" || bad "nsswitch lines"
 oi leave; [[ $RC -eq 0 ]] && ok "leave twice is harmless" || bad "second leave: $OUT"

@@ -17,7 +17,7 @@ unshare -r true 2>/dev/null || { echo "SKIP: 'unshare -r' is not allowed here (u
 sandbox() {
   T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
   export ETC_T="$T/etc" MONARCHY_IDENTITY_ETC="$T/etc" MONARCHY_IDENTITY_ROOT="$REPO" HOME="$T/home"
-  export MONARCHY_IDENTITY_CONF="$T/etc/monarchy-identity/config.toml" MONARCHY_IDENTITY_SDDM_CONF_D="$T/etc/sddm.conf.d"
+  export MONARCHY_IDENTITY_CONF="$T/etc/monarchy-identity/config.toml" MONARCHY_IDENTITY_STATE="$T/var/lib/monarchy-identity/state.toml" MONARCHY_IDENTITY_SDDM_CONF_D="$T/etc/sddm.conf.d"
   export MONARCHY_IDENTITY_SUDOERS="$T/etc/sudoers.d/50-monarchy-identity" MONARCHY_IDENTITY_SUDOERS_THEME="$T/etc/sudoers.d/51-monarchy-identity-theme" MONARCHY_IDENTITY_POLKIT="$T/etc/polkit-1/rules.d/49-monarchy-identity.rules" MONARCHY_IDENTITY_LOCK="$T/lock"
   export MONARCHY_IDENTITY_SDDM_THEMES="$T/themes" MONARCHY_IDENTITY_SSS_DIR="$T/sss"
   export STUB_STATE="$T/state" STUB_LOG="$T/calls.log" STUB_PW="$PW" STUB_HOSTNAME=oi-client
@@ -37,12 +37,13 @@ enroll() { oi enroll --realm CORP.TEST --server dc.corp.test --admin Administrat
 
 # snap: every file that decides how someone signs in, and what the stubs hold (joined, sssd running). krb5.conf and
 # smb.conf are left out: enroll writes them to talk to the directory, before it has checked anything.
-snap() { (cd "$T" && find etc state -type f ! -name krb5.conf ! -name smb.conf | sort | xargs -r md5sum); }
+snap() { (cd "$T" && find etc var state -type f 2>/dev/null ! -name krb5.conf ! -name smb.conf | sort | xargs -r md5sum); }
 # refused LABEL MESSAGE: the last oi run failed with MESSAGE and the machine is exactly as before (BEFORE=$(snap)).
 refused() {
   [[ $RC -ne 0 && $OUT == *"$2"* ]] && ok "$1: refused ('$2')" || { bad "$1: expected '$2' (rc $RC)"; tail -3 <<<"$OUT" | sed 's/^/      /'; }
   [[ $(snap) == "$BEFORE" ]] && ok "$1: nothing changed" || bad "$1: machine changed"
 }
 called() { grep -qF -- "$1" "$STUB_LOG"; }          # did a stub see this command line?
-cfg() { grep -E "^$1 *=" "$MONARCHY_IDENTITY_CONF" | sed 's/^[^=]*= *"\(.*\)"$/\1/'; }   # a value in config.toml
+cfg() { grep -sE "^$1 *=" "$MONARCHY_IDENTITY_CONF" | sed 's/^[^=]*= *"\(.*\)"$/\1/'; }   # a value in config.toml
+st() { grep -sE "^$1 *=" "$MONARCHY_IDENTITY_STATE" | sed 's/^[^=]*= *"\(.*\)"$/\1/'; }  # a value in state.toml
 has_pam() { python3 -I "$REPO/lib/pamedit.py" check "$T/etc/pam.d/$1"; }
