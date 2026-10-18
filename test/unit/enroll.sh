@@ -21,13 +21,13 @@ oi leave --admin Administrator --password-file "$T/oi.pw" </dev/null; called 'ne
 
 echo "[NetBIOS domain name differs from the realm's first label]"
 sandbox; echo "$PW" > "$T/oi.pw"; chmod 600 "$T/oi.pw"
-OUT=$(STUB_NETBIOS=BAD unshare -r "$OIBIN" enroll --realm CORP.TEST --server dc.corp.test "${G[@]}" --password-file "$T/oi.pw" </dev/null 2>&1)
+OUT=$(STUB_NETBIOS=BAD unshare -r "$OIBIN" enroll --realm CORP.TEST --server dc.corp.test --admin Administrator "${G[@]}" --password-file "$T/oi.pw" </dev/null 2>&1)
 grep -q '^  workgroup = BAD$' "$T/etc/samba/smb.conf" && ok "workgroup is the DC's NetBIOS name (BAD), not CORP" || { bad "workgroup"; grep workgroup "$T/etc/samba/smb.conf"; }
 
-echo "[password from OI_ADMIN_PASSWORD_FILE; wrong password in a file]"
+echo "[password from MONARCHY_IDENTITY_PASSWORD_FILE; wrong password in a file]"
 sandbox; echo "$PW" > "$T/oi.pw"; chmod 600 "$T/oi.pw"
-OUT=$(OI_ADMIN_PASSWORD_FILE=$T/oi.pw unshare -r "$OIBIN" enroll --realm CORP.TEST --server dc.corp.test "${G[@]}" </dev/null 2>&1)
-[[ $OUT == *"enrolled in"* ]] && ok "OI_ADMIN_PASSWORD_FILE works" || { bad "env file"; sed 's/^/      /' <<<"$OUT"; }
+OUT=$(MONARCHY_IDENTITY_PASSWORD_FILE=$T/oi.pw unshare -r "$OIBIN" enroll --realm CORP.TEST --server dc.corp.test --admin Administrator "${G[@]}" </dev/null 2>&1)
+[[ $OUT == *"enrolled in"* ]] && ok "MONARCHY_IDENTITY_PASSWORD_FILE works" || { bad "env file"; sed 's/^/      /' <<<"$OUT"; }
 
 echo "[--replace-computer-account]"
 sandbox; STUB_COMPUTERS=OI-CLIENT
@@ -53,7 +53,11 @@ sandbox; enroll "${G[@]}"
 sandbox; mkdir -p "$T/themes/monarchy-identity"; touch "$T/themes/monarchy-identity/Main.qml"
 enroll "${G[@]}"; grep -qx 'Current=monarchy-identity' "$T/etc/sddm.conf.d/zz-monarchy-identity-theme.conf" && ok "theme selected" || bad "theme not selected"
 oi leave; [[ ! -e $T/etc/sddm.conf.d/zz-monarchy-identity-theme.conf ]] && ok "leave removes it" || bad "theme left"
-enroll "${G[@]}" --keep-login-theme; [[ ! -e $T/etc/sddm.conf.d/zz-monarchy-identity-theme.conf && $(cfg login_theme) == stock ]] && ok "--keep-login-theme" || bad "keep theme"
+
+echo "[options removed before 0.1.0, and --admin is required]"
+sandbox
+for o in --keep-login-theme --disable-autologin; do BEFORE=$(snap); enroll "${G[@]}" "$o"; refused "$o" "unknown option $o"; done
+BEFORE=$(snap); oi enroll --realm CORP.TEST --server dc.corp.test "${G[@]}"; refused "no --admin" "--admin is required"
 
 echo "[hooks, as the desktop user]"
 sandbox

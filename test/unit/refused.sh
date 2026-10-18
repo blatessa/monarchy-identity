@@ -27,7 +27,7 @@ PWIN=wrong enroll --mode any;                  refused "wrong password, no group
 enroll --groups oi-laptop-users,no-such-group; refused "unknown group"      "has no group named: no-such-group"
 STUB_DC_DOWN=1 enroll "${G[@]}";               refused "DC down"            "no domain controller answered at dc.corp.test"
 STUB_NO_DNS=1 enroll "${G[@]}";                refused "DC name unresolvable" "'dc.corp.test' does not resolve"
-STUB_NO_DNS=1 oi enroll --realm CORP.TEST "${G[@]}"; refused "no DNS for the domain" "DNS has no domain controllers for corp.test"
+STUB_NO_DNS=1 oi enroll --realm CORP.TEST --admin Administrator "${G[@]}"; refused "no DNS for the domain" "DNS has no domain controllers for corp.test"
 STUB_JOIN_FAIL="Invalid configuration (\"workgroup\" set to 'X', should be 'CORP')" enroll "${G[@]}"
 refused "join refused" "the directory refused the join: Invalid configuration (\"workgroup\" set to 'X', should be 'CORP')"
 STUB_JOIN_FAIL='failed to precreate account in ou ou=Gone,dc=corp,dc=test: No such object' enroll "${G[@]}" --ou OU=Gone,DC=corp,DC=test
@@ -47,6 +47,6 @@ ln -s "$T/open.pw" "$T/link.pw"
 enroll "${G[@]}" --password-file "$T/link.pw"; refused "symlinked password file" "not a regular file"
 install -m 600 /dev/null "$T/empty.pw"
 enroll "${G[@]}" --password-file "$T/empty.pw"; refused "empty password file" "empty"
-OUT=$(unshare -r "$OIBIN" enroll --realm CORP.TEST --server dc.corp.test "${G[@]}" </dev/null 2>&1); RC=$?
+OUT=$(unshare -r "$OIBIN" enroll --realm CORP.TEST --server dc.corp.test --admin Administrator "${G[@]}" </dev/null 2>&1); RC=$?
 refused "no password at all" "password must be given"
 result

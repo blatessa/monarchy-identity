@@ -10,7 +10,7 @@ sudo monarchy-identity enroll ad --realm CORP.EXAMPLE.COM --admin joinuser \
   --password-file /root/join.pw --if-needed
 ```
 
-- **The password file** (`--password-file`, or `OI_ADMIN_PASSWORD_FILE`) holds the password on its first line and must
+- **The password file** (`--password-file`, or `MONARCHY_IDENTITY_PASSWORD_FILE`) holds the password on its first line and must
   be readable only by its owner (`chmod 600`). Without it, the password is read from standard input. Never pass a
   password as an argument.
 - **On an enrolled laptop** nothing is re-registered and the password isn't used. The options you pass become the whole

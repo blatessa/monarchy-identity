@@ -3,5 +3,5 @@
 # Logs each call, with the arguments and the policy the core passed, to $STUB_LOG.
 set -euo pipefail
 source "$OI_ROOT/lib/common.sh"
-called() { echo "stub $* | ${OI_LOGIN_MODE-}|${OI_GROUPS-}|${OI_USERS-}|${OI_OFFLINE_DAYS-}|${OI_ADMIN_PASSWORD_FILE-}" >> "$STUB_LOG"; }
+called() { echo "stub $* | ${OI_LOGIN_MODE-}|${OI_GROUPS-}|${OI_USERS-}|${OI_OFFLINE_DAYS-}|${MONARCHY_IDENTITY_PASSWORD_FILE-}" >> "$STUB_LOG"; }
 echo "stub_reachable=true"

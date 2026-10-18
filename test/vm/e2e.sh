@@ -134,7 +134,7 @@ dc computer create OI-CLIENT >/dev/null
 before=$(dc computer show 'OI-CLIENT$' | grep -E '^(pwdLastSet|whenChanged)')
 [[ $(enroll --groups oi-laptop-users) == *"DIFFERENT laptop"* ]] && ok "refused" || bad "existing account not refused"
 [[ $(dc computer show 'OI-CLIENT$' | grep -E '^(pwdLastSet|whenChanged)') == "$before" ]] && ok "that account was left alone" || bad "existing account modified"
-out=$("${V[@]}" "sudo OI_ADMIN_PASSWORD_FILE=/root/oi.pw ~/oi/bin/monarchy-identity enroll$(q $LAB --groups oi-laptop-users --replace-computer-account) </dev/null" 2>&1); reset_locks
+out=$("${V[@]}" "sudo MONARCHY_IDENTITY_PASSWORD_FILE=/root/oi.pw ~/oi/bin/monarchy-identity enroll$(q $LAB --groups oi-laptop-users --replace-computer-account) </dev/null" 2>&1); reset_locks
 [[ $out == *"enrolled in"* ]] && ok "took over the existing account" || { bad "replace"; sed 's/^/      /' <<<"$out"; }
 echo "[an enrollment that stopped before sign-in was switched on can simply be re-run]"
 "${V[@]}" 'sudo python3 -I ~/oi/lib/pamedit.py remove /etc/pam.d/system-auth; sudo rm -f /var/lib/monarchy-identity/state.toml; sudo truncate -s0 /etc/monarchy-identity/config.toml'

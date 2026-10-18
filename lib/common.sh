@@ -72,7 +72,7 @@ state_set() { kv_set "$OI_STATE" "$@"; }
 
 # The admin's keys; anything else in config.toml is enrollment state from before the split, which state_migrate moves
 # (once, as root, before a command changes anything).
-CONF_KEYS=" login_mode groups users sudo_groups offline_days autologin_disabled login_theme "
+CONF_KEYS=" login_mode groups users sudo_groups offline_days autologin_disabled login_theme "   # login_theme: no longer written or read; kept so older configs keep it
 state_migrate() {
   [[ ! -e $OI_STATE && -f $OI_CONF ]] || return 0
   local k conf=() state=()
@@ -184,11 +184,11 @@ OI_LOCK="${MONARCHY_IDENTITY_LOCK:-/run/monarchy-identity.lock}"
 oi_lock() { exec 9>"$OI_LOCK" && flock 9; }
 
 # --- admin credential input ---------------------------------------------------------------------
-# read_admin_password [file]: sets $pw from FILE (or $OI_ADMIN_PASSWORD_FILE, which the core sets from --password-file),
+# read_admin_password [file]: sets $pw from FILE (or $MONARCHY_IDENTITY_PASSWORD_FILE, which the core sets from --password-file),
 # else first line of stdin.
 # A password file must be a regular file owned by root or the caller with no group/other permissions.
 read_admin_password() {
-  local f=${1:-${OI_ADMIN_PASSWORD_FILE:-}}
+  local f=${1:-${MONARCHY_IDENTITY_PASSWORD_FILE:-}}
   if [[ -n $f ]]; then
     [[ -f $f && ! -L $f ]] || die "password file '$f' is not a regular file"
     local mode owner; mode=$(stat -c %a "$f"); owner=$(stat -c %u "$f")
@@ -197,7 +197,7 @@ read_admin_password() {
     IFS= read -r pw < "$f" || [[ -n ${pw:-} ]] || die "password file '$f' is empty"
   else
     [[ ! -t 0 ]] || printf 'Password of the directory join account: ' >&2
-    IFS= read -r -s pw || die "admin password must be given on stdin, --password-file, or OI_ADMIN_PASSWORD_FILE"
+    IFS= read -r -s pw || die "admin password must be given on stdin, --password-file, or MONARCHY_IDENTITY_PASSWORD_FILE"
     [[ ! -t 0 ]] || echo >&2
   fi
   [[ -n $pw ]] || die "empty admin password"
