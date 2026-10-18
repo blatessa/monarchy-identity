@@ -22,7 +22,7 @@ Status: 0.1.0; only the AD provider exists. Public docs are the MkDocs site in `
 - Enforcement lives in root-owned `/etc`.
 - Default is deny. Local accounts must keep working when sssd or `pam_sss.so` is missing or broken (that's PAM correctness, not an undo feature).
 - **Scope is authentication.** Enrollment, who may sign in, directory-provided authorization (sudo groups, offline lifetime, later GPO), keeping it working across updates, `leave`. No device posture/compliance, inventory, hardening, tamper resistance or undo machinery (timers, backups, rollback): that's the MDM's or the deployer's job. Test: would it belong in a plain Linux directory client? See `docs/dev/architecture.md#scope`.
-- No AUR dependencies (the AD provider joins with samba `net ads join`; home dirs via `pam_mkhomedir`). A directory whose client is AUR-only needs an owner decision first.
+- No AUR dependencies (the AD provider joins with samba `net ads join`; home dirs via `pam_mkhomedir`). A directory whose client is AUR-only needs an owner decision first (Entra's himmelblau: decided, see `docs/dev/architecture.md#directory-clients`).
 - Don't `pkill -f` (it kills your own shell); find processes by PID. Don't commit `test/vm/images`, `test/vm/keys`, credentials or real hostnames.
 - Don't publish, tag, force-push or change repo settings without the owner asking.
 

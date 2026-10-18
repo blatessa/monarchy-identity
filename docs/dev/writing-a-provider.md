@@ -55,6 +55,7 @@ provider with no directory behind it, and `test/unit/provider.sh` checks the con
   `--offline-days` honoured.
 - **Validate input** before it reaches a config file; mark files you write with `$OI_MARK`.
 - **No AUR dependencies.** If the directory's client is AUR-only, that's a decision for the owner before any code.
+  The client is its own package and an `optdepends`, never bundled ([Directory clients](architecture.md#directory-clients)).
 - **Stay in scope:** authentication and directory-provided authorization only ([Architecture](architecture.md#scope)).
 
 ## Things that differ between directories
