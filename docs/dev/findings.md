@@ -54,6 +54,36 @@ something.
 - `net ads search -U admin` checks the password, DC reachability and group names in one go, before anything is joined.
   An empty result still exits 0 ("Got 0 replies"): match the attribute line, not the exit code.
 
+## Entra ID / himmelblau (spike, 4.0.6)
+- The device joins on the first successful sign-in, with that user's password; no admin credentials, no separate
+  join step. It shows in Entra as an Entra-joined Linux device named after the hostname.
+- Unjoining locally (`aad-tool cache-clear --full`, prompts Y/N) leaves the device object in Entra, enabled. Deleting
+  it needs Graph rights (Cloud Device Administrator or similar).
+- NSS answers before anyone signs in, by UPN and by short name (`alice`). `files` stays first, so a local account of
+  the same name wins. UIDs/GIDs are murmur3(tenant, object id) into `idmap_range`: the same on every machine.
+- `nsswitch.conf` needs `himmelblau` on `shadow:` too, or `pam_unix`'s account check fails with "Authentication
+  service cannot retrieve authentication info" after a correct password.
+- The daemon creates the home directory itself at session open: `/home/<object-id>` plus a `/home/<upn>` symlink. No
+  `pam_mkhomedir`.
+- `pam_allow_groups` (group object ids) is enforced in the `account` phase: carol's password is checked, then she's
+  refused. `sudo_groups` and `local_groups` exist natively (untested).
+- Any failure re-prompts forever inside one `pam_authenticate` (wrong password, MFA enrollment required, offline wrong
+  password); it never returns PAM_AUTH_ERR, so faillock never counts. A test driver that always answers the same
+  password hammers Entra until it answers AADSTS50196 (request loop) and smart lockout throttles that user for minutes.
+  Use a timeout and never loop a wrong password against the tenant. The greeter must handle repeated prompts.
+- `ssh` (and other remote services in `password_only_remote_services_deny_list`) refuses password-only sign-in: a user
+  without MFA gets AADSTS50072 "needs to enroll for second factor", in the same loop.
+- Offline needs `[offline_breakglass] enabled = true`. Without it the password verifier is only cached on the
+  first, enrolling sign-in path, so offline gives "No cached password" (the docs suggest single-factor users get offline
+  for free; the code doesn't). `enable_sfa_fallback` alone isn't enough. With breakglass on, the first offline attempt
+  notices the outage and still succeeds. No knob maps to `--offline-days` (the TTL is breakglass duration, not
+  verifier lifetime).
+- Upstream's `aad-tool configure-pam` adds unprefixed `auth sufficient pam_himmelblau.so` above `pam_faillock`
+  preauth in both `system-auth` and `system-login` (runs twice, bypasses faillock); our core does the PAM edit.
+- `enable_hello` defaults to true (Hello PIN enrollment at sign-in); the spike ran with it off.
+- Harmless noise: the profile-photo task warns that `/var/lib/AccountsService/icons/` doesn't exist
+  (`fetch_profile_picture`).
+
 ## Stubs in the fast layer (`test/unit/stubs/`)
 The fast layer runs the real CLI with stub commands first on `PATH`. A stub is only as good as the output it copies; these shapes were
 captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
