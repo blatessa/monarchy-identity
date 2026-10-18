@@ -24,8 +24,12 @@ check "enrolled: exit 0" '[[ $rc -eq 0 ]]'; check "enrolled: calls reassert" '[[
 : > "$CALLS"; PATH="$T/bin:$PATH" STUB_RC=3 MONARCHY_IDENTITY_CONF="$T/enrolled.toml" "$H/reassert.sh" 2>/dev/null; rc=$?
 check "enrolled+failing subcommand: still exit 0" '[[ $rc -eq 0 ]]'
 
+printf 'provider = ad\n' > "$T/bad.toml"   # unquoted: not our format
+: > "$CALLS"; PATH="$T/bin:$PATH" MONARCHY_IDENTITY_CONF="$T/bad.toml" "$H/reassert.sh" 2>"$T/err"; rc=$?
+check "malformed conf: exit 0" '[[ $rc -eq 0 ]]'; check "malformed conf: no call, says why" '[[ ! -s $CALLS ]] && grep -q "line 1" "$T/err"'
+
 # no CLI on PATH: use minimal PATH with only needed tools
-mkdir -p "$T/min"; for b in bash sed head logger cat; do ln -s "$(command -v $b)" "$T/min/$b" 2>/dev/null; done
+mkdir -p "$T/min"; for b in bash readlink dirname logger cat; do ln -s "$(command -v $b)" "$T/min/$b" 2>/dev/null; done
 PATH="$T/min" MONARCHY_IDENTITY_CONF="$T/enrolled.toml" "$H/reassert.sh" 2>/dev/null; rc=$?
 check "enrolled, CLI missing: exit 0" '[[ $rc -eq 0 ]]'
 

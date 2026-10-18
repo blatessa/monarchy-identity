@@ -233,6 +233,7 @@ cmd_leave() {
 }
 
 case "${1:-}" in enroll|leave|reassert|policy) [[ $EUID -eq 0 ]] && oi_lock ;; esac
+case "${1:-}" in status|enroll|leave|reassert|policy) conf_check ;; esac   # here, not in a $(conf_get ...) that can't stop us
 case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;
