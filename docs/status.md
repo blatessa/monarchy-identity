@@ -1,54 +1,26 @@
 # Status and limits
 
-monarchy-identity is a prototype (version 0.1.0). What's listed under "Tested" is covered by automated tests against a
-Samba AD domain and an Arch virtual machine set up with Omarchy's sign-in and login-screen files. "Tried by hand" is what
-has been checked on a real Omarchy laptop against a Windows Server domain. Everything else is untested.
+Version 0.1.0. Active Directory (Windows Server and Samba AD) is the only provider.
 
-## Tested
+## Works
 
-Only the Active Directory provider exists so far. With it:
+- Enrolling, interactively or unattended, into an OU, with a chosen computer name, or over an existing computer account.
+- Sign-in at the login screen, lock screen, terminal, `ssh`, `sudo` and administrator prompts.
+- All three login policies, and changing them without re-joining.
+- `sudo` for a directory group.
+- Cached sign-in while the domain controller is unreachable.
+- Changing a password with `passwd`, and changing an expired password at the login screen.
+- Keeping sign-in working through `omarchy update` and package updates.
 
-- Enrolling with and without a pinned domain controller, into an OU, with a chosen computer name, over an existing
-  computer account, and unattended with a password file and `--if-needed`.
-- All three login policies, changing the policy without re-joining, and `sudo` for a directory group.
-- Answering an administrator prompt with a directory admin's own password (as a text prompt; Omarchy's graphical one
-  is below).
-- Sign-in at the login screen, lock screen, terminal, `ssh` and `sudo`; refusal for people who aren't allowed.
-- A wrong password, an unknown group or an unreachable domain controller stops enrollment before sign-in changes.
-- Local accounts keep working when the directory service is stopped or missing.
-- Cached sign-in while the domain controller is down.
-- Changing a directory password with `passwd`; an expired one at the login screen: let through to the change-password
-  screen (wrong password refused, counted once by the directory), changed there, then the desktop; giving up returns
-  to the login screen.
-- Repair after a package update overwrites the configuration; installing and removing the package.
-- The login screen theme in SDDM.
+## Limits
 
-## Tried by hand on real hardware
-
-On an Omarchy laptop enrolled in a Windows Server 2025 domain (one domain controller, Windows DNS):
-
-- Enrolling, with the domain's short (NetBIOS) name different from the first part of its DNS name.
-- Signing in at Omarchy's login screen, on a text console and at the lock screen, as people in the allowed group.
-- `sudo` for the people in the admin group and not for anyone else; someone outside the allowed group is refused.
-- Running `omarchy update`: sign-in kept working.
-- Not yet: the change-password screen for an expired password (tested in the lab only).
-
-## Not tested
-
-- The automated lab suites against a Windows domain controller (only tried by hand so far), and domains with several
-  controllers or sites.
-- Every other directory: Microsoft Entra ID, Okta, Google Workspace and FreeIPA providers aren't written yet.
-- Cached sign-in actually expiring after `--offline-days`.
-
-## Known limits
-
-- **`su`** doesn't work for directory users on Arch (it never asks the directory). Use `sudo`, or `sudo -iu` to
-  become another user.
-- **Graphical admin prompts** don't say whose password they want. People in the admin group are asked for their own;
-  anyone else is asked for an administrator's (the first local one), with no way to choose another account.
-- **Omarchy is built for one person per laptop.** The browser colour is one setting for the whole machine, and the
-  second person to run `omarchy update` fails because the first one's log file is in the way. Both are Omarchy's.
+- **`su`** doesn't work for directory users. Use `sudo`, or `sudo -iu` to become another user.
+- **Graphical admin prompts** don't say whose password they want: people in the admin group use their own, anyone
+  else an administrator's.
+- **One person per laptop** is what Omarchy is built for: the browser colour is shared, and a second person's
+  `omarchy update` fails on the first one's log file.
 - **`sudo`** is all-or-nothing per group.
-- **Group Policy logon rules and smart cards** aren't supported.
+- **Not supported:** Group Policy logon rules and smart cards. Domains with several controllers or AD sites haven't
+  been tested.
 
-Planned work is tracked in [GitHub issues](https://github.com/blatessa/monarchy-identity/issues).
+Planned work: [GitHub issues](https://github.com/blatessa/monarchy-identity/issues).

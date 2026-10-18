@@ -73,4 +73,4 @@ Expect these to differ, and decide them per provider in its issue before writing
 
 An e2e suite on `test/vm/lib.sh` (enroll, sign-in on every service, policy, a refused enroll, leave), the fast tests,
 a page in `docs/providers/` (prepare the directory, prepare the laptops, options, troubleshooting, status details),
-the provider listed in `docs/providers/index.md`, and its files installed by the PKGBUILD.
+the provider listed on `docs/index.md` (Providers) and in the `mkdocs.yml` nav, and its files installed by the PKGBUILD.

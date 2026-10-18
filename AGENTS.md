@@ -9,7 +9,7 @@ samba + sssd) exists; Entra ID, Okta, Google Workspace and FreeIPA are equally f
 `providers/<name>/` may assume AD. Enroll, decide who may sign in (and who gets
 sudo), survive updates, leave. Other tools (MDMs, agents) build on it through the CLI and `status --json`; it is not a
 platform and doesn't manage the device. It edits PAM, nsswitch, SDDM and sudoers, so mistakes lock people out.
-Status: prototype; only the AD provider exists, verified in a VM against Samba AD. Public docs are the MkDocs site in `docs/`.
+Status: 0.1.0; only the AD provider exists. Public docs are the MkDocs site in `docs/`, served at https://docs.monarchy.run/monarchy-identity/.
 
 ## Before you change anything
 1. Read the hard rules below. Run `test/lab-check.sh` if the task needs the lab.
