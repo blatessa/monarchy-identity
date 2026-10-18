@@ -12,6 +12,15 @@ Start with `monarchy-identity status`, `monarchy-identity policy show` and `jour
 - **First time on this laptop, and offline?** The first sign-in needs the company network.
 - **Just enrolled or just rebooted?** The laptop needs a few seconds to reach the directory.
 - **Clock wrong?** Sign-in fails when the clock is more than about five minutes off. Check `timedatectl`.
+- **Testing with `su`?** On Arch, `su` never asks the directory. Test on a text console (Ctrl+Alt+F3), the lock screen
+  or the login screen.
+- **Which password?** People sign in with their own directory password. `enroll` asks for the join account's directory
+  password, and `sudo` for your own.
+
+## Opening someone's home folder asks for a password
+
+Each person's home folder is private to them. Your file manager asks for your password to open another person's,
+as an administrator. That's expected.
 
 ## Directory sign-in stopped working for everyone
 
