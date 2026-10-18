@@ -34,7 +34,9 @@
 | `details` | Provider health checks, each `"true"`, `"false"` or `"unknown"`. Empty when not enrolled. |
 
 Each provider documents its `details` keys on its page, for example
-[Active Directory](../providers/ad.md#status-details).
+[Active Directory](../providers/ad.md#status-details). Entra ID reports `himmelblaud_active` (its sign-in service is
+running), `nss_himmelblau` (the laptop looks up Entra users) and `entra_reachable` (the service can reach Entra).
+`pam_sddm` appears only for directories that use the login screen's expired-password check (not Entra ID).
 
 A `"false"` while `enrolled` is true means something overwrote the configuration; `sudo monarchy-identity reassert`
 fixes it.

@@ -145,6 +145,16 @@ skips local accounts for the same reason. Module names and arguments are restric
 can't start another rule or control field. `remove FILE` restores the file byte for byte, whatever module was
 inserted.
 
+Three `pam.conf` switches cover modules that do part of this themselves (Entra's `pam_himmelblau` uses all three):
+
+- `mkhomedir = "false"`: no `pam_mkhomedir`. himmelblau makes `/home/<object id>` and a `/home/<sign-in name>` link at
+  session open; `pam_mkhomedir`, first in the stack, would make a real directory at the link's path.
+- `expired_password_screen = "false"`: no expired-password rules on `sddm` (below), so SDDM sign-in doesn't ask the
+  directory twice. Entra passwords are changed in Entra.
+- `auth_retry_on_abort = "true"`: the auth rule twice, the first `[success=N+1 abort=ignore default=1]` so only an
+  abort reaches the second. himmelblau aborts the first sign-in after the network drops (it learns it's offline) and
+  answers from its offline cache when asked again; without the retry that first offline sign-in fails.
+
 `system-auth` and `omarchy-lock-password` get the module; `sddm` gets the expired-password rules below. Every other service either includes `system-auth` and so
 gets directory sign-in with no edit of its own, or is deliberately left alone:
 

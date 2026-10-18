@@ -79,7 +79,7 @@ oi policy set --groups oi-laptop-users; : > "$STUB_LOG"
 enroll --groups oi-admins --if-needed
 [[ $OUT == *"converging policy without re-joining"* ]] && conf "simple_allow_groups = oi-admins" && ! called "net ads join" && ok "enrolled machine: converged, not re-joined" || bad "if-needed: $OUT"
 BEFORE=$(snap)
-oi enroll --realm OTHER.EXAMPLE --groups g --if-needed; refused "different realm" "already enrolled in"
+oi enroll ad --realm OTHER.EXAMPLE --groups g --if-needed; refused "different realm" "already enrolled in"
 echo "[no polkit on the machine: nothing written, nothing refused]"
 rm -rf "$T/etc/polkit-1"; oi policy set --sudo-groups oi-admins
 [[ ! -e $T/etc/polkit-1 && $OUT == *"policy updated"* ]] && ok "no polkit rules directory: skipped, and not created" || bad "missing polkit dir: $OUT"

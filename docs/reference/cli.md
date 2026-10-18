@@ -32,9 +32,11 @@ scripts: [Status output](status-output.md).
 monarchy-identity enroll [PROVIDER] [provider options] (--groups A,B | --users U1,U2 | --mode any) [options]
 ```
 
-Connects the laptop to a directory and turns on directory sign-in. `PROVIDER` is `ad` (Active Directory), the only
-one today; with one installed it can be left out. Its options (`--realm`, `--admin`, `--ou`, ...) are on the
-[Active Directory page](../providers/ad.md#enroll-options), with the messages it can refuse with. `enroll --help` lists
+Connects the laptop to a directory and turns on directory sign-in. `PROVIDER` is `ad` (Active Directory) or `entra`
+(Microsoft Entra ID); with only one installed it can be left out. Active Directory's options (`--realm`, `--admin`,
+`--ou`, ...) are on the [Active Directory page](../providers/ad.md#enroll-options), with the messages it can refuse
+with. Entra ID takes `--tenant` (the tenant's domain) and `--client-id` (an app registration that may read groups and
+users; its client secret is the enrollment password, used to check the names and not kept). `enroll --help` lists
 every option. Before it changes anything, `enroll` checks what the directory can (credentials, that the groups exist),
 so mistakes fail without touching the laptop. A laptop enrolled with one directory must `leave` before enrolling with
 another.
@@ -61,11 +63,12 @@ another.
 
 ```text
 monarchy-identity policy show
-monarchy-identity policy set [--groups a,b | --users u1,u2 | --mode any] [--sudo-groups g1,g2 | -] [--offline-days N]
+monarchy-identity policy set [--groups a,b | --users u1,u2 | --mode any] [--sudo-groups g1,g2 | -] [--offline-days N] [--password-file FILE]
 ```
 
 `show` prints who may sign in, `sudo` groups, offline days and the directory's details. `set` changes only the options
-you pass; `--sudo-groups -` removes `sudo`. See [Manage enrolled laptops](../guides/manage.md).
+you pass; `--sudo-groups -` removes `sudo`. A directory that needs a credential to look up a new group name (Entra ID)
+reads it from `--password-file` or standard input. See [Manage enrolled laptops](../guides/manage.md).
 
 ## leave
 

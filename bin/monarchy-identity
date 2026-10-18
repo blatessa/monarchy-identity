@@ -37,7 +37,9 @@ cmd_status() {
   if [[ $enrolled == true && -x $ROOT/providers/$provider/status ]]; then
     while IFS='=' read -r k v; do details+="${details:+,}\"$k\":\"$(json_escape "$v")\""; done \
       < <("$ROOT/providers/$provider/status" 2>/dev/null)
-    for f in "${PAM_FILES[@]}" "$GREETER_PAM"; do   # the PAM edit is the core's, whatever the provider
+    local svcs=("${PAM_FILES[@]}")   # the PAM edit is the core's, whatever the provider
+    [[ $(kv_get "$ROOT/providers/$provider/pam.conf" expired_password_screen true) != true ]] || svcs+=("$GREETER_PAM")
+    for f in "${svcs[@]}"; do
       v=false; python3 -I "$PAMEDIT" check "$ETC/pam.d/$f" 2>/dev/null && v=true
       details+="${details:+,}\"pam_${f//-/_}\":\"$v\""
     done
@@ -87,7 +89,7 @@ parse_opts() { # parse_opts enroll|policy ARGS...: shared options into the globa
       *:--users) users=${2-}; users_given=1;;
       *:--sudo-groups) sudo_groups=${2-}; [[ $sudo_groups != - ]] || sudo_groups="";;
       *:--offline-days) offline_days=${2-};;
-      enroll:--password-file) export MONARCHY_IDENTITY_PASSWORD_FILE=${2-};;
+      *:--password-file) export MONARCHY_IDENTITY_PASSWORD_FILE=${2-};;   # a provider may need its credential to apply a policy
       enroll:--keep-autologin) disable_autologin=0; n=1;;
       enroll:--if-needed) if_needed=1; n=1;;
       enroll:*) PARGS+=("$1"); n=1;;
@@ -180,7 +182,7 @@ cmd_policy() {
   local p; p=$(state_get provider local)
   case ${1:-} in
     show|set) [[ $p != local ]] || die "this machine is not enrolled in a directory" ;;
-    *) printf 'Usage: monarchy-identity policy show\n       monarchy-identity policy set [options]\n\nChange who may sign in (and sudo / cache lifetime) without enrolling again. Only the options you pass change.\n\n%s\n' "$POLICY_HELP"; exit 1 ;;
+    *) printf 'Usage: monarchy-identity policy show\n       monarchy-identity policy set [options]\n\nChange who may sign in (and sudo / cache lifetime) without enrolling again. Only the options you pass change.\n\n%s\n  --password-file FILE        the directory credential, if the provider needs one to look up new names\n' "$POLICY_HELP"; exit 1 ;;
   esac
   local mode groups users sudo_groups offline_days mode_given=0 groups_given=0 users_given=0
   mode=$(conf_get login_mode groups); groups=$(conf_get groups ""); users=$(conf_get users "")

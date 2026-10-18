@@ -1,0 +1,33 @@
+#!/bin/bash
+# policy show: the Entra lines of `monarchy-identity policy show` (the core prints who may sign in).
+# policy apply: enforce the policy the core resolved ($OI_LOGIN_MODE, $OI_GROUPS, $OI_USERS, $OI_OFFLINE_DAYS) on an
+# enrolled machine. Groups already looked up keep their ids; a new group name is looked up in Entra with the app
+# registration's secret (--password-file or stdin). Refuses, changing nothing, what Entra doesn't have.
+set -euo pipefail
+export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
+source "$OI_ROOT/providers/entra/lib.sh"
+tenant=$(state_get tenant ""); client_id=$(state_get client_id "")
+
+case ${1:-} in
+  show) echo "tenant:        $tenant" ;;
+  apply)
+    need_root
+    mode=$OI_LOGIN_MODE groups=$OI_GROUPS users=$OI_USERS offline_days=$OI_OFFLINE_DAYS
+    [[ $offline_days == 0 ]] || die "Entra ID can't limit how long offline sign-in works; leave out --offline-days. Policy unchanged"
+    known=$(state_get group_ids ""); ALLOW="" GROUP_IDS="" new=0
+    if [[ $mode == groups ]]; then   # every name already looked up? then no secret is needed
+      declare -A ids=(); IFS=, read -ra kl <<<"$known"
+      for kv in "${kl[@]}"; do ids[${kv%%=*}]=${kv#*=}; done
+      IFS=, read -ra gl <<<"$groups"
+      for g in "${gl[@]}"; do
+        [[ -n ${ids[$g]-} ]] || { new=1; break; }
+        ALLOW+="${ALLOW:+,}${ids[$g]}"; GROUP_IDS+="${GROUP_IDS:+,}$g=${ids[$g]}"
+      done
+    fi
+    if [[ $mode != groups ]] || ((new)); then resolve_policy_ids "$tenant" "$client_id"; fi
+    write_himmelblau_conf "$tenant" "$ALLOW"
+    state_set group_ids="$GROUP_IDS"
+    systemctl restart himmelblaud >/dev/null 2>&1 || log "WARNING: could not restart himmelblaud; the policy applies after its next start"
+    ;;
+  *) die "usage: policy show|apply" ;;
+esac

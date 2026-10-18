@@ -24,7 +24,8 @@ answers, then the core records the enrollment and switches sign-in on (PAM, auto
 Each runs with `$OI_ROOT` set and sources `lib/common.sh` (`die`, `log`, `need_root`, `state_get`, `state_set`,
 `read_admin_password`, ...). The core passes the resolved policy in the environment: `OI_LOGIN_MODE`
 (`groups`, `assigned` or `any`), `OI_GROUPS`, `OI_USERS`, `OI_OFFLINE_DAYS`; and `MONARCHY_IDENTITY_PASSWORD_FILE` when
-`--password-file` was given (`read_admin_password` reads it, or standard input).
+`--password-file` was given (`read_admin_password "PROMPT"` reads it, or standard input, asking PROMPT: name what you
+need, such as "Client secret of the app registration").
 
 | Script | Called by | Contract |
 |---|---|---|
@@ -36,7 +37,7 @@ Each runs with `$OI_ROOT` set and sources `lib/common.sh` (`die`, `log`, `need_r
 | `unenroll [own options]` | `leave`, after the core removed PAM, SDDM and sudoers | Remove every other change `enroll` made, and what it created in the directory when it can. |
 | `status` | `status` | Print read-only `key=value` health lines (`true`/`false`/`unknown`); they become `details`. |
 | `detect` | (reserved) | Exit 0 if prerequisites are installed. |
-| `pam.conf` (a file) | the core's PAM edit | `module = "pam_x.so"`, plus optional arguments per stack: `auth = "..."`, `account`, `password`, `session`. |
+| `pam.conf` (a file) | the core's PAM edit | `module = "pam_x.so"`, plus optional arguments per stack: `auth = "..."`, `account`, `password`, `session`; and `mkhomedir`, `expired_password_screen`, `auth_retry_on_abort` for modules that need them ([The PAM edit](architecture.md#the-pam-edit)). |
 
 The active provider is `provider` in `/var/lib/monarchy-identity/state.toml`. `test/unit/stub-provider/` is a complete
 provider with no directory behind it, and `test/unit/provider.sh` checks the contract against it.

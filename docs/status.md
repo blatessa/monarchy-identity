@@ -1,6 +1,8 @@
 # Status and limits
 
-Version 0.1.0. Active Directory (Windows Server and Samba AD) is the only provider.
+Version 0.1.0. Active Directory (Windows Server and Samba AD) is the supported provider. Microsoft Entra ID is in
+development: it works in the lab against a test tenant, and needs the himmelblau package, which isn't in Omarchy's
+repository yet.
 
 ## Works
 
@@ -22,5 +24,15 @@ Version 0.1.0. Active Directory (Windows Server and Samba AD) is the only provid
 - **`sudo`** is all-or-nothing per group.
 - **Not supported:** Group Policy logon rules and smart cards. Domains with several controllers or AD sites haven't
   been tested.
+
+## Entra ID (in development)
+
+Works in the lab: enrolling with an app registration (unattended too), password sign-in at the login screen, lock
+screen and terminal, allowing groups or people, `sudo` for a group, cached sign-in with no network, and leaving.
+
+- **Passwords only for now.** Windows Hello PINs and multi-step sign-in at the login screen aren't there yet.
+- **`ssh` with only a password is refused** by the Entra client for remote sign-in.
+- **`--offline-days`** can't be honoured: Entra's client has no limit for its offline cache.
+- **Leaving** keeps the laptop's device record in Entra; delete it in the Entra admin center.
 
 Planned work: [GitHub issues](https://github.com/blatessa/monarchy-identity/issues).

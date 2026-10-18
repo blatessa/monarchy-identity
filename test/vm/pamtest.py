@@ -13,11 +13,17 @@ class Resp(ctypes.Structure): _fields_ = [("resp", ctypes.c_char_p), ("retcode",
 CONV = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.POINTER(Msg)),
                         ctypes.POINTER(ctypes.POINTER(Resp)), ctypes.c_void_p)
 libc.calloc.restype = ctypes.c_void_p; libc.strdup.restype = ctypes.c_void_p
+asked = {}
 def conv(n, msgs, resp, _):
     arr = libc.calloc(n, ctypes.sizeof(Resp)); resp[0] = ctypes.cast(arr, ctypes.POINTER(Resp))
     for i in range(n):
         if msgs[i].contents.style in (1, 2):  # PROMPT_ECHO_OFF / ON
             text = (msgs[i].contents.msg or b"").lower()
+            # A module that asks the same thing again after a wrong answer (pam_himmelblau re-prompts forever) gets one
+            # retry, then the conversation fails: never loop a password against a real directory.
+            asked[text] = asked.get(text, 0) + 1
+            if asked[text] > 2:
+                return 19  # PAM_CONV_ERR
             val = newpw if (newpw and (b"new" in text or b"retype" in text or b"reenter" in text)) else pw
             resp[0][i].resp = ctypes.cast(libc.strdup(val.encode()), ctypes.c_char_p)
     return 0

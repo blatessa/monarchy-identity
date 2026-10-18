@@ -1,0 +1,38 @@
+#!/bin/bash
+# monarchy-identity enroll entra --tenant corp.example.com --client-id ID [options]   (client secret is prompted)
+#   --tenant T                  the Entra tenant: its domain (corp.onmicrosoft.com or a verified domain) (required)
+#   --client-id ID              app registration that may read groups and users (Group.Read.All, User.Read.All);
+#                               required with --groups. Its secret is used during enroll and not kept
+#
+# Called by the core with the resolved policy in $OI_LOGIN_MODE, $OI_GROUPS, $OI_USERS, $OI_OFFLINE_DAYS. Checks the
+# tenant, the groups and users, configures himmelblau and waits until it answers; the core then edits PAM. The laptop
+# registers itself in Entra at the first sign-in. Prints the tenant.
+set -euo pipefail
+export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
+source "$OI_ROOT/providers/entra/lib.sh"
+case " $* " in *" --help "*|*" -h "*) sed -n '2,/^#$/{/^#$/d;s/^# \{0,1\}//;p}' "$0"; exit 0;; esac
+need_root
+
+mode=$OI_LOGIN_MODE groups=$OI_GROUPS users=$OI_USERS offline_days=$OI_OFFLINE_DAYS
+tenant="" client_id=""
+while [[ $# -gt 0 ]]; do case $1 in
+  --tenant) tenant=${2-}; shift 2;; --client-id) client_id=${2-}; shift 2;;
+  *) die "unknown option $1";; esac; done
+
+# ---- validate everything BEFORE touching anything -------------------------------------------------
+[[ -n $tenant ]] || die "--tenant is required (the tenant's domain, e.g. corp.onmicrosoft.com)"
+valid_tenant "$tenant" || die "invalid --tenant '$tenant' (expected a domain like corp.onmicrosoft.com)"
+[[ -z $client_id ]] || valid_client_id "$client_id" || die "invalid --client-id '$client_id' (expected the app registration's Application (client) ID)"
+[[ $offline_days == 0 ]] || die "Entra ID can't limit how long offline sign-in works; leave out --offline-days"
+need_himmelblau
+
+# ---- check Entra BEFORE changing anything: the tenant, the credential, the groups and users -------
+tenant_id=$(graph discover "$tenant") || exit 1
+resolve_policy_ids "$tenant" "$client_id"
+
+log "configuring this machine for $tenant"
+write_himmelblau_conf "$tenant" "$ALLOW"
+nss_apply
+hb_start
+state_set tenant="$tenant" tenant_id="$tenant_id" client_id="$client_id" group_ids="$GROUP_IDS"
+echo "$tenant"

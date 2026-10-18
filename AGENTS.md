@@ -9,7 +9,7 @@ samba + sssd) exists; Entra ID, Okta, Google Workspace and FreeIPA are equally f
 `providers/<name>/` may assume AD. Enroll, decide who may sign in (and who gets
 sudo), survive updates, leave. Other tools (MDMs, agents) build on it through the CLI and `status --json`; it is not a
 platform and doesn't manage the device. It edits PAM, nsswitch, SDDM and sudoers, so mistakes lock people out.
-Status: 0.1.0; only the AD provider exists. Public docs are the MkDocs site in `docs/`, served at https://docs.monarchy.run/monarchy-identity/.
+Status: 0.1.0; the AD provider is supported, Entra (`providers/entra`, himmelblau) is in development. Public docs are the MkDocs site in `docs/`, served at https://docs.monarchy.run/monarchy-identity/.
 
 ## Before you change anything
 1. Read the hard rules below. Run `test/lab-check.sh` if the task needs the lab.
@@ -28,7 +28,7 @@ Status: 0.1.0; only the AD provider exists. Public docs are the MkDocs site in `
 
 ## Layout
     bin/monarchy-identity    core CLI (status|enroll|leave|policy|reassert|install-hooks|providers)
-    providers/<name>/        one per directory (ad today): enroll matches unenroll policy reassert status detect pam.conf (+lib.sh)
+    providers/<name>/        one per directory (ad, entra): enroll matches unenroll policy reassert status detect pam.conf (+lib.sh)
     lib/                     common.sh, pamedit.py (idempotent BEGIN/END-marked PAM editor; the provider names the module)
     sddm-theme/              login theme: Omarchy's look + a username field (stock theme only logs in the last user)
     hooks/                   reassert.sh + post-update wrapper

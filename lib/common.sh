@@ -122,7 +122,10 @@ sddm_autologin_restore() { rm -f "$SDDM_OVERRIDE"; }
 # --- PAM -----------------------------------------------------------------------------------------
 # Every Omarchy sign-in funnels into system-auth; the lock screen has its own service. The module comes from the
 # provider's pam.conf (module = "pam_x.so", plus optional per-stack arguments: auth = "...", account = "...", ...);
-# pamedit.py adds the safety rules. Removal is by marker, so it needs no provider.
+# pamedit.py adds the safety rules. Two switches for modules that already do these themselves (default "true"):
+# mkhomedir = "false" (the module makes home directories), expired_password_screen = "false" (no change-password
+# screen at the login screen); and auth_retry_on_abort = "true" for a module that aborts the first time the directory
+# is unreachable and answers from its cache when asked again. Removal is by marker, so it needs no provider.
 PAMEDIT="$OI_ROOT/lib/pamedit.py"
 PAM_FILES=(system-auth omarchy-lock-password)
 pam_apply() { # pam_apply PROVIDER
@@ -130,14 +133,22 @@ pam_apply() { # pam_apply PROVIDER
   module=$(kv_get "$pc" module "")
   [[ -n $module ]] || die "provider '$1' names no PAM module (expected module = \"pam_....so\" in $pc)"
   for t in auth account password session; do a=$(kv_get "$pc" "$t" ""); [[ -z $a ]] || args+=("$t=$a"); done
+  local opt=()
+  [[ $(kv_get "$pc" mkhomedir true) == true ]] || opt+=(--no-mkhomedir)
+  [[ $(kv_get "$pc" auth_retry_on_abort false) != true ]] || opt+=(--retry-on-abort)
   for f in "${PAM_FILES[@]}"; do
-    if [[ -f $ETC/pam.d/$f ]]; then python3 -I "$PAMEDIT" apply "$ETC/pam.d/$f" "$module" "${args[@]}" || die "could not edit $ETC/pam.d/$f"; fi
+    if [[ -f $ETC/pam.d/$f ]]; then python3 -I "$PAMEDIT" apply "${opt[@]}" "$ETC/pam.d/$f" "$module" "${args[@]}" || die "could not edit $ETC/pam.d/$f"; fi
   done
-  greeter_apply "$module" "$(kv_get "$pc" account "")"
+  if [[ $(kv_get "$pc" expired_password_screen true) == true ]]; then greeter_apply "$module" "$(kv_get "$pc" account "")"
+  else greeter_remove; fi
+}
+greeter_remove() {
+  [[ ! -f $ETC/pam.d/$GREETER_PAM ]] || python3 -I "$PAMEDIT" remove "$ETC/pam.d/$GREETER_PAM"
+  remove_if_ours "$ETC/pam.d/$EXPIRED_PAM"; rm -f "$SDDM_SESSION_CONF"
 }
 pam_remove() {
-  local f; for f in "${PAM_FILES[@]}" "$GREETER_PAM"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" remove "$ETC/pam.d/$f"; done
-  remove_if_ours "$ETC/pam.d/$EXPIRED_PAM"; rm -f "$SDDM_SESSION_CONF"
+  local f; for f in "${PAM_FILES[@]}"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" remove "$ETC/pam.d/$f"; done
+  greeter_remove
 }
 
 # --- an expired password at the login screen ------------------------------------------------------------------------
@@ -184,11 +195,11 @@ OI_LOCK="${MONARCHY_IDENTITY_LOCK:-/run/monarchy-identity.lock}"
 oi_lock() { exec 9>"$OI_LOCK" && flock 9; }
 
 # --- admin credential input ---------------------------------------------------------------------
-# read_admin_password [file]: sets $pw from FILE (or $MONARCHY_IDENTITY_PASSWORD_FILE, which the core sets from --password-file),
-# else first line of stdin.
+# read_admin_password [PROMPT]: sets $pw from $MONARCHY_IDENTITY_PASSWORD_FILE (the core sets it from --password-file),
+# else the first line of stdin, asking PROMPT on a terminal (the provider names what it needs).
 # A password file must be a regular file owned by root or the caller with no group/other permissions.
 read_admin_password() {
-  local f=${1:-${MONARCHY_IDENTITY_PASSWORD_FILE:-}}
+  local f=${MONARCHY_IDENTITY_PASSWORD_FILE:-} prompt=${1:-Password of the directory join account}
   if [[ -n $f ]]; then
     [[ -f $f && ! -L $f ]] || die "password file '$f' is not a regular file"
     local mode owner; mode=$(stat -c %a "$f"); owner=$(stat -c %u "$f")
@@ -196,11 +207,11 @@ read_admin_password() {
     [[ $owner -eq 0 || $owner -eq $EUID ]] || die "password file '$f' must be owned by root or the invoking user"
     IFS= read -r pw < "$f" || [[ -n ${pw:-} ]] || die "password file '$f' is empty"
   else
-    [[ ! -t 0 ]] || printf 'Password of the directory join account: ' >&2
-    IFS= read -r -s pw || die "admin password must be given on stdin, --password-file, or MONARCHY_IDENTITY_PASSWORD_FILE"
+    [[ ! -t 0 ]] || printf '%s: ' "$prompt" >&2
+    IFS= read -r -s pw || die "${prompt,} must be given on stdin, --password-file, or MONARCHY_IDENTITY_PASSWORD_FILE"
     [[ ! -t 0 ]] || echo >&2
   fi
-  [[ -n $pw ]] || die "empty admin password"
+  [[ -n $pw ]] || die "empty ${prompt,}"
 }
 
 # --- SDDM login theme with a username field -----------------------------------------------------

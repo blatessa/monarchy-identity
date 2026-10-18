@@ -81,6 +81,16 @@ something.
 - Upstream's `aad-tool configure-pam` adds unprefixed `auth sufficient pam_himmelblau.so` above `pam_faillock`
   preauth in both `system-auth` and `system-login` (runs twice, bypasses faillock); our core does the PAM edit.
 - `enable_hello` defaults to true (Hello PIN enrollment at sign-in); the spike ran with it off.
+- The first sign-in after the network drops returns PAM_ABORT ("Network outage detected") and falls through to
+  `pam_unix`; the next one answers from the offline cache. Upstream's `configure-pam` hides this by putting the module
+  in the stack twice; ours asks again only after an abort (`auth_retry_on_abort`).
+- Groups don't resolve through NSS before the device is joined (users do), so checking group names at enroll needs a
+  Graph credential: an app registration's client secret, not kept on the laptop.
+- `pam_allow_groups` unset means every user in the tenant may sign in (himmelblau only logs a warning).
+- `himmelblaud` keeps its PRTs in systemd's file-descriptor store (`FileDescriptorStorePreserve=yes`), so they survive
+  `systemctl stop`. After an unjoin they no longer match the device keys ("Failed unsealing PRT"), and on the next
+  enroll the daemon answers nothing: users unknown, every sign-in times out. `leave` runs
+  `systemctl clean --what=fdstore --what=state --what=cache` on both units.
 - Harmless noise: the profile-photo task warns that `/var/lib/AccountsService/icons/` doesn't exist
   (`fetch_profile_picture`).
 
