@@ -80,10 +80,13 @@ captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
   `/usr/lib/pam.d/` that includes `system-auth`, so directory passwords already work there (not in `/etc/pam.d`, which is why `ls` misses it).
 - polkit 127 checks prompt passwords in a socket-activated helper unit (`polkit-agent-helper.socket`), not a setuid binary.
   The helper takes the agent's uid from the socket, so `pkexec`'s built-in text agent (setuid root) gets PAM success and then
-  `No session for cookie` for everyone. A user-run agent (`pkttyagent`, Omarchy's graphical one) works: `test/vm/adminprompt.py`.
+  `No session for cookie` for everyone (upstream polkit-org/polkit#686, #47). A user-run agent (`pkttyagent`, Omarchy's graphical
+  one) works: `test/vm/adminprompt.py`.
   A freshly installed polkit has the socket inactive until reboot, and without it the helper isn't sandboxed: check it's active.
-- polkit offers every admin identity (wheel plus the sudo groups) even when the person asking is one of them; picking one is the
-  agent's job. `pkttyagent` lists them; Omarchy's graphical prompt picks the first (#34).
+- polkit offers every admin identity (wheel plus the sudo groups) even when the person asking is one of them, in the order the
+  rule returns them; picking one is the agent's job. Omarchy's dialog never picks, so Quickshell's `AuthFlow` asks as the first
+  (`mIdentities.first()`) without saying whose password it wants: a directory admin was asked for the local admin's (#34). The
+  rule now lists an admin who asks first.
 
 ## Conventions that came from these
 - Anything the CLI sources must also be installed by `packaging/PKGBUILD` (`e2e-package.sh` catches misses).

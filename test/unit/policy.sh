@@ -19,8 +19,13 @@ THEME_SUDOERS=$T/etc/sudoers.d/51-monarchy-identity-theme
 [[ $(sed -n 2p "$THEME_SUDOERS") == "%oi-laptop-users ALL=(root) NOPASSWD: /usr/bin/omarchy-theme-set-browser-policy [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]" \
   && $(stat -c %a "$THEME_SUDOERS") == 440 ]] && ok "theme rule: the sign-in group, only Omarchy's browser-policy helper, six hex digits" || bad "theme sudoers: $(cat "$THEME_SUDOERS")"
 POLKIT=$T/etc/polkit-1/rules.d/49-monarchy-identity.rules
-[[ $(grep -c . "$POLKIT") == 4 && $(sed -n 3p "$POLKIT") == '    return ["unix-group:wheel", "unix-group:oi-admins"];' && $(stat -c %a "$POLKIT") == 644 ]] \
+# admins_for USER GROUP...: the identities the generated rule offers when USER (in GROUPs) asks; polkit runs it as plain JS
+admins_for() { node -e 'let f; const polkit = { addAdminRule: g => f = g }; eval(require("fs").readFileSync(process.argv[1], "utf8"));
+  const [user, ...groups] = process.argv.slice(2); console.log(f({}, { user, isInGroup: g => groups.includes(g) }).join(" "))' "$POLKIT" "$@"; }
+[[ $(stat -c %a "$POLKIT") == 644 && $(admins_for bob oi-laptop-users) == "unix-group:wheel unix-group:oi-admins" ]] \
   && ok "polkit: sudo group may answer admin prompts, wheel kept (ours sorts before polkit's 50-default)" || bad "polkit rule: $(cat "$POLKIT")"
+[[ $(admins_for alice oi-admins) == "unix-user:alice unix-group:wheel unix-group:oi-admins" && $(admins_for brady wheel) == "unix-user:brady "* ]] \
+  && ok "polkit: an admin who asks is offered first (Omarchy's prompt asks for the first)" || bad "polkit order: $(admins_for alice oi-admins)"
 [[ -z $(autologin_user) ]] && ok "autologin turned off" || bad "autologin still on"
 [[ $(cfg login_mode) == groups && $(cfg groups) == oi-laptop-users && $(cfg sudo_groups) == oi-admins ]] && ok "config.toml records the policy" || bad "config.toml: $(cat "$MONARCHY_IDENTITY_CONF")"
 oi policy show; [[ $OUT == *"login mode:    groups"* ]] && ok "policy show works" || bad "policy show: $OUT"

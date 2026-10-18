@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """adminprompt.py IDENTITY PASSWORD - answer a real polkit admin prompt (pkexec under pkttyagent) as IDENTITY.
 
-Prints AUTHORIZED, REFUSED, or NOT-OFFERED (IDENTITY isn't among the admins polkit offers). Goes through polkitd and
+Prints AUTHORIZED, REFUSED, or NOT-OFFERED (IDENTITY isn't among the admins polkit offers), then the identity. IDENTITY
+"-" answers as the first one offered, as Omarchy's dialog does (it shows no choice). Goes through polkitd and
 its socket-activated, sandboxed agent helper, as Omarchy's graphical prompt does. pkexec's built-in agent can't: it runs
 setuid, so the helper answers polkitd for uid 0 and gets "No session for cookie" (docs/dev/findings.md)."""
 import os, pty, select, signal, sys, time
@@ -23,10 +24,12 @@ while time.time() < end:
     if not chunk: break
     buf += chunk; last = buf.rstrip().splitlines()[-1] if buf.strip() else b""
     if last.startswith(b"Choose identity"):
+        if ident == b"-": ident = [l.split()[-1] for l in buf.splitlines() if l.strip().startswith(b"1.")][0]
         n = [l.split(b".")[0].strip() for l in buf.splitlines() if l.split() and l.split()[-1] == ident]
         if not n: verdict = "NOT-OFFERED"; break
         os.write(fd, n[-1] + b"\n"); buf += b"\n"
     elif last.endswith(b"Password:"):
+        if b"Authenticating as: " in buf and ident == b"-": ident = buf.split(b"Authenticating as: ")[-1].split()[0]
         if b"Authenticating as: " in buf and buf.split(b"Authenticating as: ")[-1].split()[0] != ident:
             verdict = "NOT-OFFERED"; break   # a single admin, someone else
         os.write(fd, pw + b"\n"); buf += b"\n"
