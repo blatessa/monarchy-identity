@@ -27,7 +27,7 @@ expect() { local want=$1 desc=$2 out; shift 2; out=$(pt "$@"); [[ $out == "$want
 # prints AUTHORIZED/REFUSED/NOT-OFFERED and the identity
 admin_prompt() { "${V[@]}" "python3 -I /tmp/adminprompt.py$(q "$@")" 2>&1; }
 reset_locks() { "${V[@]}" 'for u in alice bob carol dave tester; do sudo faillock --user $u --reset 2>/dev/null; done; true'; }
-pam_stock() { local f; for f in system-auth omarchy-lock-password; do "${V[@]}" "cat /etc/pam.d/$f" | diff -q - "fixtures/pam.d/$f" >/dev/null || return 1; done; }
+pam_stock() { local f; for f in system-auth omarchy-lock-password sddm; do "${V[@]}" "cat /etc/pam.d/$f" | diff -q - "fixtures/pam.d/$f" >/dev/null || return 1; done; }
 
 # enroll [extra args]: enroll with the lab directory (password on stdin); prints the output. Faillock is reset after,
 # because before enrollment directory users don't resolve and the reset is a silent no-op.

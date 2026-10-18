@@ -46,9 +46,13 @@ directory is unreachable or the directory service on the laptop is stopped. The 
 
 ## Passwords
 
-People change their directory password with `passwd` in a terminal, and the directory's password rules apply. If a
-password has **expired**, the login screen can't ask for a new one yet: the person changes it on a text console
-(Ctrl+Alt+F3) or in your web portal, then signs in normally.
+People change their directory password with `passwd` in a terminal, and the directory's password rules apply.
+
+If a password has **expired** (or you set "change at next sign-in"), the person signs in at the login screen with it as
+usual and gets a full-screen "Your password has expired" screen before the desktop. They type the current password,
+then the new one twice; the directory's own messages ("too short", "used before") appear there. Once it's changed, the
+desktop starts. If they give up, they're back at the login screen. Nothing else (the lock screen, `ssh`, `sudo`) lets an
+expired password in. The screen appears after the first restart following `enroll`.
 
 ## Admin rights
 

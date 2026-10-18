@@ -17,7 +17,9 @@ Only the Active Directory provider exists so far. With it:
 - A wrong password, an unknown group or an unreachable domain controller stops enrollment before sign-in changes.
 - Local accounts keep working when the directory service is stopped or missing.
 - Cached sign-in while the domain controller is down.
-- Changing a directory password with `passwd`, and handling an expired one.
+- Changing a directory password with `passwd`; an expired one at the login screen: let through to the change-password
+  screen (wrong password refused, counted once by the directory), changed there, then the desktop; giving up returns
+  to the login screen.
 - Repair after a package update overwrites the configuration; installing and removing the package.
 - The login screen theme in SDDM.
 
@@ -29,6 +31,7 @@ On an Omarchy laptop enrolled in a Windows Server 2025 domain (one domain contro
 - Signing in at Omarchy's login screen, on a text console and at the lock screen, as people in the allowed group.
 - `sudo` for the people in the admin group and not for anyone else; someone outside the allowed group is refused.
 - Running `omarchy update`: sign-in kept working.
+- Not yet: the change-password screen for an expired password (tested in the lab only).
 
 ## Not tested
 
@@ -39,8 +42,6 @@ On an Omarchy laptop enrolled in a Windows Server 2025 domain (one domain contro
 
 ## Known limits
 
-- **Expired passwords at the login screen.** The login screen can't ask for a new password yet; change it on a text
-  console or in your web portal.
 - **`su`** doesn't work for directory users on Arch (it never asks the directory). Use `sudo`, or `sudo -iu` to
   become another user.
 - **Graphical admin prompts** don't say whose password they want. People in the admin group are asked for their own;

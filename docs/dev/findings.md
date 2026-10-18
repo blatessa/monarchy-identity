@@ -23,6 +23,15 @@ something.
   process holding `/run/monarchy-identity.lock` blocks every later enroll/policy/reassert: find stale processes by PID, never `pkill -f`.
 - `pam_faillock` (deny=10) applies to directory users too.
 - `pam_sss` refuses password changes initiated by root: test as the user.
+- An expired AD password: `pam_sss` auth logs "authentication failure ... 12" but returns success; the 12 comes from
+  `pam_acct_mgmt`, and only within the handle that authenticated (a separate account-only check says nothing).
+- SDDM never calls `pam_chauthtok`; "new password required" is a failed sign-in. It reads `sddm.conf.d` only at start.
+- A session command that exits 1 makes `sddm-helper` exit 1, which SDDM reads as an authentication error: it waits for
+  the greeter it already closed and the screen stays black. End a refused session with 0.
+- Hyprland 0.56 config is Lua; `hyprctl dispatch exit` is now `hyprctl dispatch 'hl.dsp.exit()'`. It runs in the lab
+  VM (`-vga std`, software rendering).
+- Hyprland opens an "updated to X" news window on a user's second start, which takes the keyboard: the change-password
+  screen sets `ecosystem.no_update_news`. `hyprctl configerrors` (from inside) is how to check a Lua config.
 - `lib/pamedit.py` computes skip counts from the file so it is safe next to Omarchy's `pam_systemd_home` lines; `remove` restores byte-identical.
 
 ## Samba / Kerberos / AD

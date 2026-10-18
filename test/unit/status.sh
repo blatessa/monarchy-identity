@@ -17,7 +17,7 @@ mkdir -p "$T/themes/monarchy-identity"; touch "$T/themes/monarchy-identity/Main.
 enroll --groups oi-laptop-users >/dev/null
 oi status --json
 [[ $(js 'd["enrolled"], d["provider"], d["login_mode"], d["autologin"], d["login_theme"], d["username_field"]') == "True ad groups False monarchy-identity True" ]] && ok "enrolled, ad, groups, autologin off, our theme" || bad "values: $OUT"
-[[ $(js 'sorted(d["details"])') == "['domain_joined', 'nss_sss', 'pam_omarchy_lock_password', 'pam_system_auth', 'sssd_active']" ]] && ok "details fields" || bad "details: $OUT"
+[[ $(js 'sorted(d["details"])') == "['domain_joined', 'nss_sss', 'pam_omarchy_lock_password', 'pam_sddm', 'pam_system_auth', 'sssd_active']" ]] && ok "details fields" || bad "details: $OUT"
 [[ $(js 'set(d["details"].values())') == "{'true'}" ]] && ok "every check true on a healthy machine" || bad "checks: $(js 'd["details"]')"
 oi_user status --json; [[ $(js 'd["details"]["domain_joined"]') == unknown ]] && ok "domain_joined is unknown without root" || bad "non-root details: $OUT"
 

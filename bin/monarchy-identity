@@ -37,7 +37,7 @@ cmd_status() {
   if [[ $enrolled == true && -x $ROOT/providers/$provider/status ]]; then
     while IFS='=' read -r k v; do details+="${details:+,}\"$k\":\"$(json_escape "$v")\""; done \
       < <("$ROOT/providers/$provider/status" 2>/dev/null)
-    for f in "${PAM_FILES[@]}"; do   # the PAM edit is the core's, whatever the provider
+    for f in "${PAM_FILES[@]}" "$GREETER_PAM"; do   # the PAM edit is the core's, whatever the provider
       v=false; python3 -I "$PAMEDIT" check "$ETC/pam.d/$f" 2>/dev/null && v=true
       details+="${details:+,}\"pam_${f//-/_}\":\"$v\""
     done

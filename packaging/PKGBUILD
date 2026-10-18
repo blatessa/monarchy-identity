@@ -14,7 +14,7 @@ _root="$startdir/.."
 
 package_monarchy-identity() {
   install=monarchy-identity.install
-  depends=(bash python sssd samba krb5)
+  depends=(bash python sssd samba krb5 hyprland foot gum)   # the last three: the change-password screen
   backup=(etc/monarchy-identity/config.toml)
 
   install -Dm755 "$_root/bin/monarchy-identity" "$pkgdir/usr/bin/monarchy-identity"
@@ -23,7 +23,8 @@ package_monarchy-identity() {
   cp -a "$_root/providers/." "$pkgdir/usr/share/monarchy-identity/providers/"
   install -d "$pkgdir/usr/share/monarchy-identity/lib"
   install -m755 "$_root/lib/pamedit.py" "$pkgdir/usr/share/monarchy-identity/lib/"
-  install -m644 "$_root/lib/common.sh" "$pkgdir/usr/share/monarchy-identity/lib/"
+  install -m644 "$_root/lib/common.sh" "$_root/lib/password-change.lua" "$pkgdir/usr/share/monarchy-identity/lib/"
+  install -m755 "$_root/lib/password-expired" "$_root/lib/sddm-session" "$pkgdir/usr/share/monarchy-identity/lib/"
 
   install -d "$pkgdir/usr/share/monarchy-identity/hooks/post-update.d"
   install -m755 "$_root/hooks/reassert.sh" "$pkgdir/usr/share/monarchy-identity/hooks/reassert.sh"

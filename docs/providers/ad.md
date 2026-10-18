@@ -85,7 +85,7 @@ reuses the computer account it created.
 
 `status --json` reports these under `details`: `sssd_active` (the directory client is running), `nss_sss` (the laptop
 looks up users in the directory), `pam_system_auth` and `pam_omarchy_lock_password` (sign-in and the lock screen use
-the directory), `domain_joined` (the computer account works; only known as root).
+the directory), `pam_sddm` (the login screen lets an expired password through to be changed), `domain_joined` (the computer account works; only known as root).
 
 ## Known gaps
 

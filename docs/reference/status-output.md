@@ -16,6 +16,7 @@
     "nss_sss": "true",
     "pam_system_auth": "true",
     "pam_omarchy_lock_password": "true",
+    "pam_sddm": "true",
     "domain_joined": "true"
   }
 }
