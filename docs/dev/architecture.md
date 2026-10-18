@@ -146,7 +146,7 @@ account     include     system-login
   none, and who may sign in is still enforced by the re-check's account step (an expired user outside the allowed
   groups gets no mark).
 - **session:** SDDM's `SessionCommand` is `lib/sddm-session`. Marked: a Hyprland with `lib/password-change.lua` (no
-  binds) runs `foot` with a `gum` header and the real `passwd`; changed → `exec` SDDM's own `wayland-session` with the
+  binds) runs `foot`, with an empty config and its shortcuts that start programs (a new terminal, the URL opener) off, with a `gum` header and the real `passwd`; changed → `exec` SDDM's own `wayland-session` with the
   session's arguments, otherwise exit 0 (exit 1 would be read as SDDM's helper failing to authenticate, leaving a black
   screen). An X11 session can't host it: marked → exit 0.
 - **SDDM reads its config once.** Until it restarts after enroll, it would run the stock session command and the

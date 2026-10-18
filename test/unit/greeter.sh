@@ -39,4 +39,10 @@ rm -f "$T/no-compositor"; printf '#!/bin/sh\necho "$*" > "%s/xstock"\n' "$T" > "
 xsession() { rm -f "$T/xstock" "$T/kiosk"; PATH="$B:$PATH" USER=dave XDG_SESSION_TYPE=x11 MONARCHY_IDENTITY_SDDM_XSESSION="$T/xsession" "$L/sddm-session" "$@" >/dev/null 2>&1; }
 xsession openbox; [[ $? == 0 && ! -e $T/kiosk && ! -e $T/xstock ]] && ok "X11, pending: back to the login screen (no change screen there)" || bad "x11 pending"
 rm -f "$T/pending"; xsession openbox; [[ $(cat "$T/xstock" 2>/dev/null) == openbox ]] && ok "X11, not pending: SDDM's own Xsession" || bad "x11 not pending"
+
+echo "[the change screen's terminal is the only way out]"
+foot=$(sed -n 's/^local FOOT = "\(.*\) "$/\1/p' "$REPO/lib/password-change.lua")
+[[ $foot == *" --config=/dev/null "* && $foot == *"spawn-terminal=none"* && $foot == *"show-urls-launch=none"* ]] \
+  && ok "foot ignores the person's config and can't start a shell or a URL opener" || bad "foot command: ${foot:-<not found>}"
+! command -v foot >/dev/null || $foot --check-config 2>/dev/null && ok "foot accepts those options (when installed)" || bad "foot rejects: $foot"
 result
