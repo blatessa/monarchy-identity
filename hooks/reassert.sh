@@ -3,15 +3,12 @@
 # Shared by the alpm hook and hooks/post-update.d/*. Idempotent; exits 0 when not enrolled.
 set -u
 
-CONF="${MONARCHY_IDENTITY_CONF:-/etc/monarchy-identity/config.toml}"
 TAG=monarchy-identity
+source "$(dirname "$(readlink -f "$0")")/../lib/common.sh"   # the config reader (installed at ../lib, as in the repo)
 
 log() { logger -t "$TAG" -- "reassert: $*" 2>/dev/null || true; echo "$TAG: reassert: $*" >&2; }
 
-provider=""
-if [[ -r $CONF ]]; then
-  provider=$(sed -n 's/^provider[[:space:]]*=[[:space:]]*"\?\([^"]*\)"\?[[:space:]]*$/\1/p' "$CONF" | head -1)
-fi
+provider=$(conf_get provider "") || { log "cannot read $OI_CONF, skipping"; exit 0; }
 
 if [[ -z $provider || $provider == local ]]; then
   log "not enrolled (provider='${provider:-unset}'), nothing to do"

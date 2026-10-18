@@ -7,25 +7,58 @@ log() { echo "monarchy-identity: $*" >&2; logger -t monarchy-identity -- "$*" 2>
 die() { log "ERROR: $*"; exit 1; }
 need_root() { [[ $EUID -eq 0 ]] || die "this needs administrator rights: run it with sudo"; }
 
-kv_get() { # kv_get file key default: a value from a flat `key = "value"` file
-  local v=""
-  [[ -r $1 ]] && v=$(sed -n "s/^$2[[:space:]]*=[[:space:]]*\"\?\([^\"]*\)\"\?$/\1/p" "$1" | head -1)
-  echo "${v:-${3:-}}"
+# --- config files ----------------------------------------------------------------------------------
+# config.toml and the providers' pam.conf are a flat subset of TOML: `key = "value"` lines, # comments, blank lines.
+# Values are basic strings with the escapes \" \\ \n \t. Anything else is refused with its line number rather than
+# guessed at: these files decide who may sign in, and an MDM may write them.
+declare -gA OI_KV=(); OI_KV_KEYS=()
+OI_KV_LINE='^[[:space:]]*([A-Za-z0-9_-]+)[[:space:]]*=[[:space:]]*"(([^"\\]|\\.)*)"[[:space:]]*(#.*)?$'
+kv_read() { # kv_read FILE: loads OI_KV and OI_KV_KEYS (in file order); empty if FILE is missing; dies on a bad line
+  OI_KV=(); OI_KV_KEYS=()
+  [[ -r $1 ]] || return 0
+  local line n=0 key raw val i c
+  while IFS= read -r line || [[ -n $line ]]; do
+    ((++n))
+    [[ $line =~ ^[[:space:]]*(#.*)?$ ]] && continue
+    [[ $line =~ $OI_KV_LINE ]] || die "$1 line $n is not key = \"value\""
+    key=${BASH_REMATCH[1]} raw=${BASH_REMATCH[2]} val=""
+    [[ -z ${OI_KV[$key]+set} ]] || die "$1 line $n sets '$key' a second time"
+    for ((i = 0; i < ${#raw}; i++)); do
+      c=${raw:i:1}
+      if [[ $c == '\' ]]; then
+        ((++i)); c=${raw:i:1}
+        case $c in n) c=$'\n' ;; t) c=$'\t' ;; '"' | '\') ;; *) die "$1 line $n has an unknown escape '\\$c'" ;; esac
+      fi
+      val+=$c
+    done
+    OI_KV[$key]=$val; OI_KV_KEYS+=("$key")
+  done < "$1"
+}
+kv_get() { # kv_get file key default: a value from a config file (the default when it is missing or empty)
+  kv_read "$1"
+  local v=${OI_KV[$2]-}
+  printf '%s\n' "${v:-${3:-}}"
 }
 conf_get() { kv_get "$OI_CONF" "$@"; }   # conf_get key default
+conf_check() { kv_read "$OI_CONF"; }     # dies on a malformed config.toml (run in the main shell, not in $(...))
 
 conf_write() { # conf_write key=value ... (rewrites whole file, root:root 0644)
+  local kv k v out=""
+  for kv in "$@"; do
+    k=${kv%%=*} v=${kv#*=}
+    [[ $k =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid config key '$k'"
+    v=${v//\\/\\\\}; v=${v//\"/\\\"}; v=${v//$'\n'/\\n}; v=${v//$'\t'/\\t}
+    [[ ! $v =~ [[:cntrl:]] ]] || die "the value for $k has control characters"
+    out+="$k = \"$v\""$'\n'
+  done
   install -d -m 0755 "$(dirname "$OI_CONF")"
-  : > "$OI_CONF.tmp"
-  local kv; for kv in "$@"; do printf '%s = "%s"\n' "${kv%%=*}" "${kv#*=}" >> "$OI_CONF.tmp"; done
+  printf '%s' "$out" > "$OI_CONF.tmp"
   chmod 0644 "$OI_CONF.tmp"; mv "$OI_CONF.tmp" "$OI_CONF"
 }
 conf_set() { # conf_set key=value ...: changes these keys and keeps the others (the core's and the provider's)
-  local kv keep=()
-  if [[ -r $OI_CONF ]]; then
-    while IFS= read -r kv; do [[ " ${*%%=*} " == *" ${kv%%=*} "* ]] || keep+=("$kv"); done \
-      < <(sed -n 's/^\([A-Za-z0-9_]*\)[[:space:]]*=[[:space:]]*"\?\([^"]*\)"\?$/\1=\2/p' "$OI_CONF")
-  fi
+  local kv k keep=() new=" ${*%%=*} "
+  kv_read "$OI_CONF"
+  for k in "${OI_KV_KEYS[@]}"; do [[ $new == *" $k "* ]] || keep+=("$k=${OI_KV[$k]}"); done
   conf_write "${keep[@]}" "$@"
 }
 

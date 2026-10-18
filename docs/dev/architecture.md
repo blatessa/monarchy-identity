@@ -68,6 +68,11 @@ The PAM, nsswitch, SDDM and sudoers rows apply to every provider; the rest are t
 | `/etc/polkit-1/rules.d/49-monarchy-identity.rules` | Admin identities for graphical admin prompts: `wheel` plus the sudo groups (only when polkit's rules directory exists) | Deleted |
 | `/etc/monarchy-identity/config.toml` | Provider and policy state | Reset to `provider = "local"` |
 
+`config.toml` (and each provider's `pam.conf`) is a flat subset of TOML: `key = "value"` lines, `#` comments and blank
+lines, values escaped with `\"`, `\\`, `\n`, `\t`. `lib/common.sh` reads and writes it (`conf_get`, `conf_set`); a
+line outside that shape, an unknown escape or a repeated key stops every command that reads the file, naming the line,
+rather than falling back to defaults. An MDM may manage the file, so it is parsed strictly, not guessed at.
+
 Everything else stays in `/etc` drop-ins or marked blocks; never edit `/usr/share/omarchy/` (package-owned).
 
 ## The PAM edit
