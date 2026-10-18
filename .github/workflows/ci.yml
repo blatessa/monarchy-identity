@@ -39,8 +39,6 @@ jobs:
         run: bash test/unit/run.sh
       - name: Reassert hook
         run: bash hooks/test-reassert.sh
-      - name: Shell widget
-        run: bash shell-plugin/tests/run.sh
 
   package:
     name: Build the Arch package

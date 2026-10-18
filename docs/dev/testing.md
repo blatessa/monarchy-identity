@@ -25,7 +25,6 @@ screen.
 test/unit/run.sh                  # all of it
 bash test/unit/pam.sh             # or one suite
 bash hooks/test-reassert.sh       # reassert hook wrapper
-bash shell-plugin/tests/run.sh    # widget manifest, Model.js (needs node), qmllint when installed
 ```
 
 `test/unit/lib.sh` builds a sandbox per suite: a temp `/etc` seeded with the lab's Omarchy PAM and SDDM fixtures
@@ -38,7 +37,7 @@ Paths come from the `MONARCHY_IDENTITY_*` overrides. Knobs are `STUB_*` variable
 |---|---|
 | `refused` | Everything `enroll` must refuse before sign-in changes: bad input, wrong password, unknown group, DC down, colliding or generic names, unsafe password files. Each refusal leaves the temp `/etc` unchanged. |
 | `policy` | Implied modes, `policy set` changing only what's passed, refusals, `--if-needed`, generated `sssd.conf` and sudoers, autologin |
-| `enroll` | `--computer-name`, `--ou`, password sources, `--replace-computer-account`, re-running a half-finished enrollment, login theme, hook and widget installers |
+| `enroll` | `--computer-name`, `--ou`, password sources, `--replace-computer-account`, re-running a half-finished enrollment, login theme, hook installer |
 | `pam` | PAM/nsswitch/SDDM edits on Omarchy's real files: apply, remove, idempotent, skip counts, another provider's module, unsafe module arguments refused; `leave` removes only marked files; autologin merge order |
 | `provider` | The provider contract, against `test/unit/stub-provider` installed next to `ad`: the core validates shared options, the provider gets only its own plus the resolved policy, its PAM module is inserted, `policy`, `--if-needed`, `status`, `reassert`, `leave` |
 | `status` | `status --json` shape and that its checks follow reality |
@@ -138,7 +137,7 @@ explicit check (`e2e`, `unit/refused`) instead of relying on a second run.
 `.github/workflows/ci.yml` runs on pushes to `main` and on pull requests (skipped for documentation-only changes; a
 newer push cancels the run in progress):
 
-- **Unit tests and lint**: shellcheck (errors only), Python syntax, the fast layer (`test/unit/run.sh`), the hook test, the widget test.
+- **Unit tests and lint**: shellcheck (errors only), Python syntax, the fast layer (`test/unit/run.sh`), the hook test.
 - **Build the Arch package**: `makepkg` in an `archlinux:base-devel` container and a check of the package contents.
 
 The lab suites need KVM and Docker and run locally.
@@ -159,7 +158,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 ## Not yet verified
 
 The lab suites against a Windows DC (Windows Server 2025 was only tried by hand, on a real Omarchy laptop: greeter, lock screen,
-console, `omarchy update`), every non-AD directory (no providers yet), and the widget in a live shell.
+console, `omarchy update`), and every non-AD directory (no providers yet).
 
 ## Building these docs
 

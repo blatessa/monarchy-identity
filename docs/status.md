@@ -35,7 +35,6 @@ On an Omarchy laptop enrolled in a Windows Server 2025 domain (one domain contro
 - The automated lab suites against a Windows domain controller (only tried by hand so far), and domains with several
   controllers or sites.
 - Every other directory: Microsoft Entra ID, Okta, Google Workspace and FreeIPA providers aren't written yet.
-- The bar widget in a live Omarchy shell.
 - Cached sign-in actually expiring after `--offline-days`.
 
 ## Known limits

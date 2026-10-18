@@ -19,8 +19,6 @@ Usage: monarchy-identity <command>
   reassert                   Re-apply managed /etc edits (run after updates; root)
   install-hooks              Install the post-update hook for the current user (not root)
   remove-hooks               Remove that hook
-  install-widget [--enable]  Install the bar widget into ~/.config/omarchy/plugins (validated; not root)
-  remove-widget              Remove it
   providers                  List available providers
 EOF
 }
@@ -247,21 +245,6 @@ case "${1:-}" in
       if command -v omarchy >/dev/null 2>&1; then omarchy hook install post-update "$hook_src"   # Omarchy's own installer
       else install -D -m 0755 "$hook_src" "$hook_dst"; echo "installed $hook_dst"; fi
     else rm -f "$hook_dst"; echo "removed $hook_dst"; fi ;;
-  install-widget|remove-widget)
-    [[ $EUID -ne 0 ]] || { echo "run as the desktop user, not root (Omarchy plugins live in ~/.config/omarchy/plugins)" >&2; exit 1; }
-    wsrc="$ROOT/shell-plugin"; [[ -f $wsrc/manifest.json ]] || { echo "widget not found at $wsrc (install the monarchy-identity-shell package)" >&2; exit 1; }
-    wid=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$wsrc/manifest.json")
-    wdst="$HOME/.config/omarchy/plugins/$wid"
-    if [[ $1 == remove-widget ]]; then
-      if command -v omarchy >/dev/null 2>&1; then omarchy plugin disable "$wid" >/dev/null 2>&1 || true; fi
-      rm -rf "$wdst"; echo "removed $wid"
-    else
-      if command -v omarchy >/dev/null 2>&1; then omarchy plugin validate "$wsrc" || exit 1; fi   # refuse what the shell would reject
-      rm -rf "$wdst"; install -d "$wdst"
-      for f in manifest.json Panel.qml Model.js README.md; do [[ -f $wsrc/$f ]] && install -m 0644 "$wsrc/$f" "$wdst/$f"; done
-      echo "installed $wid -> $wdst"
-      if [[ ${2:-} == --enable ]]; then omarchy plugin enable "$wid" --section right; else echo "enable it with: omarchy plugin enable $wid --section right"; fi
-    fi ;;
   policy) shift; cmd_policy "$@" ;;
   reassert) cmd_reassert ;;
   leave) shift; cmd_leave "$@" ;;

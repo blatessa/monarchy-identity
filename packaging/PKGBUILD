@@ -1,6 +1,6 @@
 # Maintainer: Monarchy contributors
 pkgbase=monarchy-identity
-pkgname=(monarchy-identity monarchy-identity-shell)
+pkgname=(monarchy-identity)
 pkgver=0.1.0
 pkgrel=1
 pkgdesc='Directory sign-in for Omarchy'
@@ -43,13 +43,4 @@ package_monarchy-identity() {
   cp -a "$_root/docs/." "$pkgdir/usr/share/doc/monarchy-identity/"
   find "$pkgdir/usr/share/doc/monarchy-identity" -type d -exec chmod 755 {} + -o -type f -exec chmod 644 {} +
   install -Dm644 "$_root/LICENSE" "$pkgdir/usr/share/licenses/monarchy-identity/LICENSE"
-}
-
-package_monarchy-identity-shell() {
-  pkgdesc='Optional Omarchy shell status widget for monarchy-identity (cosmetic, not a security boundary)'
-  depends=(monarchy-identity)
-
-  install -d "$pkgdir/usr/share/monarchy-identity/shell-plugin"
-  [[ -d $_root/shell-plugin ]] && cp -a "$_root/shell-plugin/." "$pkgdir/usr/share/monarchy-identity/shell-plugin/"
-  return 0
 }

@@ -19,7 +19,7 @@ Status: prototype; only the AD provider exists, verified in a VM against Samba A
 ## Hard rules
 - **Never test PAM/sssd/nsswitch/SDDM changes on the host machine.** A bad PAM edit locks the owner out. Use the QEMU VM lab (`test/`).
 - Never edit `/usr/share/omarchy/` (package-owned, overwritten by `omarchy update`). Use `/etc` drop-ins and markers.
-- Enforcement lives in root-owned `/etc`. The shell widget is cosmetic, never a security boundary.
+- Enforcement lives in root-owned `/etc`.
 - Default is deny. Local accounts must keep working when sssd or `pam_sss.so` is missing or broken (that's PAM correctness, not an undo feature).
 - **Scope is authentication.** Enrollment, who may sign in, directory-provided authorization (sudo groups, offline lifetime, later GPO), keeping it working across updates, `leave`. No device posture/compliance, inventory, hardening, tamper resistance or undo machinery (timers, backups, rollback): that's the MDM's or the deployer's job. Test: would it belong in a plain Linux directory client? See `docs/dev/architecture.md#scope`.
 - No AUR dependencies (the AD provider joins with samba `net ads join`; home dirs via `pam_mkhomedir`). A directory whose client is AUR-only needs an owner decision first.
@@ -27,23 +27,22 @@ Status: prototype; only the AD provider exists, verified in a VM against Samba A
 - Don't publish, tag, force-push or change repo settings without the owner asking.
 
 ## Layout
-    bin/monarchy-identity    core CLI (status|enroll|leave|policy|reassert|install-hooks|install-widget|providers)
+    bin/monarchy-identity    core CLI (status|enroll|leave|policy|reassert|install-hooks|providers)
     providers/<name>/        one per directory (ad today): enroll matches unenroll policy reassert status detect pam.conf (+lib.sh)
     lib/                     common.sh, pamedit.py (idempotent BEGIN/END-marked PAM editor; the provider names the module)
     sddm-theme/              login theme: Omarchy's look + a username field (stock theme only logs in the last user)
     hooks/                   reassert.sh + post-update wrapper
-    packaging/               PKGBUILD (monarchy-identity + -shell), alpm hook, install scriptlet, default config
-    shell-plugin/            optional Quickshell bar widget (id monarchy-identity.status)
+    packaging/               PKGBUILD, alpm hook, install scriptlet, default config
     test/                    dc (Samba AD container for the ad provider), vm (Arch QEMU client, lib.sh + e2e suites), unit (+ stub-provider)
     docs/                    MkDocs site (user-facing docs + developer pages)
     .github/workflows/       ci.yml, release.yml, docs.yml
 
 ## Commands
-Prerequisites for the lab: Docker, QEMU/KVM + OVMF, ssh, python3, node (widget tests). Details: `docs/dev/testing.md`.
+Prerequisites for the lab: Docker, QEMU/KVM + OVMF, ssh, python3, node (polkit rule tests). Details: `docs/dev/testing.md`.
 
     test/lab-check.sh                 # prerequisites + lab state; prints the exact fix for anything missing
     test/unit/run.sh                                                                   # fast layer: real CLI, temp /etc, stub commands; seconds, no lab or root
-    bash hooks/test-reassert.sh; bash shell-plugin/tests/run.sh                        # no lab needed
+    bash hooks/test-reassert.sh                                                        # no lab needed
     cd test/dc && docker compose up -d && ./seed-users.sh                              # directory
     (cd test/vm && ./fetch-image.sh && (setsid ./run.sh </dev/null >vm.log 2>&1 &))   # VM; makes its own ssh key; first boot ~1 min
     test/vm/deploy.sh [--fixtures]    # push repo to the VM (--fixtures resets PAM to stock Omarchy, removes the package)

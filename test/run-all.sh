@@ -4,7 +4,6 @@
 cd "$(dirname "$0")/.."
 suites=(
   "bash hooks/test-reassert.sh"
-  "bash shell-plugin/tests/run.sh"
   "test/unit/run.sh"
   "test/vm/e2e.sh"
   "test/vm/e2e-offline.sh"

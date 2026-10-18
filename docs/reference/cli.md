@@ -12,7 +12,6 @@ monarchy-identity <command> [options]
 | [`leave`](#leave) | root | Disconnect from the directory and remove directory sign-in |
 | [`reassert`](#reassert) | root | Put the sign-in configuration back if something overwrote it |
 | [`install-hooks`, `remove-hooks`](#install-hooks-remove-hooks) | desktop user | Omarchy post-update hook |
-| [`install-widget`, `remove-widget`](#install-widget-remove-widget) | desktop user | Bar widget |
 | [`providers`](#providers) | anyone | List the installed directory providers |
 
 Every command exits 0 on success and 1 on failure, with the reason on standard error and in the journal
@@ -103,16 +102,6 @@ monarchy-identity remove-hooks
 ```
 
 Adds or removes an Omarchy post-update hook that runs `reassert` after `omarchy update`. Run as the desktop user.
-
-## install-widget, remove-widget
-
-```text
-monarchy-identity install-widget [--enable]
-monarchy-identity remove-widget
-```
-
-Adds or removes the Omarchy bar widget (needs the `monarchy-identity-shell` package). `--enable` also shows it in the
-bar. Run as the desktop user.
 
 ## providers
 
