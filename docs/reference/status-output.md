@@ -26,7 +26,7 @@
 |---|---|
 | `schema` | Format version. New fields can be added without changing it; removing or changing one bumps it. |
 | `enrolled` | The laptop is connected to a directory. |
-| `provider` | The [provider](../providers/index.md) in use, such as `ad`, or `local` when not enrolled. |
+| `provider` | The provider in use, such as `ad`, or `local` when not enrolled. |
 | `login_mode` | Who may sign in: `groups`, `assigned` (listed users), `any`, or `none` when not enrolled. |
 | `autologin` | Omarchy signs a user in automatically at boot. |
 | `login_theme` | The login screen theme in use. |

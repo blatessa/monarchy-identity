@@ -41,16 +41,12 @@ nav:
   - Guides:
       - Roll out to a fleet: guides/rollout.md
       - Automate enrollment: guides/automation.md
-      - Change who may sign in: guides/change-policy.md
-      - Omarchy integration: guides/omarchy-integration.md
-      - Leave and uninstall: guides/leave-and-uninstall.md
+      - Manage enrolled laptops: guides/manage.md
       - Troubleshooting: guides/troubleshooting.md
   - Reference:
       - CLI: reference/cli.md
       - Status output: reference/status-output.md
-  - Providers:
-      - Overview: providers/index.md
-      - Active Directory: providers/ad.md
+  - Active Directory: providers/ad.md
   - Status and limits: status.md
   - Development:
       - Architecture: dev/architecture.md

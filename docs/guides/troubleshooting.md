@@ -19,8 +19,7 @@ Start with `monarchy-identity status`, `monarchy-identity policy show` and `jour
 
 ## Opening someone's home folder asks for a password
 
-Each person's home folder is private to them. Your file manager asks for your password to open another person's,
-as an administrator. That's expected.
+Home folders are private to their owner, so opening another person's needs administrator rights.
 
 ## Directory sign-in stopped working for everyone
 
@@ -33,15 +32,9 @@ laptop needs re-enrolling, run `leave` and `enroll` again.
 
 ## `enroll` refuses
 
-| Message contains | What to do |
-|---|---|
-| `say who may sign in` | Add `--groups` or `--users` (or `--mode any`). |
-| `has no group named` | Check the group's name in the directory. Nothing was changed. |
-| `accessible by group/other` | `chmod 600` the password file. |
-
-Anything else is specific to your directory: see the provider page's troubleshooting, for example
-[Active Directory](../providers/ad.md#troubleshooting). If `enroll` stops partway (for example the network dropped),
-fix the cause and run the same command again.
+`say who may sign in`: add `--groups` or `--users`. `has no group named`: check the name in the directory.
+`accessible by group/other`: `chmod 600` the password file. The rest: [Active Directory](../providers/ad.md#troubleshooting).
+A refusal changes nothing; if `enroll` stops partway, fix the cause and run the same command again.
 
 ## Getting back in
 

@@ -23,8 +23,8 @@ Every command exits 0 on success and 1 on failure, with the reason on standard e
 monarchy-identity status [--json]
 ```
 
-Shows whether the laptop is enrolled, the provider, the login mode and whether autologin is on. `--json` prints the
-same and more for scripts: see [Status output](status-output.md).
+Shows whether the laptop is enrolled, the provider, the login mode and autologin. `--json` adds health checks, for
+scripts: [Status output](status-output.md).
 
 ## enroll
 
@@ -32,18 +32,12 @@ same and more for scripts: see [Status output](status-output.md).
 monarchy-identity enroll [PROVIDER] [provider options] (--groups A,B | --users U1,U2 | --mode any) [options]
 ```
 
-Connects the laptop to a directory and turns on directory sign-in. `PROVIDER` names the directory's
-[provider](../providers/index.md); when only one is installed (today, `ad`), it can be left out. `enroll --help` lists
-every option, and `enroll PROVIDER --help` adds that provider's. A laptop enrolled with one directory must `leave`
-before enrolling with another.
-
-Before it changes anything, `enroll` checks what the directory can check (credentials, that the groups you named
-exist), so typos fail without touching the laptop. A refusal says why: a wrong password, a domain controller DNS
-can't find and one that doesn't answer each read differently, and a refused join shows the directory's reason. Each
-provider page lists the common messages, for example [Active Directory](../providers/ad.md#troubleshooting).
-
-**Provider options** are on each provider's page, for example [Active Directory](../providers/ad.md#enroll-options)
-(`--realm`, `--admin`, `--ou`, ...).
+Connects the laptop to a directory and turns on directory sign-in. `PROVIDER` is `ad` (Active Directory), the only
+one today; with one installed it can be left out. Its options (`--realm`, `--admin`, `--ou`, ...) are on the
+[Active Directory page](../providers/ad.md#enroll-options), with the messages it can refuse with. `enroll --help` lists
+every option. Before it changes anything, `enroll` checks what the directory can (credentials, that the groups exist),
+so mistakes fail without touching the laptop. A laptop enrolled with one directory must `leave` before enrolling with
+another.
 
 **Who may sign in** (see [Who may sign in](../concepts/login-policy.md)). One is required.
 
@@ -71,9 +65,8 @@ monarchy-identity policy show
 monarchy-identity policy set [--groups a,b | --users u1,u2 | --mode any] [--sudo-groups g1,g2 | -] [--offline-days N]
 ```
 
-`show` prints the directory, who may sign in, `sudo` groups and offline days, plus provider details (for Active
-Directory, the computer name). `set` changes only the options you pass; `--sudo-groups -` removes `sudo`. See
-[Change who may sign in](../guides/change-policy.md).
+`show` prints who may sign in, `sudo` groups, offline days and the directory's details. `set` changes only the options
+you pass; `--sudo-groups -` removes `sudo`. See [Manage enrolled laptops](../guides/manage.md).
 
 ## leave
 
@@ -81,9 +74,8 @@ Directory, the computer name). `set` changes only the options you pass; `--sudo-
 monarchy-identity leave [provider options] [--quiet]
 ```
 
-Disconnects the laptop from the directory and removes directory sign-in. Provider options (such as Active Directory's
-`--admin`, to delete the computer account) are on the provider's page. See
-[Leave and uninstall](../guides/leave-and-uninstall.md).
+Disconnects the laptop from the directory and removes directory sign-in. Active Directory's `--admin` also deletes the
+computer account. See [Manage enrolled laptops](../guides/manage.md#leave-the-directory).
 
 ## reassert
 
@@ -91,8 +83,8 @@ Disconnects the laptop from the directory and removes directory sign-in. Provide
 monarchy-identity reassert
 ```
 
-Puts the sign-in configuration back if an update or a person overwrote it, and starts the directory service if it has
-stopped. Runs automatically after package updates; safe to run any time.
+Puts the sign-in configuration back if something overwrote it, and starts the directory service if it stopped. Runs
+automatically after package updates; safe any time.
 
 ## install-hooks, remove-hooks
 
@@ -101,7 +93,7 @@ monarchy-identity install-hooks
 monarchy-identity remove-hooks
 ```
 
-Adds or removes an Omarchy post-update hook that runs `reassert` after `omarchy update`. Run as the desktop user.
+Adds or removes an Omarchy post-update hook that runs `reassert` after `omarchy update`.
 
 ## providers
 
@@ -109,4 +101,4 @@ Adds or removes an Omarchy post-update hook that runs `reassert` after `omarchy 
 monarchy-identity providers
 ```
 
-Lists the directory providers installed. See [Providers](../providers/index.md).
+Lists the directory providers installed.

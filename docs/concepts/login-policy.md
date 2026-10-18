@@ -1,12 +1,9 @@
 # Who may sign in
 
 A directory usually has far more people than any one laptop should admit. The **login policy** says which of them may
-sign in on an enrolled laptop. It applies everywhere people sign in: login screen, lock screen, terminal, `ssh` and
-`sudo`.
+sign in on an enrolled laptop, everywhere people sign in: login screen, lock screen, terminal, `ssh` and `sudo`.
 
 **Nobody is allowed by default.** When you enroll you say who is.
-
-## Choosing
 
 | You say | Who may sign in | Use it when |
 |---|---|---|
@@ -14,23 +11,11 @@ sign in on an enrolled laptop. It applies everywhere people sign in: login scree
 | `--users alice,bob` | Only those people | A few machines, or a personal laptop. |
 | `--mode any` | Everyone in the directory | Rarely: only if the directory itself holds just the right people. |
 
-Different laptops can use different groups (one per team, for example).
+Different laptops can use different groups (one per team, for example). Use names the way your directory shows them;
+Active Directory uses short names like `alice`.
 
-## Names
+The policy doesn't cover local accounts (they always work) or admin rights (`--sudo-groups`, see
+[How sign-in works](how-it-works.md#admin-rights)). A correct password from someone who isn't allowed fails the same way
+as a wrong one; [Troubleshooting](../guides/troubleshooting.md#a-directory-user-is-refused) shows how to tell them apart.
 
-Use names the way your directory shows them to the laptop; the provider page says which form that is (Active Directory
-uses short names like `alice`). Separate several with commas. Home folders are `/home/<name>`.
-
-## What it doesn't cover
-
-- **Local accounts.** They always work and aren't affected by the policy.
-- **Admin rights.** Being allowed to sign in is separate from `sudo`; see
-  [How sign-in works](how-it-works.md#admin-rights).
-- **`su` and Group Policy logon rules.** Not supported yet; see [Status and limits](../status.md).
-
-## When someone is refused
-
-A correct password for someone who isn't allowed fails the same way as a wrong password. To find out why, see
-[Troubleshooting](../guides/troubleshooting.md#a-directory-user-is-refused).
-
-To change the policy on an enrolled laptop, see [Change who may sign in](../guides/change-policy.md).
+To change the policy on an enrolled laptop, see [Manage enrolled laptops](../guides/manage.md).
