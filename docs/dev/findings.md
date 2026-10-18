@@ -41,10 +41,15 @@ captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
 - `net ads search -S dc -U Administrator '(&(objectClass=group)(sAMAccountName=oi-laptop-users))' sAMAccountName distinguishedName`
   prints a blank line, `Got 1 replies`, a blank line, then `sAMAccountName: oi-laptop-users` and
   `distinguishedName: CN=oi-laptop-users,CN=Users,DC=corp,DC=test`; no match prints `Got 0 replies` and still exits 0.
-- A wrong password prints `ads_startup_int: ads_connect_creds: Invalid credentials` and exits 255. A computer lookup
+- A wrong password (or an admin account that doesn't exist) prints a `gensec_gse_client_prepare_ccache: ... NT_STATUS_LOGON_FAILURE`
+  line, then `ads_startup_int: ads_connect_creds: Invalid credentials`, and exits 255. A computer lookup
   (`(sAMAccountName=NAME$)`) has the same shape as the group lookup.
-- Not observed, so assumed: the output when the DC is unreachable. The stub only fails with exit 255, which is all
-  `directory_missing_groups` looks at (any non-zero exit); `e2e-offline` checks the real refusal.
+- Failures exit 255 with one `ads_startup_int: ads_connect_creds:` line: an `-S` name that doesn't resolve says `The object was
+  not found.`; a DC that is down, an address with no route, and a realm with no DNS SRV records all say `No logon servers are
+  currently available to service the logon request.` So `net_explain` checks DNS itself (`getent ahosts`, and `net lookup ldap
+  DOMAIN` for the SRV records) to tell "DNS can't find it" from "it doesn't answer".
+- `net ads join` failures print `Password for [WG\admin]:` then `Failed to join domain: REASON` (exit 255), e.g. `failed to precreate
+  account in ou ou=Gone,...: No such object`, or `Invalid configuration ("workgroup" set to 'X', should be 'CORP')`.
 - `systemctl is-active` must exit non-zero when the unit is down. A stub that ends in `exit 0` after the `case` made
   every provider status check report healthy.
 - The fast layer runs as fake root with `unshare -r`. On Ubuntu runners, AppArmor blocks that unless

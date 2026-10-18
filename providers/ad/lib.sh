@@ -123,15 +123,42 @@ validate_enroll_args() { # realm server admin
 }
 
 # --- directory lookups before joining ------------------------------------------------------------
-# directory_missing_groups "g1,g2": prints the groups the directory does not have (uses $pw, $admin, SARGS).
-# Exits non-zero if the directory cannot be searched at all (wrong password, DC unreachable). Group names may
-# be written CORP\name or name@corp; the directory stores the bare sAMAccountName.
+# net_explain OUTPUT: why a `net ads` call failed, in plain words (uses $admin, $realm, $server, $ou). Samba's
+# messages are in docs/dev/findings.md. DNS is checked here rather than read from samba, which prints "No logon
+# servers" both for a realm with no DCs in DNS and for a DC that does not answer.
+net_explain() {
+  local out=$1
+  if grep -qE 'NT_STATUS_LOGON_FAILURE|Invalid credentials|attempted logon is invalid' <<<"$out"; then
+    echo "wrong password, or no account named '$admin'"
+  elif [[ -n $server ]] && ! getent ahosts "$server" >/dev/null 2>&1; then
+    echo "the domain controller name '$server' does not resolve (check this laptop's DNS, or give --server its address)"
+  elif [[ -z $server ]] && ! timeout 20 net lookup ldap "$(realm_lc "$realm")" </dev/null >/dev/null 2>&1; then
+    echo "DNS has no domain controllers for $(realm_lc "$realm"); this laptop must use the directory's DNS servers (or pass --server)"
+  elif grep -q 'No logon servers' <<<"$out"; then
+    echo "no domain controller answered${server:+ at $server} (network, firewall, or it is down)"
+  elif grep -q 'precreate account in ou.*No such object' <<<"$out"; then
+    echo "the directory has no OU '$ou'"
+  else # samba's own last line, without the password prompt it prints first
+    sed 's/^Password for \[[^]]*\]://; s/^Failed to join domain: //' <<<"$out" | grep -v '^[[:space:]]*$' | tail -1
+  fi
+}
+
+# ad_search FILTER ATTR...: `net ads search` as $admin (uses $pw, SARGS); prints the result or dies with the reason.
+# Run it in $(...) and add `|| exit 1`. An empty result is not a failure: it prints "Got 0 replies" and exits 0.
+ad_search() {
+  local out
+  out=$(printf '%s\n' "$pw" | net ads search "${SARGS[@]}" -U "$admin" "$@" 2>&1) \
+    || die "could not search the directory as '$admin': $(net_explain "$out")"
+  printf '%s\n' "$out"
+}
+
+# directory_missing_groups "g1,g2": prints the groups the directory does not have; dies if it cannot be searched.
+# Group names may be written CORP\name or name@corp; the directory stores the bare sAMAccountName.
 directory_missing_groups() {
   local g bare out IFS=,
   for g in $1; do
     bare=${g##*\\}; bare=${bare%%@*}
-    out=$(printf '%s\n' "$pw" | net ads search "${SARGS[@]}" -U "$admin" "(&(objectClass=group)(sAMAccountName=$bare))" sAMAccountName 2>&1) \
-      || { echo "$out" | tail -1 >&2; return 1; }
+    out=$(ad_search "(&(objectClass=group)(sAMAccountName=$bare))" sAMAccountName) || exit 1
     grep -qi "^sAMAccountName: $bare\$" <<<"$out" || echo "$g"
   done
 }

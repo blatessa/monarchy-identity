@@ -70,7 +70,12 @@ reuses the computer account it created.
 
 | `enroll` says | What to do |
 |---|---|
-| `could not search the directory` | Wrong join password, or the laptop can't reach a domain controller (DNS, network, clock). |
+| `wrong password, or no account named '...'` | Check the join account's name (`--admin`) and its password. |
+| `the domain controller name '...' does not resolve` | The laptop's DNS doesn't know the `--server` name. Use the directory's DNS servers, or give `--server` an address. |
+| `DNS has no domain controllers for ...` | Without `--server`, domain controllers are found through DNS, and the laptop's DNS doesn't have them. Point it at the directory's DNS servers, or pass `--server`. |
+| `no domain controller answered` | The domain controller was found but didn't answer: network, VPN, firewall, or it's down. |
+| `the directory has no OU '...'` | Check the `--ou` path; the OU must exist before laptops join into it. |
+| `the directory refused the join: ...` | The rest is the directory's own reason. A common one is the join account lacking the right to add computers. |
 | `a computer account 'NAME$' already exists` | Another laptop may own that name. Pick another with `--computer-name`, or add `--replace-computer-account` if it's this laptop reinstalled. |
 | `the generic '...'` or `longer than 15 characters` | Set a unique, short hostname, or pass `--computer-name`. |
 | `already enrolled in '...'` | `--if-needed` with a different realm. Run `leave` first. |

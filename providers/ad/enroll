@@ -42,13 +42,13 @@ log "preparing this machine for $realm"
 write_krb5 "$realm" "$server"; write_smb "$realm" "$nb"
 wg=$(netbios_domain "${SARGS[@]}"); [[ -z $wg ]] || write_smb "$realm" "$nb" "$wg"   # first write lets `net` find the DC by realm
 
-# ---- check the directory BEFORE joining: credentials, groups, and whose computer account this is ---
+# ---- check the directory BEFORE joining: credentials, whose computer account this is, groups -------
+existing=$(ad_search "(sAMAccountName=${nb}\$)" distinguishedName) || exit 1
+existing=$(sed -n 's/^distinguishedName: //p' <<<"$existing" | head -1)
 if [[ $mode == groups ]]; then
-  missing=$(directory_missing_groups "$groups") || die "could not search the directory as '$admin' (wrong password, or the domain controller is unreachable)"
+  missing=$(directory_missing_groups "$groups") || exit 1
   [[ -z $missing ]] || die "the directory has no group named: $(paste -sd, <<<"$missing")"
 fi
-existing=$(printf '%s\n' "$pw" | net ads search "${SARGS[@]}" -U "$admin" "(sAMAccountName=${nb}\$)" distinguishedName 2>/dev/null \
-  | sed -n 's/^distinguishedName: //p' | head -1 || true)
 # An account this machine is already joined with (e.g. an enrollment that stopped halfway) is ours to reuse.
 if [[ -n $existing ]] && ! ((replace_account)) && ! net ads testjoin "${SARGS[@]}" -P >/dev/null 2>&1; then
   die "a computer account '$nb\$' already exists in the directory ($existing) and this machine is not joined with it. It may belong to a DIFFERENT laptop, and joining would reset its password and break it. If this is a re-enrollment of THIS laptop (e.g. after a reinstall), re-run with --replace-computer-account; otherwise choose a unique name with --computer-name"
@@ -60,12 +60,14 @@ log "joining $realm as computer $nb"
 # rejects ("Preauthentication failed") although `kinit -k` accepts it; a second join (password reset, as
 # already happens for pre-existing accounts) fixes it. Verified in test/vm/e2e.sh.
 for _ in 1 2; do
-  printf '%s\n' "$pw" | net ads join "${SARGS[@]}" -U "$admin" --no-dns-updates ${ou_path:+createcomputer="$ou_path"} >/dev/null
+  out=$(printf '%s\n' "$pw" | net ads join "${SARGS[@]}" -U "$admin" --no-dns-updates ${ou_path:+createcomputer="$ou_path"} 2>&1) \
+    || die "the directory refused the join: $(net_explain "$out")"
 done
 # Build the keytab with ADMIN credentials. `-P` (machine creds) produced keytabs the KDC rejected
 # ("Preauthentication failed") on fresh accounts; -S is needed so samba can find the DC for kvno/salt.
 rm -f "$ETC/krb5.keytab"   # join already wrote one; appending mixes kvnos and kinit picks a bad entry
-printf '%s\n' "$pw" | net ads keytab create "${SARGS[@]}" -U "$admin" >/dev/null 2>&1 || die "could not create machine keytab"
+out=$(printf '%s\n' "$pw" | net ads keytab create "${SARGS[@]}" -U "$admin" 2>&1) \
+  || die "joined, but could not create the machine keytab: $(net_explain "$out")"
 kinit -k "$nb\$@${realm^^}" 2>/dev/null || die "machine keytab does not authenticate (kvno mismatch?)"
 kdestroy 2>/dev/null || true
 write_sssd "$realm" "$server" "$mode" "$groups" "$users" "$fqdn" "$nb" "$offline_days"

@@ -1,6 +1,11 @@
 #!/bin/bash
-# Stand-in for getent: only `getent group NAME`, answered from STUB_GROUPS (what sssd can resolve).
-[[ $1 == group ]] || exit 2
+# Stand-in for getent: `getent group NAME`, answered from STUB_GROUPS (what sssd can resolve), and `getent ahosts|hosts
+# NAME`, which resolves every name unless STUB_NO_DNS is set.
+case $1 in
+  ahosts|hosts) [[ -z ${STUB_NO_DNS:-} ]] || exit 2; echo "10.0.0.1        $2"; exit 0 ;;
+  group) ;;
+  *) exit 2 ;;
+esac
 IFS=, read -ra l <<<"${STUB_GROUPS:-}"
 for x in "${l[@]}"; do [[ $x == "$2" ]] && { echo "$2:*:1000:"; exit 0; }; done
 exit 2
