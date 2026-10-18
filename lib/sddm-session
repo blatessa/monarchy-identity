@@ -17,7 +17,8 @@ form() {
     clear
     gum style --border rounded --border-foreground 4 --padding "1 4" --margin "1 2" --align center \
       "Your password has expired" "" "Choose a new one to continue to your desktop." \
-      "Enter your current password first, then the new one twice."
+      "Enter your current password first, then the new one twice." \
+      "Your typing stays hidden: just type and press Enter."
     ((first)) || gum style --margin "0 2" --foreground 1 "That didn't work. The message above says why."
     if passwd; then
       echo changed > "$result"
