@@ -1,6 +1,6 @@
 #!/bin/bash
-# Core: what only real sssd, PAM and a real directory can show. Sign-in through every Omarchy PAM service, password
-# change, repair after overwrite, who-may-sign-in policies and sudo, local users unaffected when sssd or pam_sss.so is
+# Core: what only real sssd, PAM and a real directory can show. Sign-in through every Omarchy PAM service, admin
+# prompts, password change, repair after overwrite, who-may-sign-in policies and sudo, local users unaffected when sssd or pam_sss.so is
 # gone, `leave`; then the directory's refusals and enrollment options against the real DC. The logic around these
 # (validation, generated config, PAM edits, status) is in test/unit. Needs DC + VM.
 source "$(dirname "$0")/lib.sh"
@@ -24,8 +24,8 @@ enroll_ok --groups oi-laptop-users --sudo-groups oi-admins
 s=$(st); [[ $s == *'"enrolled":true'* && $s == *'"login_mode":"groups"'* && $s != *'"false"'* ]] && ok "status: enrolled, groups, every check true" || bad "status: $s"
 
 echo "[sign-in on every service]"
-for svc in system-auth omarchy-lock-password sddm sudo login sshd system-remote-login; do
-  sess=--session; [[ $svc == omarchy-lock-password ]] && sess=""   # unlocking authenticates; it opens no session
+for svc in system-auth omarchy-lock-password sddm sudo login sshd system-remote-login polkit-1; do
+  sess=--session; [[ $svc == omarchy-lock-password || $svc == polkit-1 ]] && sess=""   # these authenticate; they open no session
   expect ALLOWED "$svc: alice (in group)" $sess "$svc" alice "$PW"
   expect DENIED  "$svc: carol (not in group)" "$svc" carol "$PW"
   expect DENIED  "$svc: bob, wrong password" "$svc" bob wrong
@@ -33,6 +33,15 @@ for svc in system-auth omarchy-lock-password sddm sudo login sshd system-remote-
 done
 check "alice's home created on first sign-in, mode 700" test "$("${V[@]}" 'sudo stat -c "%U %a" /home/alice' 2>&1)" == "alice 700"
 check "carol (refused) got no home" "${V[@]}" 'test ! -e /home/carol'
+
+echo "[admin prompts: a real polkit prompt, through its sandboxed helper]"
+check "polkit's agent helper is socket-activated, as on Omarchy" "${V[@]}" 'systemctl is-active -q polkit-agent-helper.socket'
+reset_locks
+for a in "AUTHORIZED|alice (oi-admins) answers with her directory password|alice|$PW" "REFUSED|alice, wrong password|alice|wrong" \
+         "NOT-OFFERED|bob (not in oi-admins) is not offered as an admin|bob|$PW" "AUTHORIZED|tester (local admin) still answers|tester|tester"; do
+  IFS='|' read -r want desc who pw <<<"$a"; out=$(admin_prompt "$who" "$pw")
+  [[ $out == "$want"* ]] && ok "$desc" || bad "$desc (got: ${out:-<nothing>})"
+done
 
 echo "[passwords]"
 reset_locks
@@ -63,6 +72,7 @@ check "sssctl config-check accepts the generated sssd.conf" "${V[@]}" 'sudo time
 scli policy set --groups oi-laptop-users --sudo-groups - --offline-days 0 >/dev/null
 allowed carol && bad "groups again: carol allowed" || ok "groups again: carol denied"
 can_sudo alice && bad "alice kept sudo" || ok "--sudo-groups - removed sudo"
+[[ $(admin_prompt alice "$PW") == NOT-OFFERED* ]] && ok "... and alice is no longer offered at admin prompts" || bad "alice still an admin at prompts"
 for _ in 1 2 3; do scli policy set --mode any >/dev/null; scli policy set --groups oi-laptop-users >/dev/null; done
 [[ $("${V[@]}" 'systemctl is-active sssd') == active ]] && allowed bob && ok "6 quick restarts: sssd active, sign-in works" || bad "systemd start limit tripped"
 

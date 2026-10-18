@@ -10,7 +10,8 @@ something.
 - Omarchy's SDDM greeter runs inside Hyprland; the VM uses SDDM's X11 greeter (same theme QML, daemon, PAM).
 - `omarchy-hook` runs as the invoking USER from `~/.config/omarchy/hooks`; `omarchy update` keeps sudo alive, so hooks use `sudo -n`.
 - Plain pacman upgrades keep modified `backup=` files (`.pacnew`); real drift comes from migrations and manual edits.
-- Omarchy has no `polkit-1` PAM service (falls to `other`); `su` uses `pam_unix` directly, so directory users can't `su`.
+- `su` uses `pam_unix` directly, so directory users can't `su`. The `polkit-1` PAM service exists, but as a vendor file in
+  `/usr/lib/pam.d/` (so `ls /etc/pam.d` misses it).
 - Omarchy enables autologin on encrypted disks by design (the passphrase is the login).
 
 ## PAM / sssd (the lockout class)
@@ -72,6 +73,12 @@ captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
   so a directory admin could `sudo` but not answer one. Polkit stops at the first rule that answers, so `49-monarchy-identity.rules` sorts
   before `50-default` and names wheel too (else it would replace the local admins). The `polkit-1` PAM service is a vendor file in
   `/usr/lib/pam.d/` that includes `system-auth`, so directory passwords already work there (not in `/etc/pam.d`, which is why `ls` misses it).
+- polkit 127 checks prompt passwords in a socket-activated helper unit (`polkit-agent-helper.socket`), not a setuid binary.
+  The helper takes the agent's uid from the socket, so `pkexec`'s built-in text agent (setuid root) gets PAM success and then
+  `No session for cookie` for everyone. A user-run agent (`pkttyagent`, Omarchy's graphical one) works: `test/vm/adminprompt.py`.
+  A freshly installed polkit has the socket inactive until reboot, and without it the helper isn't sandboxed: check it's active.
+- polkit offers every admin identity (wheel plus the sudo groups) even when the person asking is one of them; picking one is the
+  agent's job. `pkttyagent` lists them; Omarchy's graphical prompt picks the first (#34).
 
 ## Conventions that came from these
 - Anything the CLI sources must also be installed by `packaging/PKGBUILD` (`e2e-package.sh` catches misses).

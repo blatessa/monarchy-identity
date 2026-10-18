@@ -90,6 +90,18 @@ local login; only a definite answer from the module can. Module names and argume
 can't start another rule or control field. `remove FILE` restores the file byte for byte, whatever module was
 inserted.
 
+Only `system-auth` and `omarchy-lock-password` are edited. Every other service either includes `system-auth` and so
+gets directory sign-in with no edit of its own, or is deliberately left alone:
+
+- **Admin prompts (`polkit-1`)** include `system-auth` (a vendor file in `/usr/lib/pam.d/`), so a directory admin
+  answers with their directory password. polkit asks in a sandboxed, socket-activated helper (`polkit-agent-helper@`,
+  `ProtectSystem=strict`, `PrivateNetwork`); `pam_sss` works there because it only needs sssd's socket. Which accounts
+  count as admins is `49-monarchy-identity.rules` (above). `e2e.sh` answers a real prompt.
+- **`su` is not edited.** Arch's `su`/`su-l` call `pam_unix` directly rather than including `system-auth`, so a
+  directory user's password never works there; root `su` to anyone still does (`pam_rootok`). Editing a stack we
+  don't otherwise touch would be a second lockout surface to keep across updates for a command Omarchy doesn't use;
+  directory admins have `sudo` (and `sudo -iu USER`). `test/unit/pam.sh` asserts no other service is touched.
+
 ## Keeping it working after updates
 
 `reassert` re-applies PAM, SDDM and sudoers edits from `config.toml`, after the provider's own `reassert` (for AD:

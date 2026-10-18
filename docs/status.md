@@ -11,6 +11,8 @@ Only the Active Directory provider exists so far. With it:
 - Enrolling with and without a pinned domain controller, into an OU, with a chosen computer name, over an existing
   computer account, and unattended with a password file and `--if-needed`.
 - All three login policies, changing the policy without re-joining, and `sudo` for a directory group.
+- Answering an administrator prompt with a directory admin's own password (as a text prompt; Omarchy's graphical one
+  is below).
 - Sign-in at the login screen, lock screen, terminal, `ssh` and `sudo`; refusal for people who aren't allowed.
 - A wrong password, an unknown group or an unreachable domain controller stops enrollment before sign-in changes.
 - Local accounts keep working when the directory service is stopped or missing.
@@ -40,7 +42,8 @@ On an Omarchy laptop enrolled in a Windows Server 2025 domain (one domain contro
 
 - **Expired passwords at the login screen.** The login screen can't ask for a new password yet; change it on a text
   console or in your web portal.
-- **`su`** doesn't work for directory users on Arch (it never asks the directory).
+- **`su`** doesn't work for directory users on Arch (it never asks the directory). Use `sudo`, or `sudo -iu` to
+  become another user.
 - **Graphical admin prompts.** People in the admin group are accepted as administrators, but Omarchy's prompt asks for
   the first local administrator's password and gives no way to choose another account
   ([#34](https://github.com/blatessa/monarchy-identity/issues/34)).

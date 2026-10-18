@@ -99,7 +99,7 @@ you need before writing a new one; a new suite pays for its own deploy, enroll a
 
 | Suite | Covers |
 |---|---|
-| `e2e` | The core: the directory's refusals (wrong password, unknown group), every Omarchy PAM service (allowed, refused, wrong password, local), home creation, `passwd`, repair with `reassert`, who-may-sign-in policies and sudo as sssd enforces them, local users with sssd stopped and `pam_sss.so` missing, `leave`; then `--computer-name`, `--ou`, `--password-file`, an existing computer account (refused, then `--replace-computer-account`) and re-running a half-finished enrollment |
+| `e2e` | The core: the directory's refusals (wrong password, unknown group), every Omarchy PAM service (allowed, refused, wrong password, local), a real admin prompt, home creation, `passwd`, repair with `reassert`, who-may-sign-in policies and sudo as sssd enforces them, local users with sssd stopped and `pam_sss.so` missing, `leave`; then `--computer-name`, `--ou`, `--password-file`, an existing computer account (refused, then `--replace-computer-account`) and re-running a half-finished enrollment |
 | `e2e-offline` | Enroll refused with the DC down, expired password, cached sign-in with the DC down, recovery |
 | `e2e-dns` | Enrolling without `--server` (DNS SRV discovery) |
 | `e2e-package` | The real package: install, pacman hook repair, removal while enrolled |
@@ -116,6 +116,8 @@ explicit check (`e2e`, `unit/refused`) instead of relying on a second run.
 
 - `test/vm/trylogin.sh USER PW` and `test/vm/pamtest.py SERVICE USER PW` exercise the PAM stack (there is no
   `sshpass` or `pamtester` on Arch).
+- `test/vm/adminprompt.py IDENTITY PW` answers a real polkit admin prompt (`pkexec` under `pkttyagent`, through
+  polkit's sandboxed helper); `admin_prompt` in `lib.sh`. The VM needs polkit (`lab-check.sh` says how).
 - `e2e-greeter.sh` uses `qmon.py` (QEMU monitor `sendkey` and `screendump`); the VM must have been started by the
   current `run.sh` (`-vga std` plus the monitor socket). `install-package.sh` builds and installs the real package.
 - DNS lab: `test/dc/fix-dns.sh` points the DC's A record at 10.0.2.2; `e2e-dns.sh` configures the VM resolver.

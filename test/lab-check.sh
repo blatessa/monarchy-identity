@@ -16,6 +16,9 @@ docker ps --format '{{.Names}}' 2>/dev/null | grep -qx oi-test-dc && ok "directo
 if [[ -f test/vm/keys/id_oi ]] && ssh -i test/vm/keys/id_oi -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=4 \
      -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -p 2222 tester@127.0.0.1 true 2>/dev/null; then
   ok "VM reachable on 127.0.0.1:2222"
+  ssh -i test/vm/keys/id_oi -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR -p 2222 tester@127.0.0.1 'systemctl is-active -q polkit-agent-helper.socket' 2>/dev/null && ok "VM has polkit" \
+    || no "VM has no polkit (VMs made before it was in the seed)" "ssh -i test/vm/keys/id_oi -p 2222 tester@127.0.0.1 'sudo pacman -S --noconfirm --needed polkit && sudo systemctl start polkit-agent-helper.socket'"
 else no "VM not reachable" "(cd test/vm && (setsid ./run.sh </dev/null >vm.log 2>&1 &)); first boot takes ~1 min, then test/vm/deploy.sh --fixtures"; fi
 [[ $rc == 0 ]] && echo "lab ready" || echo "lab NOT ready"
 exit $rc

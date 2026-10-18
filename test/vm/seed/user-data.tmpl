@@ -13,4 +13,6 @@ write_files:
       10.0.2.2 dc.corp.test dc corp.test
 runcmd:
   - [sh, -c, "cat /etc/hosts.d-oi >> /etc/hosts"]
-  - [pacman, -Sy, --noconfirm, --needed, sssd, krb5, samba, sudo, sddm, ttf-dejavu, xorg-xauth, rsync]
+  - [pacman, -Sy, --noconfirm, --needed, sssd, krb5, samba, sudo, sddm, polkit, ttf-dejavu, xorg-xauth, rsync]
+  # polkit enables its agent-helper socket for sockets.target, which already ran; Omarchy has it active from boot
+  - [systemctl, start, polkit-agent-helper.socket]
