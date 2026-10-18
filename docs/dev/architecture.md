@@ -25,7 +25,11 @@ hit a command line or disk.
 ## Packages
 
 - `monarchy-identity` (`packaging/PKGBUILD`): CLI, providers, hooks, login theme. Installing changes nothing until
-  `enroll`. Removing it while enrolled runs `leave` (`pre_remove`).
+  `enroll`. Removing it while enrolled runs `leave` (`pre_remove`). The pacman hook runs `reassert` after our own
+  upgrades too, so an enrolled machine picks up what a new version adds.
+- The PKGBUILD builds the `v$pkgver` tag tarball, as Omarchy's package repo (`omacom/omarchy-pkgs`) requires; that
+  repo's copy carries the checksum (ours says `SKIP`: the file is inside the tarball it would checksum).
+  `packaging/build-local.sh` builds from a checkout (CI, the lab) by packing the working tree under the tarball's name.
 
 ## Layers
 

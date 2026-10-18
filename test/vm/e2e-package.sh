@@ -19,6 +19,10 @@ echo "[pacman hook repairs overwritten config]"
 [[ $(st) == *'"pam_system_auth":"false"'* ]] || bad "could not overwrite the config"
 "${V[@]}" 'sudo pacman -S --noconfirm pambase' >/dev/null 2>&1
 s=$(st); [[ $s == *'"pam_system_auth":"true"'* && $s == *'"nss_sss":"true"'* ]] && ok "repaired by the pambase transaction" || bad "not repaired: $s"
+"${V[@]}" 'sudo python3 -I /usr/share/monarchy-identity/lib/pamedit.py remove /etc/pam.d/sddm'
+[[ $(st) == *'"pam_sddm":"false"'* ]] || bad "could not overwrite the login screen's PAM"
+"${V[@]}" 'sudo pacman -U --noconfirm oi.pkg.tar.zst' >/dev/null 2>&1
+[[ $(st) == *'"pam_sddm":"true"'* ]] && ok "repaired by upgrading monarchy-identity itself (what a new version adds reaches enrolled machines)" || bad "own upgrade did not reassert: $(st)"
 
 echo "[removing the package while enrolled]"
 check "package removes" "${V[@]}" 'sudo pacman -R --noconfirm monarchy-identity >/dev/null 2>&1'
