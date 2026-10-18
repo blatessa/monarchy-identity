@@ -26,6 +26,9 @@ something.
 - `sssctl` prompts "Start SSSD now?" on a TTY when sssd is down and hangs: always `</dev/null` + `timeout`. A hung root
   process holding `/run/monarchy-identity.lock` blocks every later enroll/policy/reassert: find stale processes by PID, never `pkill -f`.
 - `pam_faillock` (deny=10) applies to directory users too.
+  It counts by name for 15 minutes across every service, so suites run back to back pile up their test users'
+  failures until one is locked (`grantors=? res=failed` while `pam_sss` still answers). `deploy.sh --fixtures` clears
+  `/run/faillock`; `faillock --user` can't, because it needs the user to exist.
 - `pam_sss` refuses password changes initiated by root: test as the user.
 - An expired AD password: `pam_sss` auth logs "authentication failure ... 12" but returns success; the 12 comes from
   `pam_acct_mgmt`, and only within the handle that authenticated (a separate account-only check says nothing).
