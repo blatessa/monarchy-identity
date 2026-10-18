@@ -48,8 +48,8 @@ sudo systemctl restart systemd-resolved
 | Option | Default | Description |
 |---|---|---|
 | `--realm R` | required | The domain, such as `corp.example.com`. |
-| `--admin USER` | `Administrator` | The join account. |
-| `--password-file FILE` | standard input | File holding the join password; readable only by its owner. Also `OI_ADMIN_PASSWORD_FILE`. |
+| `--admin USER` | required | The join account (not a Domain Admin). |
+| `--password-file FILE` | standard input | File holding the join password; readable only by its owner. Also `MONARCHY_IDENTITY_PASSWORD_FILE`. |
 | `--server HOST` | found through DNS | Use this domain controller. Leave it off in production. |
 | `--computer-name NAME` | hostname | The computer account's name: up to 15 letters, digits or hyphens. |
 | `--ou DN` | domain default | Where the computer account goes. |

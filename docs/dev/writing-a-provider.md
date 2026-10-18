@@ -23,7 +23,7 @@ answers, then the core records the enrollment and switches sign-in on (PAM, auto
 
 Each runs with `$OI_ROOT` set and sources `lib/common.sh` (`die`, `log`, `need_root`, `state_get`, `state_set`,
 `read_admin_password`, ...). The core passes the resolved policy in the environment: `OI_LOGIN_MODE`
-(`groups`, `assigned` or `any`), `OI_GROUPS`, `OI_USERS`, `OI_OFFLINE_DAYS`; and `OI_ADMIN_PASSWORD_FILE` when
+(`groups`, `assigned` or `any`), `OI_GROUPS`, `OI_USERS`, `OI_OFFLINE_DAYS`; and `MONARCHY_IDENTITY_PASSWORD_FILE` when
 `--password-file` was given (`read_admin_password` reads it, or standard input).
 
 | Script | Called by | Contract |

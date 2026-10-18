@@ -74,8 +74,7 @@ POLICY_HELP='Who may sign in (nobody unless you say so):
 ENROLL_HELP='Options:
   --keep-autologin            keep Omarchy'"'"'s automatic sign-in at boot (by default it is turned off so the login
                               screen appears)
-  --keep-login-theme          keep Omarchy'"'"'s stock login screen (it has no username field)
-  --password-file FILE        read the enrollment password from a 0600 file (or $OI_ADMIN_PASSWORD_FILE)
+  --password-file FILE        read the enrollment password from a 0600 file (or $MONARCHY_IDENTITY_PASSWORD_FILE)
   --if-needed                 already enrolled with this directory? just converge the policy, exit 0'
 
 parse_opts() { # parse_opts enroll|policy ARGS...: shared options into the globals; the rest into PARGS (enroll only)
@@ -88,10 +87,8 @@ parse_opts() { # parse_opts enroll|policy ARGS...: shared options into the globa
       *:--users) users=${2-}; users_given=1;;
       *:--sudo-groups) sudo_groups=${2-}; [[ $sudo_groups != - ]] || sudo_groups="";;
       *:--offline-days) offline_days=${2-};;
-      enroll:--password-file) export OI_ADMIN_PASSWORD_FILE=${2-};;
+      enroll:--password-file) export MONARCHY_IDENTITY_PASSWORD_FILE=${2-};;
       enroll:--keep-autologin) disable_autologin=0; n=1;;
-      enroll:--disable-autologin) disable_autologin=1; n=1;;   # the default; still accepted
-      enroll:--keep-login-theme) keep_theme=1; n=1;;
       enroll:--if-needed) if_needed=1; n=1;;
       enroll:*) PARGS+=("$1"); n=1;;
       *) die "unknown option $1";;
@@ -135,9 +132,7 @@ apply_sign_in() { # apply_sign_in PROVIDER
   local mode groups users
   mode=$(conf_get login_mode groups); groups=$(conf_get groups ""); users=$(conf_get users "")
   sudo_groups=$(conf_get sudo_groups ""); apply_sudo
-  if [[ $(conf_get login_theme identity) == identity ]]; then
-    sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the monarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"
-  else sddm_theme_restore; fi
+  sddm_theme_enable || log "WARNING: login theme '$IDENTITY_THEME' not installed (install the monarchy-identity package): directory users cannot type a username at the stock Omarchy greeter"
 }
 
 pick_provider() { # pick_provider [NAME]: the provider enroll should use; sets P and says whether NAME was consumed
@@ -160,7 +155,7 @@ cmd_enroll() {
   need_root
   [[ -n $P ]] || die "name the directory provider: monarchy-identity enroll PROVIDER ... (installed: $(directory_providers | paste -sd, -))"
   local mode="" groups="" users="" sudo_groups="" offline_days=0 mode_given=0 groups_given=0 users_given=0
-  local disable_autologin=1 keep_theme=0 if_needed=0 cur desc
+  local disable_autologin=1 if_needed=0 cur desc
   parse_opts enroll "$@"; resolve_policy
   cur=$(state_get provider local)
   [[ $cur == local || $cur == "$P" ]] || die "already enrolled with '$cur'; run 'monarchy-identity leave' before enrolling with '$P'"
@@ -174,8 +169,7 @@ cmd_enroll() {
   fi
   # Record the enrollment before switching sign-in on, so `leave` undoes it and a re-run converges if a step below fails.
   state_set provider="$P"
-  conf_set autologin_disabled="$( ((disable_autologin)) && echo true || echo false)" \
-    login_theme="$( ((keep_theme)) && echo stock || echo identity)"
+  conf_set autologin_disabled="$( ((disable_autologin)) && echo true || echo false)"
   save_policy
   apply_sign_in "$P"
   log "enrolled in $desc (login mode: $mode)"
@@ -219,7 +213,7 @@ cmd_leave() {
   local p quiet=0 args=(); p=$(state_get provider local)
   while [[ $# -gt 0 ]]; do case $1 in
     --quiet) quiet=1; shift;;
-    --password-file) [[ $# -ge 2 ]] || die "$1 needs a value"; export OI_ADMIN_PASSWORD_FILE=$2; shift 2;;
+    --password-file) [[ $# -ge 2 ]] || die "$1 needs a value"; export MONARCHY_IDENTITY_PASSWORD_FILE=$2; shift 2;;
     *) args+=("$1"); shift;;
   esac; done
   pam_remove                     # PAM first: stop consulting the directory before anything else changes

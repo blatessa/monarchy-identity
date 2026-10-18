@@ -54,8 +54,7 @@ another.
 | `--sudo-groups g1,g2` | none | Members of these directory groups get `sudo`. |
 | `--offline-days N` | never | Cached sign-in stops working after N days without reaching the directory. |
 | `--keep-autologin` | off | Keep Omarchy's automatic sign-in at boot. |
-| `--keep-login-theme` | off | Keep Omarchy's stock login screen (it has no username box). |
-| `--password-file FILE` | standard input | Where a provider that needs an enrollment password reads it; readable only by its owner. Also `OI_ADMIN_PASSWORD_FILE`. |
+| `--password-file FILE` | standard input | Where a provider that needs an enrollment password reads it; readable only by its owner. Also `MONARCHY_IDENTITY_PASSWORD_FILE`. |
 | `--if-needed` | off | If already enrolled with this directory, update the policy instead of enrolling again. See [Automate enrollment](../guides/automation.md). |
 
 ## policy

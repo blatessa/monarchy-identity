@@ -1,8 +1,8 @@
 #!/bin/bash
-# monarchy-identity enroll ad --realm CORP.EXAMPLE.COM [--admin USER] [options]   (join password is prompted)
+# monarchy-identity enroll ad --realm CORP.EXAMPLE.COM --admin USER [options]   (join password is prompted)
 #   --realm R                   AD/Samba realm (required)
 #   --server HOST               a DC; omit to discover DCs through DNS SRV records
-#   --admin USER                account allowed to join computers (default Administrator)
+#   --admin USER                account allowed to join computers (required)
 #   --computer-name NAME        directory computer account name (default: this hostname; must be unique)
 #   --ou 'OU=Laptops,DC=..'     create the computer account in this OU
 #   --replace-computer-account  take over an existing account of that name (refused by default)
@@ -16,7 +16,7 @@ case " $* " in *" --help "*|*" -h "*) sed -n '2,/^#$/{/^#$/d;s/^# \{0,1\}//;p}' 
 need_root
 
 mode=$OI_LOGIN_MODE groups=$OI_GROUPS users=$OI_USERS offline_days=$OI_OFFLINE_DAYS
-realm="" server="" admin="Administrator" computer_name="" ou="" replace_account=0
+realm="" server="" admin="" computer_name="" ou="" replace_account=0
 while [[ $# -gt 0 ]]; do case $1 in
   --realm) realm=$2; shift 2;; --server) server=$2; shift 2;; --admin) admin=$2; shift 2;;
   --computer-name) computer_name=$2; shift 2;; --ou) ou=$2; shift 2;;
@@ -25,6 +25,7 @@ while [[ $# -gt 0 ]]; do case $1 in
 
 # ---- validate everything BEFORE touching anything -------------------------------------------------
 [[ -n $realm ]] || die "--realm is required (--server is optional: omit it to discover DCs through DNS)"
+[[ -n $admin ]] || die "--admin is required: the account that joins computers to the domain (a join account, not a Domain Admin)"
 validate_enroll_args "$realm" "$server" "$admin"
 if [[ -n $ou ]]; then
   valid_ou_dn "$ou" || die "invalid --ou '$ou' (expected a DN like OU=Laptops,DC=corp,DC=example,DC=com)"

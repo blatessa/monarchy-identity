@@ -12,7 +12,7 @@ appears on a laptop the first time they sign in.
 
 | Where | What happens |
 |---|---|
-| **Login screen** | Omarchy's stock login screen only signs in whoever used it last, so enrolling switches to a theme with a username box. It looks like Omarchy's, with one extra line, and remembers the last user. `--keep-login-theme` keeps the stock screen; directory users then can't sign in there. |
+| **Login screen** | Omarchy's stock login screen only signs in whoever used it last, so enrolling switches to a theme with a username box. It looks like Omarchy's, with one extra line, and remembers the last user. |
 | **Lock screen** | Unlocks with the directory password. |
 | **Terminals, `ssh`, `sudo`** | Same password, same rules. |
 
