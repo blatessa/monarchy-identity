@@ -22,7 +22,14 @@ timedatectl                 # "System clock synchronized: yes"
 ```
 
 Plus the provider's own checks. For Active Directory: a unique hostname of at most 15 characters, and DNS that finds
-the domain controllers ([details](providers/ad.md#prepare-the-laptops)).
+the domain controllers:
+
+```bash
+dig -t SRV _ldap._tcp.corp.example.com    # lists your domain controllers
+```
+
+If that lists nothing, the laptop is asking a DNS server that doesn't know your domain. Usually the office network or
+VPN fixes this; on a test network, see [Active Directory: prepare the laptops](providers/ad.md#prepare-the-laptops).
 
 ## 3. Install
 
@@ -43,7 +50,7 @@ sudo monarchy-identity enroll ad --realm CORP.EXAMPLE.COM --admin joinuser --gro
 ```
 
 `ad` names the provider and `--realm` and `--admin` are its options; `--groups` says who may sign in, whatever the
-directory. It asks for `joinuser`'s password, checks that the directory has the `laptop-users` group, connects the
+directory. `sudo` asks for your own laptop password; then `enroll` asks for **`joinuser`'s directory password**. It checks that the directory has the `laptop-users` group, connects the
 laptop and turns on directory sign-in. It finishes with `enrolled in CORP.EXAMPLE.COM`.
 
 Enrolling also turns off Omarchy's automatic sign-in at boot, so the login screen appears and people sign in as
@@ -51,10 +58,13 @@ themselves. Add `--keep-autologin` to keep it.
 
 ## 5. Sign in as a directory user
 
-Lock the screen, or open a text console with **Ctrl+Alt+F3**, and sign in as `alice` with her directory password. The
-first sign-in takes a few seconds while her home folder is created. After a reboot the login screen has a username box.
+Keep a terminal open as your own local account while you test, so you can always get back in.
 
-Someone who isn't in `laptop-users` is refused. Your own local account works as before.
+Lock the screen, or open a text console with **Ctrl+Alt+F3**, and sign in as `alice` with **her own directory
+password**. The first sign-in takes a few seconds while her home folder is created. After a reboot the login screen has
+a username box. Don't test with `su alice`: on Arch, `su` never asks the directory, so it fails even when sign-in works.
+
+Someone who isn't in `laptop-users` is refused. Your own local account works as before, with its own password.
 
 ```bash
 monarchy-identity status

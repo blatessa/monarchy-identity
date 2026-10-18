@@ -33,10 +33,20 @@ in PowerShell: `New-ADGroup laptop-users -GroupScope Global` and `Add-ADGroupMem
 
 - **A unique hostname, at most 15 characters.** It becomes the computer account's name. Generic names like `omarchy`
   are refused. Set it with `sudo hostnamectl set-hostname laptop-0042`, or pass `--computer-name`.
-- **DNS that finds your domain controllers.** Check with `dig -t SRV _ldap._tcp.corp.example.com`.
+- **DNS that finds your domain controllers.** Check with `dig -t SRV _ldap._tcp.corp.example.com`. Laptops on the
+  office network or VPN usually get this already; if not, see below.
 - **A network path to the domain controllers** while enrolling and for each person's first sign-in: typically DNS (53),
   Kerberos (88, 464), LDAP (389 TCP and UDP) and SMB (445).
 - **A correct clock.** Sign-in fails when the clock is more than about five minutes off.
+
+If `dig` lists nothing, the laptop asks a DNS server that doesn't know your domain (typically a test network with a
+fixed address, next to Wi-Fi). Send just the domain's lookups to a domain controller, here `10.0.0.10`:
+
+```bash
+sudo mkdir -p /etc/systemd/resolved.conf.d
+printf '[Resolve]\nDNS=10.0.0.10\nDomains=~corp.example.com\n' | sudo tee /etc/systemd/resolved.conf.d/corp.conf
+sudo systemctl restart systemd-resolved
+```
 
 ## Enroll options
 
