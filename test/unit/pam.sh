@@ -25,6 +25,11 @@ grep -qE '^-password +\[success=2 default=ignore\] +pam_sss.so' "$SA" && ok "pas
 grep -qx 'session    required   pam_mkhomedir.so umask=0077' "$SA" && ok "pam_mkhomedir at the top of session" || bad "mkhomedir"
 ! grep -E '^[^#]*pam_sss' "$SA" | grep -vq '^-' && ok "every pam_sss rule is -prefixed (safe when the module is missing)" || bad "a pam_sss rule is not -prefixed"
 [[ $(grep -c 'BEGIN monarchy-identity' "$SA") == 4 ]] && ok "four marked blocks" || bad "blocks: $(grep -c BEGIN "$SA")"
+for t in auth account password session; do   # a local account sharing a name with a directory user stays local
+  [[ $(grep -E -B1 "^-$t .*pam_sss\.so" "$SA" | head -1 | tr -s ' ') == "-$t [success=1 default=ignore] pam_localuser.so" ]] \
+    || { bad "$t: pam_localuser does not skip pam_sss for local accounts"; continue; }
+  ok "$t: local accounts skip pam_sss"
+done
 "${PE[@]}" remove "$SA"
 echo "[another provider's module gets the same rules, with its own arguments]"
 "${PE[@]}" apply "$SA" pam_other.so auth=use_first_pass account='a b'

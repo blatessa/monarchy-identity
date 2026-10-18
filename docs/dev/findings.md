@@ -18,6 +18,10 @@ something.
 - With `pam_sss.so` missing, an `account ... default=bad` rule failed EVERY login (local, root, even sshd) and bricked
   the VM. Rules are now `-account [... user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]`.
   If the VM is bricked: delete `test/vm/images/client.qcow2` + `OVMF_VARS.fd` and rerun `run.sh`.
+- sssd answers for any name its domain has, whatever nsswitch resolves it to. With the module first and no guard, a local
+  account sharing a directory user's name was decided by the directory: the owner denied their own account (directory
+  user outside the group), or the directory password signing in as the local account, in `wheel`. `pam_localuser`
+  skips the module for local names; `useradd` refuses such names once enrolled, so test with accounts made before.
 - systemd `start-limit-hit`: >5 sssd (re)starts in 10s leaves sssd FAILED (all directory users locked out). Always `sssd_restart` (reset-failed first).
 - `sssctl` prompts "Start SSSD now?" on a TTY when sssd is down and hangs: always `</dev/null` + `timeout`. A hung root
   process holding `/run/monarchy-identity.lock` blocks every later enroll/policy/reassert: find stale processes by PID, never `pkill -f`.

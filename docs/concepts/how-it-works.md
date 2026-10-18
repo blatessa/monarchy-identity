@@ -29,6 +29,10 @@ credentials. You can make that copy expire after some days away (`--offline-days
 Local accounts, including the one the laptop was set up with, keep working exactly as before, also when the directory
 can't be reached. The rules on these pages don't apply to them.
 
+A local account wins over a directory user with the same name: it signs in with its local password only, and the
+directory user can't sign in on that laptop. If the person who set up the laptop has the same name in the directory,
+they keep using the local account there, or you remove it to let them sign in as their directory account.
+
 ## Passwords
 
 People change their directory password with `passwd` in a terminal, and the directory's password rules apply.
