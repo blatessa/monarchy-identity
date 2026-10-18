@@ -7,6 +7,8 @@ no() { printf '  MISSING %s\n        -> %s\n' "$1" "$2"; rc=1; }
 for c in docker qemu-system-x86_64 qemu-img ssh ssh-keygen python3 curl node; do
   command -v "$c" >/dev/null && ok "$c" || no "$c" "install it (Arch: docker qemu-full openssh python curl nodejs)"
 done
+{ command -v mkdocs || [[ -x .venv/bin/mkdocs ]]; } >/dev/null && ok "mkdocs (for docs changes: mkdocs build --strict)" \
+  || printf '  note  mkdocs missing: only needed when you change docs/\n        -> python -m venv .venv && .venv/bin/pip install -r .github/docs-requirements.txt\n'
 [[ -w /dev/kvm ]] && ok "/dev/kvm usable" || no "/dev/kvm" "enable virtualization and add yourself to the kvm group"
 [[ -f /usr/share/edk2/x64/OVMF_CODE.4m.fd ]] && ok "OVMF firmware" || no "OVMF firmware" "install edk2-ovmf"
 [[ -f test/vm/images/Arch-Linux-x86_64-cloudimg.qcow2 ]] && ok "Arch cloud image" || no "Arch cloud image" "test/vm/fetch-image.sh"

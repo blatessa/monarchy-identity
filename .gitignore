@@ -8,3 +8,4 @@ test/vm/vm.log
 packaging/monarchy-identity-*.tar.gz
 packaging/src/
 packaging/pkg/
+.venv/

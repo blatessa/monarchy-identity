@@ -98,10 +98,10 @@ you need before writing a new one; a new suite pays for its own deploy, enroll a
 
 | Suite | Covers |
 |---|---|
-| `e2e` | The core: the directory's refusals (wrong password, unknown group), every Omarchy PAM service (allowed, refused, wrong password, local), a real admin prompt, home creation, `passwd`, repair with `reassert`, who-may-sign-in policies and sudo as sssd enforces them, local users with sssd stopped and `pam_sss.so` missing, `leave`; then `--computer-name`, `--ou`, `--password-file`, an existing computer account (refused, then `--replace-computer-account`) and re-running a half-finished enrollment |
+| `e2e` | The core: the directory's refusals (wrong password, unknown group), every Omarchy PAM service (allowed, refused, wrong password, local), a real admin prompt, home creation, `passwd`, repair with `reassert`, who-may-sign-in policies and sudo as sssd enforces them, the sudoers and polkit drop-ins (`visudo -c`, the theme rule granted only to allowed users), local users with sssd stopped and `pam_sss.so` missing, `leave`; then `--computer-name`, `--ou`, `--password-file`, an existing computer account (refused, then `--replace-computer-account`) and re-running a half-finished enrollment |
 | `e2e-offline` | Enroll refused with the DC down, an expired password through SDDM's PAM stack (let through and marked, wrong password counted once, not-allowed refused, the guard while SDDM predates enroll), cached sign-in with the DC down, recovery |
 | `e2e-dns` | Enrolling without `--server` (DNS SRV discovery) |
-| `e2e-package` | The real package: install, pacman hook repair, removal while enrolled |
+| `e2e-package` | The real package: install, pacman hook repair (also on its own upgrade), removal while enrolled (PAM, nsswitch, SDDM, sudoers and polkit drop-ins gone) |
 | `e2e-greeter` | The real SDDM greeter (X11), driven with typed keys: sign-in, refusals, local user; an expired password in the change-password screen (Hyprland session): giving up, then changing it and reaching the desktop. Separate run: only for login-screen changes |
 
 Suites share `test/vm/lib.sh`: `fresh` (deploy and reset), `enroll`/`leave`, `expect` (run a PAM service), `check`,
