@@ -3,7 +3,9 @@
 # down (but not for people never seen here), and everything recovers when it returns. Needs DC + VM.
 source "$(dirname "$0")/lib.sh"
 NEW='D4ve-New-Pw!'
-trap 'docker start oi-test-dc >/dev/null 2>&1; for u in dave erin; do dc user delete $u >/dev/null; done; dc domain passwordsettings set --account-lockout-threshold=0 >/dev/null' EXIT
+clock() { "${V[@]}" "sudo timedatectl set-ntp false; sudo date -s @\$((\$(date +%s) + $1)) >/dev/null"; }   # clock SECONDS: move the VM's clock
+DAY=86400 SHIFT=0
+trap 'clock $((-SHIFT)) 2>/dev/null; "${V[@]}" "sudo timedatectl set-ntp true" 2>/dev/null; docker start oi-test-dc >/dev/null 2>&1; for u in dave erin; do dc user delete $u >/dev/null; done; dc domain passwordsettings set --account-lockout-threshold=0 >/dev/null' EXIT
 fresh
 for u in dave erin; do dc user delete $u >/dev/null; dc user create $u "$PW" --must-change-at-next-login >/dev/null; done
 dc group addmembers oi-laptop-users dave >/dev/null
@@ -42,6 +44,19 @@ expect ALLOWED "alice (cached) signs in offline" system-auth alice "$PW"
 expect DENIED  "alice, wrong password, refused offline" system-auth alice wrong
 expect DENIED  "bob (never signed in here) refused offline" system-auth bob "$PW"
 expect ALLOWED "tester (local) fine offline" system-auth tester tester
+
+echo "[offline sign-in expiry (--offline-days)]"
+clock $((3*DAY)); SHIFT=$((3*DAY))
+expect ALLOWED "no expiry set: alice still signs in 3 days after her last online sign-in" system-auth alice "$PW"
+clock $((-3*DAY)); SHIFT=0
+scli policy set --offline-days 2 >/dev/null; reset_locks
+expect ALLOWED "--offline-days 2, set while offline: alice signs in the same day" system-auth alice "$PW"
+clock $((3*DAY)); SHIFT=$((3*DAY))
+expect DENIED  "--offline-days 2: alice refused 3 days after her last online sign-in" system-auth alice "$PW"
+expect ALLOWED "  ... tester (local) unaffected" system-auth tester tester
+clock $((-3*DAY)); SHIFT=0; reset_locks
+scli policy set --offline-days 0 >/dev/null; reset_locks
+"${V[@]}" 'sudo timedatectl set-ntp true'
 
 echo "[domain controller back]"
 docker start oi-test-dc >/dev/null
