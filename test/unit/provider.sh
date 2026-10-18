@@ -56,8 +56,9 @@ grep -q '^stub matches --tenant acme' "$STUB_LOG" && ! grep -q '^stub enroll' "$
   && ok "--if-needed: matched, converged, not re-enrolled" || bad "if-needed: $(cat "$STUB_LOG")"
 [[ ! -e $MONARCHY_IDENTITY_SUDOERS ]] && ok "--if-needed converges to exactly what was asked (no sudo)" || bad "sudo left"
 oi status --json
-python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["provider"]=="stub" and d["details"]=={"stub_reachable":"true","pam_system_auth":"true","pam_omarchy_lock_password":"true"}' "$OUT" \
+python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["provider"]=="stub" and d["details"]=={"stub_reachable":"true","pam_system_auth":"true","pam_omarchy_lock_password":"true","pam_sddm":"true"}' "$OUT" \
   && ok "status: the stub's details and the core's PAM checks" || bad "status: $OUT"
+grep -qx 'auth     required  pam_stub.so' "$T/etc/pam.d/monarchy-identity-expired" && ok "the expired-password re-check uses the stub's module" || bad "expired service: $(cat "$T/etc/pam.d/monarchy-identity-expired")"
 cp "$FIX/pam.d/system-auth" "$SA"; : > "$STUB_LOG"; oi reassert
 grep -q 'pam_stub.so' "$SA" && grep -q '^stub reassert' "$STUB_LOG" && ok "reassert: provider called, the stub's PAM module back" || bad "reassert: $OUT"
 

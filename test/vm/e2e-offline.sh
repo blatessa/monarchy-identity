@@ -3,18 +3,36 @@
 # down (but not for people never seen here), and everything recovers when it returns. Needs DC + VM.
 source "$(dirname "$0")/lib.sh"
 NEW='D4ve-New-Pw!'
-trap 'docker start oi-test-dc >/dev/null 2>&1; dc user delete dave >/dev/null' EXIT
+trap 'docker start oi-test-dc >/dev/null 2>&1; for u in dave erin; do dc user delete $u >/dev/null; done; dc domain passwordsettings set --account-lockout-threshold=0 >/dev/null' EXIT
 fresh
-dc user delete dave >/dev/null; dc user create dave "$PW" --must-change-at-next-login >/dev/null; dc group addmembers oi-laptop-users dave >/dev/null
+for u in dave erin; do dc user delete $u >/dev/null; dc user create $u "$PW" --must-change-at-next-login >/dev/null; done
+dc group addmembers oi-laptop-users dave >/dev/null
+dc domain passwordsettings set --account-lockout-threshold=50 >/dev/null   # the DC only counts bad passwords with a threshold
 enroll_ok --groups oi-laptop-users
+MARK=/run/monarchy-identity/password-change
+marked() { "${V[@]}" "sudo test -e $MARK/$1"; }
+bad_pw() { docker exec oi-test-dc ldbsearch -H /var/lib/samba/private/sam.ldb "(sAMAccountName=$1)" badPwdCount 2>/dev/null | awk '/^badPwdCount:/ {print $2}'; }
 
-echo "[expired password]"
-for svc in sddm sshd; do
-  out=$(pt "$svc" dave "$PW"); [[ $out == DENIED*"new one required"* ]] && ok "$svc: refused, new password required" || bad "$svc: $out"
-done
+echo "[expired password at the login screen: let through, to change it first]"
+expect ALLOWED "sddm: dave (expired, allowed group) gets past the login screen" sddm dave "$PW"
+marked dave && ok "  ... marked, so the session shows the change-password screen first" || bad "dave not marked"
+reset_locks; before=$(bad_pw dave)
+expect DENIED "sddm: dave with a wrong password is refused" sddm dave wrong-password
+[[ $(bad_pw dave) == $((before + 1)) ]] && ok "  ... counted once by the directory (the re-check never sees a wrong password)" || bad "bad password count went from $before to $(bad_pw dave)"
+expect DENIED "sddm: erin (expired, not in an allowed group) is refused" sddm erin "$PW"
+! marked erin && ok "  ... and not marked" || bad "erin marked"
+expect ALLOWED "sddm: alice (current password) signs in as before" sddm alice "$PW"
+! marked alice && ok "  ... not marked" || bad "alice marked"
+expect DENIED "sddm: carol (not allowed) is refused as before" sddm carol "$PW"
+expect ALLOWED "sddm: tester (local) signs in as before" sddm tester tester
+"${V[@]}" 'sudo touch -d "+1 hour" /etc/sddm.conf.d/zz-monarchy-identity-session.conf'
+expect DENIED "sddm older than the session command (not restarted since enroll): dave refused, no desktop without the change" sddm dave "$PW"
+"${V[@]}" 'sudo touch -d "-1 hour" /etc/sddm.conf.d/zz-monarchy-identity-session.conf'
+out=$(pt sshd dave "$PW"); [[ $out == DENIED*"new one required"* ]] && ok "sshd: still refused, new password required" || bad "sshd: $out"
 reset_locks
 [[ $("${V[@]}" "sudo -u dave python3 -I /tmp/pamtest.py$(q passwd dave "$PW" --chauthtok "$NEW")" 2>&1) == PASSWORD-CHANGED* ]] && ok "dave changes it with passwd" || bad "dave passwd"
 expect ALLOWED "dave signs in with the new password" --session sddm dave "$NEW"
+! marked dave && ok "  ... and is no longer marked (each sign-in that passes the password check decides afresh)" || bad "dave still marked"
 
 echo "[domain controller down]"
 expect ALLOWED "alice signs in once while online (fills the cache)" system-auth alice "$PW"

@@ -62,6 +62,9 @@ The PAM, nsswitch, SDDM and sudoers rows apply to every provider; the rest are t
 | `/etc/krb5.keytab` | Machine keytab | Deleted |
 | `/etc/sddm.conf.d/zz-monarchy-identity.conf` | Autologin off (must sort after Omarchy's `autologin.conf`) | Deleted |
 | `/etc/sddm.conf.d/zz-monarchy-identity-theme.conf` | Selects `sddm-theme/monarchy-identity` | Deleted |
+| `/etc/pam.d/sddm` | Two `pam_exec` rules running `lib/password-expired`, between `# BEGIN/END monarchy-identity` ([expired passwords](#expired-passwords-at-the-login-screen)) | Blocks removed |
+| `/etc/pam.d/monarchy-identity-expired` | The provider's module alone (`auth` + `account`), marked; the helper's re-check | Deleted if marked |
+| `/etc/sddm.conf.d/zz-monarchy-identity-session.conf` | `[Wayland]`/`[X11] SessionCommand=lib/sddm-session` | Deleted |
 | `/etc/sudoers.d/50-monarchy-identity` | `%group ALL=(ALL:ALL) ALL`, visudo-validated, 0440 | Deleted |
 | `/etc/sudoers.d/51-monarchy-identity-theme` | The sign-in groups (or users) may run Omarchy's `omarchy-theme-set-browser-policy` with a six-hex-digit argument without a password; absent for `--mode any` | Deleted |
 | `/etc/polkit-1/rules.d/49-monarchy-identity.rules` | Admin identities for graphical admin prompts: `wheel` plus the sudo groups, with an admin who asks listed first (only when polkit's rules directory exists) | Deleted |
@@ -102,7 +105,7 @@ local login; only a definite answer from the module can. Module names and argume
 can't start another rule or control field. `remove FILE` restores the file byte for byte, whatever module was
 inserted.
 
-Only `system-auth` and `omarchy-lock-password` are edited. Every other service either includes `system-auth` and so
+`system-auth` and `omarchy-lock-password` get the module; `sddm` gets the expired-password rules below. Every other service either includes `system-auth` and so
 gets directory sign-in with no edit of its own, or is deliberately left alone:
 
 - **Admin prompts (`polkit-1`)** include `system-auth` (a vendor file in `/usr/lib/pam.d/`), so a directory admin
@@ -115,6 +118,38 @@ gets directory sign-in with no edit of its own, or is deliberately left alone:
   directory user's password never works there; root `su` to anyone still does (`pam_rootok`). Editing a stack we
   don't otherwise touch would be a second lockout surface to keep across updates for a command Omarchy doesn't use;
   directory admins have `sudo` (and `sudo -iu USER`). `test/unit/pam.sh` asserts no other service is touched.
+
+## Expired passwords at the login screen
+
+SDDM has no way to ask for a new password: it never calls `pam_chauthtok` (upstream sddm#776), so the directory's
+"new password required" from the account stack is just a failed sign-in. `pamedit.py greeter /etc/pam.d/sddm HELPER`
+adds, to the login screen's service only:
+
+```text
+auth        include     system-login
+-auth       optional    pam_exec.so quiet expose_authtok HELPER     # right after the real password check
+-account    [success=done default=ignore]  pam_exec.so quiet HELPER  # first in account
+account     include     system-login
+```
+
+- **auth:** `lib/password-expired` first deletes this user's mark, then re-authenticates with the password the stack
+  just accepted through `/etc/pam.d/monarchy-identity-expired` (the provider's module only) and marks the sign-in
+  (`/run/monarchy-identity/password-change/USER`) if account management answers `PAM_NEW_AUTHTOK_REQD`. It can't ask in
+  the account phase: sssd only reports expiry in the handle that authenticated. A wrong password dies at faillock
+  before this rule, so the directory sees it once (lab: `badPwdCount` +1).
+- **account:** success, ending the stack, only for a sign-in marked in the last 120 s; otherwise ignored. For that
+  sign-in `system-login`'s account checks (`pam_access`, `pam_time`, `pam_nologin`) don't run; Omarchy configures
+  none, and who may sign in is still enforced by the re-check's account step (an expired user outside the allowed
+  groups gets no mark).
+- **session:** SDDM's `SessionCommand` is `lib/sddm-session`. Marked: a Hyprland with `lib/password-change.lua` (no
+  binds) runs `foot` with a `gum` header and the real `passwd`; changed → `exec` SDDM's own `wayland-session` with the
+  session's arguments, otherwise exit 0 (exit 1 would be read as SDDM's helper failing to authenticate, leaving a black
+  screen). An X11 session can't host it: marked → exit 0.
+- **SDDM reads its config once.** Until it restarts after enroll, it would run the stock session command and the
+  person would reach the desktop unchanged, so the helper only marks when the SDDM process (pam_exec ← sddm-helper ←
+  sddm) started after `zz-monarchy-identity-session.conf` was written. Until then an expired password is refused, as
+  before. Removing the package leaves a running SDDM pointing at a deleted session command; the scriptlet says to
+  restart.
 
 ## Keeping it working after updates
 

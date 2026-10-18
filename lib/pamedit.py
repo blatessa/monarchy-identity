@@ -2,6 +2,7 @@
 """Idempotently add/remove a provider's PAM module (+ mkhomedir) in an Omarchy PAM service file.
 
 usage: pamedit.py apply FILE MODULE [TYPE=ARGS ...]    e.g. apply /etc/pam.d/system-auth pam_sss.so auth=forward_pass
+       pamedit.py greeter FILE HELPER                   e.g. greeter /etc/pam.d/sddm /usr/share/monarchy-identity/lib/password-expired
        pamedit.py remove|check FILE
 
 The provider names the module and its arguments per stack (TYPE is auth, account, password or session); the rules
@@ -128,18 +129,42 @@ def apply(lines, module, args):
     return lines
 
 
+def greeter(lines, helper):
+    """The login screen's service only: let a person whose password must be changed through, to change it first.
+
+    SDDM never asks for a new password (it has no pam_chauthtok), so a "new password required" answer is just a failed
+    sign-in. HELPER, run by pam_exec, re-asks the directory with the password the auth stack just accepted and marks the
+    sign-in; the account rule then ends the stack successfully for a marked sign-in only, and the session command shows
+    the change-password screen before the desktop. Both rules are ignored if pam_exec or HELPER is missing.
+    """
+    lines = strip_blocks(lines)
+    a = find(lines, "auth", r"^\s*-?auth\s+(include|substack)\s+system-login\b")
+    c = next((i for i, ln in enumerate(lines) if is_rule(ln, "account")), None)
+    if a is None or c is None:
+        return lines
+    lines[c:c] = block(f"-account   [success=done default=ignore]  pam_exec.so quiet {helper}")
+    lines[a + 1:a + 1] = block(f"-auth      optional  pam_exec.so quiet expose_authtok {helper}")
+    return lines
+
+
 def main():
     mode = sys.argv[1] if len(sys.argv) > 2 else ""
-    if mode not in ("apply", "remove", "check") or (mode != "apply" and len(sys.argv) != 3):
+    if mode not in ("apply", "greeter", "remove", "check") or (mode in ("remove", "check") and len(sys.argv) != 3) \
+            or (mode == "greeter" and len(sys.argv) != 4):
         sys.exit(__doc__)
     path = sys.argv[2]
     if mode == "apply":
         module, args = parse_module(sys.argv[3:])
+    if mode == "greeter" and not re.fullmatch(r"/[A-Za-z0-9_./-]+", sys.argv[3]):
+        sys.exit("pamedit: expected an absolute helper path")
     with open(path) as f:
         lines = f.readlines()
     if mode == "check":
         sys.exit(0 if any(ln.strip() == BEGIN for ln in lines) else 1)
-    new = apply(lines, module, args) if mode == "apply" else strip_blocks(lines)
+    if mode == "apply":
+        new = apply(lines, module, args)
+    else:
+        new = greeter(lines, sys.argv[3]) if mode == "greeter" else strip_blocks(lines)
     if new != lines:
         tmp = path + ".oi-tmp"
         with open(tmp, "w") as f:

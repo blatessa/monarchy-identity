@@ -7,6 +7,7 @@ PE=(python3 -I "$REPO/lib/pamedit.py")
 SSS=(pam_sss.so auth=forward_pass)   # what the ad provider declares in providers/ad/pam.conf
 SA=$T/etc/pam.d/system-auth LP=$T/etc/pam.d/omarchy-lock-password
 rule() { grep -F -- "$2" "$1" | head -1 | tr -s ' '; }
+sddm_conf() { (source "$REPO/lib/common.sh"; sddm_conf_value "$@"); }
 
 echo "[pamedit on Omarchy's files]"
 for f in system-auth omarchy-lock-password; do
@@ -50,21 +51,41 @@ printf '#%%PAM-1.0\nauth required pam_deny.so\n' > "$T/odd"; cp "$T/odd" "$T/odd
 echo "[permissions survive an edit]"
 chmod 0640 "$SA"; "${PE[@]}" apply "$SA" "${SSS[@]}"; [[ $(stat -c %a "$SA") == 640 ]] && ok "mode kept" || bad "mode changed"; "${PE[@]}" remove "$SA"
 
+echo "[the login screen's service: an expired password is let through to be changed]"
+SD=$T/etc/pam.d/sddm H=/usr/share/monarchy-identity/lib/password-expired
+"${PE[@]}" greeter "$SD" "$H"; once=$(cat "$SD")
+"${PE[@]}" greeter "$SD" "$H"; [[ $(cat "$SD") == "$once" ]] && ok "apply twice is the same as once" || bad "greeter not idempotent"
+grep -A2 -E '^auth +include +system-login' "$SD" | tail -1 | grep -qx -- "-auth      optional  pam_exec.so quiet expose_authtok $H" \
+  && ok "auth: the re-check runs right after the real password check, optional" || bad "auth rule: $(cat "$SD")"
+[[ $(grep -E '^-?account' "$SD" | head -1) == "-account   [success=done default=ignore]  pam_exec.so quiet $H" ]] \
+  && ok "account: first, done only on success, otherwise ignored" || bad "account rule: $(grep account "$SD")"
+! grep -E '^[^#]*pam_exec' "$SD" | grep -vq '^-' && ok "both rules -prefixed" || bad "a pam_exec rule is not -prefixed"
+"${PE[@]}" remove "$SD"; cmp -s "$SD" "$FIX/pam.d/sddm" && ok "remove restores the file byte for byte" || bad "greeter remove"
+"${PE[@]}" greeter "$SD" 'x; auth sufficient pam_permit.so' 2>/dev/null; cmp -s "$SD" "$FIX/pam.d/sddm" && ok "refused a helper that isn't a plain absolute path" || bad "accepted a bad helper"
+printf 'auth required pam_unix.so\naccount required pam_unix.so\n' > "$T/plain2"; cp "$T/plain2" "$T/plain2.0"
+"${PE[@]}" greeter "$T/plain2" "$H"; cmp -s "$T/plain2" "$T/plain2.0" && ok "a service that doesn't include system-login is left alone" || bad "edited an unknown sddm file"
+
 echo "[enroll and leave]"
 enroll --groups oi-laptop-users; [[ $OUT == *"enrolled in"* ]] || { bad "enroll: $OUT"; }
 has_pam system-auth && has_pam omarchy-lock-password && ok "both Omarchy services edited" || bad "PAM not applied"
-for f in login sudo sddm su; do ! has_pam "$f" && continue; bad "$f was edited"; done; ok "other services (sudo, login, sddm, su) untouched; they include system-auth"
+for f in login sudo su sddm-greeter sddm-autologin; do ! has_pam "$f" && continue; bad "$f was edited"; done; ok "other services (sudo, login, su, the greeter's own) untouched; they include system-auth"
+has_pam sddm && ok "the login screen's service has the expired-password rules" || bad "sddm not edited"
+grep -qx 'account  required  pam_sss.so' "$T/etc/pam.d/monarchy-identity-expired" && grep -qF "# managed by monarchy-identity" "$T/etc/pam.d/monarchy-identity-expired" \
+  && ok "the re-check service: the provider's module only, marked as ours" || bad "expired service: $(cat "$T/etc/pam.d/monarchy-identity-expired" 2>&1)"
+[[ $(sddm_conf Wayland SessionCommand) == "$REPO/lib/sddm-session" && $(sddm_conf X11 SessionCommand) == "$REPO/lib/sddm-session" ]] \
+  && ok "SDDM's session command is ours, Wayland and X11 (effective after Omarchy's drop-ins)" || bad "session command: $(sddm_conf Wayland SessionCommand)"
 grep -qE '^passwd:.*files sss systemd' "$T/etc/nsswitch.conf" && grep -qE '^group:.*files sss ' "$T/etc/nsswitch.conf" && grep -qE '^shadow:.*files sss' "$T/etc/nsswitch.conf" && ok "nsswitch: sss after files for passwd, group, shadow" || bad "nsswitch: $(cat "$T/etc/nsswitch.conf")"
 grep -q '^hosts: files dns$' "$T/etc/nsswitch.conf" && ok "hosts line untouched" || bad "hosts changed"
 oi reassert; [[ $(grep -c sss "$T/etc/nsswitch.conf") == 3 && $(grep -c 'BEGIN monarchy' "$SA") == 4 ]] && ok "reassert is idempotent" || bad "reassert duplicated edits"
 echo "[reassert repairs what an update overwrote]"
-cp "$FIX/pam.d/system-auth" "$SA"; sed -i -E '/^(passwd|group|shadow):/ s/[[:space:]]+sss\b//' "$T/etc/nsswitch.conf"
-oi reassert; has_pam system-auth && grep -qE '^passwd:.*sss' "$T/etc/nsswitch.conf" && ok "PAM and nsswitch back" || bad "reassert: $OUT"
+cp "$FIX/pam.d/system-auth" "$SA"; cp "$FIX/pam.d/sddm" "$T/etc/pam.d/sddm"; sed -i -E '/^(passwd|group|shadow):/ s/[[:space:]]+sss\b//' "$T/etc/nsswitch.conf"
+oi reassert; has_pam system-auth && has_pam sddm && grep -qE '^passwd:.*sss' "$T/etc/nsswitch.conf" && ok "PAM and nsswitch back" || bad "reassert: $OUT"
 echo "[leave removes only what is marked]"
 touch "$T/sss/db/cache.ldb" "$T/sss/mc/passwd"
 printf '[libdefaults]\n' > "$T/etc/krb5.conf"          # someone replaced our krb5.conf with their own: not ours to delete
 oi leave
-for f in system-auth omarchy-lock-password; do cmp -s "$FIX/pam.d/$f" "$T/etc/pam.d/$f" && ok "$f back to stock" || bad "$f differs from stock"; done
+for f in system-auth omarchy-lock-password sddm; do cmp -s "$FIX/pam.d/$f" "$T/etc/pam.d/$f" && ok "$f back to stock" || bad "$f differs from stock"; done
+[[ ! -e $T/etc/pam.d/monarchy-identity-expired && ! -e $T/etc/sddm.conf.d/zz-monarchy-identity-session.conf ]] && ok "the re-check service and the session command removed" || bad "greeter files left"
 grep -qE '^(passwd|group|shadow):.*sss' "$T/etc/nsswitch.conf" && bad "sss still in nsswitch" || ok "nsswitch has no sss"
 [[ ! -e $T/etc/sssd/sssd.conf && ! -e $T/etc/samba/smb.conf && ! -e $T/etc/krb5.keytab ]] && ok "sssd.conf, smb.conf and the keytab removed" || bad "files left"
 [[ -f $T/etc/krb5.conf ]] && ok "a krb5.conf we did not write is kept" || bad "deleted a file that was not ours"

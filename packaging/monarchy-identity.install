@@ -7,7 +7,12 @@ post_install() {
 # Never leave PAM / nsswitch / sudoers / SDDM edits behind pointing at a tool (and PAM modules) that are about
 # to disappear: a dangling PAM rule can lock everyone out. Package upgrades do NOT run this (pre_upgrade is separate).
 pre_remove() {
+  session_cmd=0; [ -f /etc/sddm.conf.d/zz-monarchy-identity-session.conf ] && session_cmd=1
   if [ -x /usr/bin/monarchy-identity ]; then
     /usr/bin/monarchy-identity leave || echo "monarchy-identity: WARNING: could not fully unwind enrollment; inspect /etc/pam.d/system-auth and /etc/nsswitch.conf" >&2
+  fi
+  # SDDM keeps the session command it read at start, and that is about to disappear
+  if [ "$session_cmd" = 1 ]; then
+    echo ":: monarchy-identity: restart before anyone signs in at the login screen again." >&2
   fi
 }

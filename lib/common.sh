@@ -133,8 +133,38 @@ pam_apply() { # pam_apply PROVIDER
   for f in "${PAM_FILES[@]}"; do
     if [[ -f $ETC/pam.d/$f ]]; then python3 -I "$PAMEDIT" apply "$ETC/pam.d/$f" "$module" "${args[@]}" || die "could not edit $ETC/pam.d/$f"; fi
   done
+  greeter_apply "$module" "$(kv_get "$pc" account "")"
 }
-pam_remove() { local f; for f in "${PAM_FILES[@]}"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" remove "$ETC/pam.d/$f"; done; return 0; }
+pam_remove() {
+  local f; for f in "${PAM_FILES[@]}" "$GREETER_PAM"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" remove "$ETC/pam.d/$f"; done
+  remove_if_ours "$ETC/pam.d/$EXPIRED_PAM"; rm -f "$SDDM_SESSION_CONF"
+}
+
+# --- an expired password at the login screen ------------------------------------------------------------------------
+# SDDM can't ask for a new password, so "must change it" would just be a failed sign-in. Its service gets two rules
+# (pamedit.py greeter) that let such a sign-in through, marked; lib/password-expired re-checks through its own service
+# (the provider's module alone); SDDM's session command (lib/sddm-session) shows the change-password screen
+# before the desktop. password-expired knows the drop-in's path.
+GREETER_PAM=sddm
+EXPIRED_PAM=monarchy-identity-expired
+SDDM_SESSION_CONF="$SDDM_CONF_D/zz-monarchy-identity-session.conf"
+write_if_changed() { # write_if_changed FILE CONTENT: 0644, only when the content differs (the mtime means something)
+  install -d -m 0755 "$(dirname "$1")"
+  [[ -f $1 && $(cat "$1") == "$2" ]] && return 0
+  printf '%s\n' "$2" > "$1"; chmod 0644 "$1"
+}
+greeter_apply() { # greeter_apply MODULE [ACCOUNT_ARGS]
+  write_if_changed "$ETC/pam.d/$EXPIRED_PAM" "$OI_MARK: lib/password-expired asks the directory if a password must be changed
+auth     required  $1
+account  required  $1${2:+ $2}"
+  write_if_changed "$SDDM_SESSION_CONF" "$OI_MARK: an expired password is changed before the desktop
+[Wayland]
+SessionCommand=$OI_ROOT/lib/sddm-session
+[X11]
+SessionCommand=$OI_ROOT/lib/sddm-session"
+  [[ ! -f $ETC/pam.d/$GREETER_PAM ]] || python3 -I "$PAMEDIT" greeter "$ETC/pam.d/$GREETER_PAM" "$OI_ROOT/lib/password-expired" \
+    || die "could not edit $ETC/pam.d/$GREETER_PAM"
+}
 
 # --- who may sign in: names in --groups / --users ---------------------------------------------------
 # These values end up in provider config files. Reject anything that could inject extra config lines or shell

@@ -1,0 +1,48 @@
+#!/bin/bash
+# SDDM's session command while enrolled (zz-monarchy-identity-session.conf): runs as the person who just signed in, with
+# the session's command as arguments. If the directory says their password must be changed (marked by
+# lib/password-expired during this sign-in), it shows a full-screen change-password screen first: a minimal Hyprland
+# with no shortcuts and one terminal running the real passwd. Changed: on to the desktop. Anything else: back to the
+# login screen. Then it hands over to SDDM's own session script, as if we weren't here. An X11 session (Omarchy has
+# none) can't host that screen, so a pending change there goes back to the login screen.
+#   sddm-session --form RESULT   the screen itself (run inside that Hyprland); writes "changed" to RESULT on success
+set -uo pipefail
+LIB="$(dirname "$(readlink -f "$0")")"
+STOCK=${MONARCHY_IDENTITY_SDDM_SESSION:-/usr/share/sddm/scripts/wayland-session}
+[[ ${XDG_SESSION_TYPE:-} != x11 ]] || STOCK=${MONARCHY_IDENTITY_SDDM_XSESSION:-/usr/share/sddm/scripts/Xsession}
+
+form() {
+  local result=$1 first=1
+  while :; do
+    clear
+    gum style --border rounded --border-foreground 4 --padding "1 4" --margin "1 2" --align center \
+      "Your password has expired" "" "Choose a new one to continue to your desktop." \
+      "Enter your current password first, then the new one twice."
+    ((first)) || gum style --margin "0 2" --foreground 1 "That didn't work. The message above says why."
+    if passwd; then
+      echo changed > "$result"
+      gum style --margin "1 2" --foreground 2 "Password changed. Starting your desktop..."; sleep 2
+      return 0
+    fi
+    first=0
+    gum confirm --affirmative "Try again" --negative "Back to sign-in" "Your password was not changed." || return 1
+  done
+}
+
+kiosk() { # the change-password screen; 0 iff the password was changed
+  local dir rc=1
+  dir=$(mktemp -d) || return 1
+  OI_FORM="$(printf '%q --form %q' "$LIB/sddm-session" "$dir/result")" \
+    start-hyprland -- --config "$LIB/password-change.lua" >"$dir/hyprland.log" 2>&1
+  [[ $(cat "$dir/result" 2>/dev/null) == changed ]] && rc=0
+  rm -rf "$dir"
+  return "$rc"
+}
+
+if [[ ${1:-} == --form ]]; then form "$2"; exit; fi
+if "$LIB/password-expired" pending "$USER"; then
+  # Not changed: end like a logout. SDDM takes the exit code for its helper's, and 1 means "authentication failed",
+  # after which it waits for the greeter it already closed: a black screen.
+  [[ ${XDG_SESSION_TYPE:-} != x11 ]] && kiosk || exit 0
+fi
+exec "$STOCK" "$@"
