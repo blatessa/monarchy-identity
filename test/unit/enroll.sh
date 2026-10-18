@@ -1,6 +1,6 @@
 #!/bin/bash
 # Enrollment options: --computer-name, --ou, password file and variable, --replace-computer-account, re-running after an
-# enrollment stopped halfway, the login theme, and the user-level hook and widget installers.
+# enrollment stopped halfway, the login theme, and the user-level hook installer.
 source "$(dirname "$0")/lib.sh"
 sandbox
 G=(--groups oi-laptop-users)
@@ -55,13 +55,10 @@ enroll "${G[@]}"; grep -qx 'Current=monarchy-identity' "$T/etc/sddm.conf.d/zz-mo
 oi leave; [[ ! -e $T/etc/sddm.conf.d/zz-monarchy-identity-theme.conf ]] && ok "leave removes it" || bad "theme left"
 enroll "${G[@]}" --keep-login-theme; [[ ! -e $T/etc/sddm.conf.d/zz-monarchy-identity-theme.conf && $(cfg login_theme) == stock ]] && ok "--keep-login-theme" || bad "keep theme"
 
-echo "[hooks and widget, as the desktop user]"
+echo "[hooks, as the desktop user]"
 sandbox
 H="$HOME/.config/omarchy"
 oi_user install-hooks; check "post-update hook installed" test -x "$H/hooks/post-update.d/10-monarchy-identity-reassert"
 oi_user remove-hooks; check "remove-hooks" test ! -e "$H/hooks/post-update.d/10-monarchy-identity-reassert"
-oi_user install-widget; [[ $OUT == *"installed monarchy-identity.status"* ]] && check "widget installed" test -f "$H/plugins/monarchy-identity.status/Panel.qml" || bad "install-widget: $OUT"
-oi_user remove-widget; check "remove-widget" test ! -e "$H/plugins/monarchy-identity.status"
 oi install-hooks; [[ $OUT == *"not root"* ]] && ok "install-hooks refuses root" || bad "hooks as root: $OUT"
-oi install-widget; [[ $OUT == *"not root"* ]] && ok "install-widget refuses root" || bad "widget as root: $OUT"
 result

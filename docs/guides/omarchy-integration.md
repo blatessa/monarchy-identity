@@ -32,15 +32,3 @@ monarchy-identity remove-hooks
 
 You can also run the repair yourself at any time: `sudo monarchy-identity reassert`. It's safe to run repeatedly, so an
 MDM can schedule it if you want to be sure.
-
-## Status widget
-
-The optional `monarchy-identity-shell` package adds a widget to the Omarchy bar that shows whether the laptop is
-enrolled, and warns when autologin is on:
-
-```bash
-monarchy-identity install-widget --enable    # as the desktop user
-monarchy-identity remove-widget
-```
-
-The widget only displays status; hiding it changes nothing about who can sign in.

@@ -26,12 +26,11 @@ hit a command line or disk.
 
 - `monarchy-identity` (`packaging/PKGBUILD`): CLI, providers, hooks, login theme. Installing changes nothing until
   `enroll`. Removing it while enrolled runs `leave` (`pre_remove`).
-- `monarchy-identity-shell`: optional Quickshell bar widget; reads `status --json`. Display only.
 
 ## Layers
 
 1. **Core CLI** (`bin/monarchy-identity`): `status | enroll | leave | policy | reassert | install-hooks |
-   install-widget | providers`. Parses the options every directory shares, runs the provider named in the config file
+   providers`. Parses the options every directory shares, runs the provider named in the config file
    for the directory part, and does the shared steps (PAM, SDDM, sudoers, policy state) around it. State-changing
    commands take `flock /run/monarchy-identity.lock` so a hook-triggered `reassert` can't interleave with
    `enroll`/`leave`.
