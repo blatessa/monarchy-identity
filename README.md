@@ -11,8 +11,8 @@ screen, the lock screen, a terminal, `ssh` and `sudo`, and you decide in the dir
 - Keeps working through Omarchy updates.
 - Scriptable: unattended enrollment, and `status --json` for MDMs and other tools.
 
-Active Directory (Windows Server and Samba AD) is the only provider today; Entra ID, Okta, Google Workspace and FreeIPA
-are planned. It only does sign-in: device management belongs to your MDM.
+Active Directory (Windows Server and Samba AD) is supported; Microsoft Entra ID is in development; Okta, Google
+Workspace and FreeIPA are planned. It only does sign-in: device management belongs to your MDM.
 
 ## Quick start
 

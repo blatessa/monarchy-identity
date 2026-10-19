@@ -34,9 +34,9 @@ monarchy-identity enroll [PROVIDER] [provider options] (--groups A,B | --users U
 
 Connects the laptop to a directory and turns on directory sign-in. `PROVIDER` is `ad` (Active Directory) or `entra`
 (Microsoft Entra ID); with only one installed it can be left out. Active Directory's options (`--realm`, `--admin`,
-`--ou`, ...) are on the [Active Directory page](../providers/ad.md#enroll-options), with the messages it can refuse
-with. Entra ID takes `--tenant` (the tenant's domain) and `--client-id` (an app registration that may read groups and
-users; its client secret is the enrollment password, used to check the names and not kept). `enroll --help` lists
+`--ou`, ...) are on the [Active Directory page](../providers/ad.md#enroll-options), and Entra ID's (`--tenant`,
+`--client-id`) on the [Entra ID page](../providers/entra.md#enroll-options), each with the messages it can refuse
+with. `enroll --help` lists
 every option. Before it changes anything, `enroll` checks what the directory can (credentials, that the groups exist),
 so mistakes fail without touching the laptop. A laptop enrolled with one directory (or Entra tenant) must `leave` before
 enrolling with another. Enrolling again with the same one is safe: the laptop keeps its registration.
@@ -54,7 +54,7 @@ enrolling with another. Enrolling again with the same one is safe: the laptop ke
 | Option | Default | Description |
 |---|---|---|
 | `--sudo-groups g1,g2` | none | Members of these directory groups get `sudo`. |
-| `--offline-days N` | never | Cached sign-in stops working after N days without reaching the directory. |
+| `--offline-days N` | never | Cached sign-in stops working after N days without reaching the directory. Not with Entra ID, which has no such limit. |
 | `--keep-autologin` | off | Keep Omarchy's automatic sign-in at boot. |
 | `--password-file FILE` | standard input | Where a provider that needs an enrollment password reads it; readable only by its owner. Also `MONARCHY_IDENTITY_PASSWORD_FILE`. |
 | `--if-needed` | off | If already enrolled with this directory, update the policy instead of enrolling again. See [Automate enrollment](../guides/automation.md). |

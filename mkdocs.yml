@@ -47,6 +47,7 @@ nav:
       - CLI: reference/cli.md
       - Status output: reference/status-output.md
   - Active Directory: providers/ad.md
+  - Microsoft Entra ID: providers/entra.md
   - Status and limits: status.md
   - Development:
       - Architecture: dev/architecture.md

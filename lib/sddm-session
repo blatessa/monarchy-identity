@@ -1,39 +1,17 @@
 #!/bin/bash
 # SDDM's session command while enrolled (zz-monarchy-identity-session.conf): runs as the person who just signed in, with
 # the session's command as arguments. If the directory says their password must be changed (marked by
-# lib/password-expired during this sign-in), or wants a second sign-in step (marked by lib/second-step), it shows a
-# full-screen screen for that first: a minimal Hyprland with no shortcuts and one terminal running the real passwd, or
-# the sign-in again with every step. Done: on to the desktop. Anything else: back to the login screen. Then it hands
-# over to SDDM's own session script, as if we weren't here. An X11 session (Omarchy has none) can't host that screen,
-# so a pending step there goes back to the login screen.
-#   sddm-session --form KIND RESULT   the screen itself (run inside that Hyprland; KIND is password or second-step);
-#                                     writes "done" to RESULT on success
+# lib/password-expired during this sign-in), it shows a full-screen change-password screen first: a minimal Hyprland
+# with no shortcuts and one terminal running the real passwd. Changed: on to the desktop. Anything else: back to the
+# login screen. Then it hands over to SDDM's own session script, as if we weren't here. An X11 session (Omarchy has
+# none) can't host that screen, so a pending change there goes back to the login screen.
+#   sddm-session --form RESULT   the screen itself (run inside that Hyprland); writes "changed" to RESULT on success
 set -uo pipefail
 LIB="$(dirname "$(readlink -f "$0")")"
 STOCK=${MONARCHY_IDENTITY_SDDM_SESSION:-/usr/share/sddm/scripts/wayland-session}
 [[ ${XDG_SESSION_TYPE:-} != x11 ]] || STOCK=${MONARCHY_IDENTITY_SDDM_XSESSION:-/usr/share/sddm/scripts/Xsession}
 
-second_step_form() {
-  local result=$1 first=1
-  while :; do
-    clear
-    gum style --border rounded --border-foreground 4 --padding "1 4" --margin "1 2" --align center \
-      "One more step" "" "Your organization wants to confirm it's you." \
-      "Enter your password again, then what it asks for next," "like the code from your authenticator app." \
-      "Your typing stays hidden: just type and press Enter."
-    ((first)) || gum style --margin "0 2" --foreground 1 "That didn't work. The message above says why." \
-      "If it keeps failing, you may not be allowed to sign in on this laptop."
-    if "$LIB/second-step" verify; then
-      echo done > "$result"
-      gum style --margin "1 2" --foreground 2 "Signed in. Starting your desktop..."; sleep 2
-      return 0
-    fi
-    first=0
-    gum confirm --affirmative "Try again" --negative "Back to sign-in" "You're not signed in yet." || return 1
-  done
-}
-
-password_form() {
+form() {
   local result=$1 first=1
   while :; do
     clear
@@ -43,7 +21,7 @@ password_form() {
       "Your typing stays hidden: just type and press Enter."
     ((first)) || gum style --margin "0 2" --foreground 1 "That didn't work. The message above says why."
     if passwd; then
-      echo done > "$result"
+      echo changed > "$result"
       gum style --margin "1 2" --foreground 2 "Password changed. Starting your desktop..."; sleep 2
       return 0
     fi
@@ -52,26 +30,20 @@ password_form() {
   done
 }
 
-kiosk() { # kiosk KIND: the change-password or second-step screen; 0 iff it was done
+kiosk() { # the change-password screen; 0 iff the password was changed
   local dir rc=1
   dir=$(mktemp -d) || return 1
-  OI_FORM="$(printf '%q --form %q %q' "$LIB/sddm-session" "$1" "$dir/result")" \
+  OI_FORM="$(printf '%q --form %q' "$LIB/sddm-session" "$dir/result")" \
     start-hyprland -- --config "$LIB/password-change.lua" >"$dir/hyprland.log" 2>&1
-  [[ $(cat "$dir/result" 2>/dev/null) == done ]] && rc=0
+  [[ $(cat "$dir/result" 2>/dev/null) == changed ]] && rc=0
   rm -rf "$dir"
   return "$rc"
 }
 
-if [[ ${1:-} == --form ]]; then
-  case $2 in password) password_form "$3" ;; second-step) second_step_form "$3" ;; *) exit 1 ;; esac
-  exit
-fi
-kind=""
-if "$LIB/password-expired" pending "$USER"; then kind=password
-elif "$LIB/second-step" pending "$USER"; then kind=second-step; fi
-if [[ -n $kind ]]; then
-  # Not done: end like a logout. SDDM takes the exit code for its helper's, and 1 means "authentication failed",
+if [[ ${1:-} == --form ]]; then form "$2"; exit; fi
+if "$LIB/password-expired" pending "$USER"; then
+  # Not changed: end like a logout. SDDM takes the exit code for its helper's, and 1 means "authentication failed",
   # after which it waits for the greeter it already closed: a black screen.
-  [[ ${XDG_SESSION_TYPE:-} != x11 ]] && kiosk "$kind" || exit 0
+  [[ ${XDG_SESSION_TYPE:-} != x11 ]] && kiosk || exit 0
 fi
 exec "$STOCK" "$@"

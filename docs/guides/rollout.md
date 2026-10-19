@@ -11,11 +11,12 @@ then follow the stages in order.
 | **Admin rights?** | A directory group for people who get `sudo` (`--sudo-groups laptop-admins`), or none. |
 | **Offline sign-in?** | Allow it, optionally expiring after some days away (`--offline-days 14`). |
 | **Autologin?** | Leave it off (the default). |
-| **Where do laptops go in the directory, and which account enrolls them?** | See [Active Directory: prepare](../providers/ad.md#prepare-the-directory). |
+| **Where do laptops go in the directory, and which account enrolls them?** | See your directory's page: [Active Directory](../providers/ad.md#prepare-the-directory) or [Entra ID](../providers/entra.md#prepare-the-tenant). |
 
 ## 2. Prepare
 
-Set up the directory and check the laptops as on the [Active Directory page](../providers/ad.md#prepare-the-directory).
+Set up the directory and check the laptops as on your directory's page: [Active Directory](../providers/ad.md#prepare-the-directory)
+or [Entra ID](../providers/entra.md#prepare-the-tenant).
 
 ## 3. Pilot
 
@@ -43,6 +44,6 @@ everywhere first and enroll afterwards.
   on a laptop until it next reaches the directory; `--offline-days` limits that.
 - **The rules change:** [Manage enrolled laptops](manage.md), or re-run your enrollment script.
 - **A laptop is reinstalled:** enroll it again; see [Active Directory](../providers/ad.md#how-it-behaves) for its old
-  computer account.
+  computer account, or [Entra ID](../providers/entra.md#how-it-behaves) for its old device.
 - **Updates:** nothing to do ([How sign-in works](../concepts/how-it-works.md#updates)).
 - **Retiring a laptop:** [`leave`](manage.md#leave-the-directory). For a lost one, disable it in the directory.

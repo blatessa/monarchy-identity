@@ -115,6 +115,40 @@ n=$(greeter_up); "${V[@]}" 'sudo loginctl terminate-user dave'; wait_for 40 '[[ 
 last_session /usr/share/xsessions/oi-test.desktop
 dc user delete dave >/dev/null
 
+# Entra (opt-in, a real tenant): the real SDDM answers every prompt with the typed password, so this is where the
+# login screen's asking once shows, and where an MFA user types the code into the theme's code line.
+echo "[Entra ID: the login screen asks once; an MFA user's code there]"
+if entra_lab && [[ -n ${ENTRA_DAVE:-} && -n ${ENTRA_DAVE_PASSWORD:-} && -n ${ENTRA_DAVE_TOTP_SECRET:-} ]]; then
+  SECRET=/root/entra-secret
+  echo "$PW" | "${V[@]}" 'sudo /usr/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
+  himmelblau_install; entra_devices_cleanup; entra_codes
+  printf '%s\n' "$ENTRA_CLIENT_SECRET" | "${V[@]}" "sudo install -m 600 /dev/stdin $SECRET"
+  out=$("${V[@]}" "sudo /usr/bin/monarchy-identity enroll entra --tenant $ENTRA_TENANT --client-id $ENTRA_CLIENT_ID --password-file $SECRET --groups linux-users" 2>&1)
+  "${V[@]}" "sudo rm -f $SECRET"
+  [[ $out == *"enrolled in $ENTRA_TENANT"* ]] && ok "enroll entra" || { bad "enroll entra"; sed 's/^/      /' <<<"$out"; }
+  has() { "${V[@]}" "pgrep -u$(q "$1") -a $2" 2>/dev/null; }
+  steps() { "${V[@]}" "sudo journalctl -u himmelblaud --since @$1 --no-pager -o cat | grep -c 'pam authenticate step'"; }
+  last_session /usr/share/wayland-sessions/hyprland.desktop; greeter_restart   # a fresh greeter, nobody remembered
+  since=$("${V[@]}" 'date +%s')
+  ./qmon.py type "$ENTRA_BOB"; ./qmon.py key ret; sleep 1; ./qmon.py type "not-bobs-password-1"; ./qmon.py key ret
+  sleep 15; n=$(steps "$since"); shot 10-entra-wrong
+  [[ $n == 1 ]] && ! has "$ENTRA_BOB" Hyprland >/dev/null && ok "bob, wrong password: no session, and Entra was asked once" || { bad "wrong password sent $n times"; diag; }
+  last_session /usr/share/wayland-sessions/hyprland.desktop; greeter_restart   # also ends a loop, if there was one
+  since=$("${V[@]}" 'date +%s')
+  ./qmon.py type "$ENTRA_DAVE"; ./qmon.py key ret; sleep 1; ./qmon.py type "$ENTRA_DAVE_PASSWORD"; ./qmon.py key ret
+  sleep 10; shot 11-code-wanted
+  n=$(steps "$since"); [[ $n == 1 ]] && ! has "$ENTRA_DAVE" Hyprland >/dev/null && ok "dave (MFA, first sign-in here): the password alone isn't enough, nothing sent as the code" || { bad "dave, password only: $n steps"; diag; }
+  ./qmon.py type "$(totp "$ENTRA_DAVE_TOTP_SECRET")"; ./qmon.py key ret   # the theme put the focus on its code line
+  wait_for 60 'has "$ENTRA_DAVE" Hyprland >/dev/null' && ok "  the code on the login screen: dave's desktop starts" || { bad "no desktop after the code"; shot 12-no-desktop; diag; }
+  sleep 3; shot 12-desktop
+  n=$(greeter_up); "${V[@]}" "sudo loginctl terminate-user $(q "$ENTRA_DAVE")"; wait_for 40 '[[ $(greeter_up) -gt $n ]]'
+  "${V[@]}" 'sudo /usr/bin/monarchy-identity leave' >/dev/null 2>&1
+  entra_codes off; entra_devices_cleanup
+  last_session /usr/share/xsessions/oi-test.desktop
+else
+  echo "  SKIP: needs ENTRA_LAB_ENV with an MFA user (ENTRA_DAVE, ENTRA_DAVE_PASSWORD, ENTRA_DAVE_TOTP_SECRET)"
+fi
+
 "${V[@]}" 'sudo systemctl stop sddm; sudo rm -f /etc/sddm.conf.d/zz-vm-x11.conf' >/dev/null 2>&1
 echo "$PW" | "${V[@]}" 'sudo /usr/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
 "${V[@]}" 'sudo pacman -R --noconfirm monarchy-identity' >/dev/null 2>&1   # leave the VM unpackaged, as other suites expect

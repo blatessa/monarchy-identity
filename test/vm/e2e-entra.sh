@@ -1,8 +1,9 @@
 #!/bin/bash
 # The entra provider against a real test tenant: refused enrolls, enroll, sign-in on every service, the group policy,
-# sudo, the login screen asking once and a second step (an MFA user, optional), offline, enrolling again (registered,
-# and after leave with the old device still in Entra), leave. Opt-in: needs the tenant's details in the env file named
-# by ENTRA_LAB_ENV and the himmelblau package (docs/dev/testing.md); without a tenant it says so and exits 0.
+# sudo, the login screen asking once and an authenticator code there (an MFA user, optional), offline, enrolling again
+# (registered, and after leave with the old device still in Entra), leave. Opt-in: needs the tenant's details in the
+# env file named by ENTRA_LAB_ENV and the himmelblau package (docs/dev/testing.md); without a tenant it says so and
+# exits 0.
 source "$(dirname "$0")/lib.sh"
 entra_lab || exit 0
 SECRET=/root/entra-secret
@@ -11,10 +12,11 @@ ecli() { "${V[@]}" "sudo ~/oi/bin/monarchy-identity $*" 2>&1; }
 device_id() { "${V[@]}" 'sudo sed -n "s/^device_id *= *//p" /var/cache/himmelblaud/himmelblau.conf'; }   # himmelblau's record
 offline() { "${V[@]}" "sudo nft add table inet oi-offline; sudo nft add chain inet oi-offline out '{ type filter hook output priority 0; policy drop; }'; sudo nft add rule inet oi-offline out oif lo accept; sudo nft add rule inet oi-offline out ct state established accept"; }
 online() { "${V[@]}" "sudo nft delete table inet oi-offline" 2>/dev/null; }
-trap 'online; ecli leave >/dev/null; "${V[@]}" "sudo rm -f $SECRET"; entra_devices_cleanup' EXIT
+trap 'online; ecli leave >/dev/null; "${V[@]}" "sudo rm -f $SECRET"; entra_codes off; entra_devices_cleanup' EXIT
 
 fresh
 himmelblau_install || result
+entra_codes
 printf '%s\n' "$ENTRA_CLIENT_SECRET" | "${V[@]}" "sudo install -m 600 /dev/stdin $SECRET"
 entra_devices_cleanup
 
@@ -34,6 +36,7 @@ out=$(ecli $E --groups linux-users --sudo-groups linux-admins)
 echo "[sign-in]"
 expect ALLOWED "login: bob (in linux-users; registers the device)" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD" --session
 expect ALLOWED "sddm: alice" sddm "$ENTRA_ALICE" "$ENTRA_ALICE_PASSWORD"
+expect ALLOWED "sddm: bob by his short name" sddm "${ENTRA_BOB%@*}" "$ENTRA_BOB_PASSWORD"
 expect ALLOWED "lock screen: bob" omarchy-lock-password "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
 expect DENIED  "login: carol (not in linux-users) is refused" login "$ENTRA_CAROL" "$ENTRA_CAROL_PASSWORD"
 expect ALLOWED "login: tester (local) as before" login tester tester
@@ -46,26 +49,26 @@ expect ALLOWED "ssh: tester (local) as before" sshd tester tester
 ! "${V[@]}" "sudo sudo -l -U $(q "$ENTRA_BOB") | grep -q '(ALL : ALL) ALL'" && ok "sudo: not bob" || bad "bob has sudo"
 # SDDM answers every prompt with the password it has, and pam_himmelblau starts over after a refusal: the login
 # screen's own check asks Entra once (pamtest answers a repeated prompt once more, so a loop would show as a second try).
-echo "[the login screen: Entra asked once; a second step comes before the desktop]"
+# Our theme sends the password and a code on two lines; pamtest gives that whole answer to SDDM's one prompt, as SDDM does.
+echo "[the login screen: Entra asked once; a code there too]"
+steps() { "${V[@]}" "sudo journalctl -u himmelblaud --since @$1 --no-pager -o cat | grep -c 'pam authenticate step'"; }
 since=$("${V[@]}" 'date +%s')
 expect DENIED "sddm: bob with a wrong password is refused" sddm "$ENTRA_BOB" "not-bobs-password-1"
-n=$("${V[@]}" "sudo journalctl -u himmelblaud --since @$since --no-pager -o cat | grep -c 'pam authenticate step'")
-[[ $n == 1 ]] && ok "  ... after one try (the password went to Entra once)" || bad "wrong password sent $n times"
+n=$(steps "$since"); [[ $n == 1 ]] && ok "  ... after one try (the password went to Entra once)" || bad "wrong password sent $n times"
 expect DENIED "sddm: carol (not in linux-users) is refused" sddm "$ENTRA_CAROL" "$ENTRA_CAROL_PASSWORD"
 expect ALLOWED "sddm: tester (local) as before" sddm tester tester
 if [[ -n ${ENTRA_DAVE:-} && -n ${ENTRA_DAVE_PASSWORD:-} && -n ${ENTRA_DAVE_TOTP_SECRET:-} ]]; then
-  # dave must give an authenticator code; this is his first sign-in on the laptop. The second-step screen runs as him.
-  pending() { "${V[@]}" "test \"\$(sudo cat$(q "/run/monarchy-identity/second-step/$ENTRA_DAVE") 2>/dev/null)\" = pending"; }
-  "${V[@]}" 'rm -rf /tmp/oi-lib && mkdir /tmp/oi-lib && cp ~/oi/lib/second-step ~/oi/lib/password-expired /tmp/oi-lib/ && chmod -R a+rX /tmp/oi-lib'
-  verify() { printf '%s\n%s\n' "$ENTRA_DAVE_PASSWORD" "$1" | "${V[@]}" "cd /tmp && sudo -u$(q "$ENTRA_DAVE")$(q "USER=$ENTRA_DAVE") timeout 120 /tmp/oi-lib/second-step verify" >/dev/null 2>&1; }
-  expect ALLOWED "sddm: dave (MFA, first sign-in here): the password is enough to get past the login screen" sddm "$ENTRA_DAVE" "$ENTRA_DAVE_PASSWORD"
-  pending && ok "  ... with the second step pending" || bad "dave's sign-in not marked pending"
-  ! verify 000000 && ok "second step: a wrong code is refused, without trying again" || bad "a wrong code was accepted"
-  verify "$(totp "$ENTRA_DAVE_TOTP_SECRET")" && ok "second step: password and code, as dave" || bad "second step with the right code failed"
-  expect ALLOWED "sddm: dave again: no second step (Entra remembers this laptop)" sddm "$ENTRA_DAVE" "$ENTRA_DAVE_PASSWORD"
-  ! pending && ok "  ... nothing pending" || bad "dave pending again"
+  # dave must give an authenticator code; this is his first sign-in on the laptop
+  since=$("${V[@]}" 'date +%s')
+  expect DENIED "sddm: dave (MFA, first sign-in here), password only: not yet, a code is wanted" sddm "$ENTRA_DAVE" "$ENTRA_DAVE_PASSWORD"
+  n=$(steps "$since"); [[ $n == 1 ]] && ok "  ... and nothing was sent as the code" || bad "dave: $n steps for a password alone"
+  since=$("${V[@]}" 'date +%s')
+  expect DENIED "sddm: dave with a wrong code is refused" sddm "$ENTRA_DAVE" "$ENTRA_DAVE_PASSWORD"$'\n'000000
+  n=$(steps "$since"); [[ $n == 2 ]] && ok "  ... the password and the code went to Entra once each" || bad "dave, wrong code: $n steps"
+  expect ALLOWED "sddm: dave with his password and code" sddm "$ENTRA_DAVE" "$ENTRA_DAVE_PASSWORD"$'\n'"$(totp "$ENTRA_DAVE_TOTP_SECRET")"
+  expect ALLOWED "sddm: dave again, password only (Entra remembers this laptop)" sddm "$ENTRA_DAVE" "$ENTRA_DAVE_PASSWORD"
 else
-  echo "  SKIP the second step: $ENTRA_LAB_ENV has no ENTRA_DAVE, ENTRA_DAVE_PASSWORD, ENTRA_DAVE_TOTP_SECRET (an MFA user)"
+  echo "  SKIP the code: $ENTRA_LAB_ENV has no ENTRA_DAVE, ENTRA_DAVE_PASSWORD, ENTRA_DAVE_TOTP_SECRET (an MFA user)"
 fi
 st=$(ecli status --json)
 [[ $st == *'"himmelblaud_active":"true"'* && $st == *'"entra_reachable":"true"'* && $st == *'"pam_system_auth":"true"'* && $st == *'"pam_sddm":"true"'* ]] && ok "status: healthy" || bad "status: $st"

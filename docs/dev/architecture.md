@@ -94,8 +94,8 @@ The PAM, nsswitch, SDDM and sudoers rows apply to every provider; the rest are t
 | `/etc/krb5.keytab` | Machine keytab | Deleted |
 | `/etc/sddm.conf.d/zz-monarchy-identity.conf` | Autologin off (must sort after Omarchy's `autologin.conf`) | Deleted |
 | `/etc/sddm.conf.d/zz-monarchy-identity-theme.conf` | Selects `sddm-theme/monarchy-identity` | Deleted |
-| `/etc/pam.d/sddm` | `pam_exec` rules running `lib/password-expired` ([expired passwords](#expired-passwords-at-the-login-screen)), or for a provider with `second_step_screen`, `lib/second-step` ([second step](#a-second-sign-in-step-at-the-login-screen)), between `# BEGIN/END monarchy-identity` | Blocks removed |
-| `/etc/pam.d/monarchy-identity-expired`, `/etc/pam.d/monarchy-identity-second-step` | The provider's module alone (`auth` + `account`), marked; the helper's own sign-in (one of the two) | Deleted if marked |
+| `/etc/pam.d/sddm` | `pam_exec` rules running `lib/password-expired` ([expired passwords](#expired-passwords-at-the-login-screen)), or for a provider with `login_steps`, `lib/login-steps` ([more than a password](#more-than-a-password-at-the-login-screen)), between `# BEGIN/END monarchy-identity` | Blocks removed |
+| `/etc/pam.d/monarchy-identity-expired` or `/etc/pam.d/monarchy-identity-login-steps` | The provider's module alone, marked; the helper's own sign-in | Deleted if marked |
 | `/etc/sddm.conf.d/zz-monarchy-identity-session.conf` | `[Wayland]`/`[X11] SessionCommand=lib/sddm-session` | Deleted |
 | `/etc/sudoers.d/50-monarchy-identity` | `%group ALL=(ALL:ALL) ALL`, visudo-validated, 0440 | Deleted |
 | `/etc/sudoers.d/51-monarchy-identity-theme` | The sign-in groups (or users) may run Omarchy's `omarchy-theme-set-browser-policy` with a six-hex-digit argument without a password; absent for `--mode any` | Deleted |
@@ -144,10 +144,10 @@ nothing about it beyond the `pam.conf` switches ([below](#the-pam-edit)).
 - **Offline**: `[offline_breakglass] enabled = true`, which caches a password verifier at each online sign-in. Its
   `ttl` only applies to breakglass switched on by hand, not to automatic offline sign-in, and there's no verifier
   lifetime, so `--offline-days` is refused rather than ignored.
-- **MFA: the login screen takes the password, a screen before the desktop the rest.** Entra asks for a second step
-  (an authenticator code) at a person's first sign-in on a laptop and when it wants MFA again; after that the
-  laptop's sign-in token satisfies it, and the login screen, lock screen and `sudo` take the password alone. SDDM can't
-  ask for a code, so `second_step_screen = "true"` ([below](#a-second-sign-in-step-at-the-login-screen)).
+- **MFA at the login screen.** Entra asks for a second step (a code, or a number to approve on the phone) at a
+  person's first sign-in on a laptop and when it wants MFA again. After that the laptop's sign-in token satisfies it,
+  and the login screen, lock screen and `sudo` take the password alone. SDDM can't carry the second step, so
+  `login_steps = "true"` ([below](#more-than-a-password-at-the-login-screen)).
   `enable_hello = false` for now; Hello PIN is the likely next default (MFA once at setup, offline built in).
   Password-only `ssh` is refused by himmelblau (its remote-services list); we keep that default, and `ssh` asks for
   the code every time.
@@ -194,9 +194,8 @@ all four):
   session open; `pam_mkhomedir`, first in the stack, would make a real directory at the link's path.
 - `expired_password_screen = "false"`: no expired-password rules on `sddm` (below), so SDDM sign-in doesn't ask the
   directory twice. Entra passwords are changed in Entra.
-- `second_step_screen = "true"`: instead of the expired-password rules, the login screen's service asks the directory
-  once and lets a sign-in that needs a second step through to a screen before the desktop
-  ([below](#a-second-sign-in-step-at-the-login-screen)).
+- `login_steps = "true"`: instead of the expired-password rules, the login screen's service asks the directory once,
+  with a code if it wants one ([below](#more-than-a-password-at-the-login-screen)).
 - `auth_retry_on_abort = "true"`: the auth rule twice, the first `[success=N+1 abort=ignore default=1]` so only an
   abort reaches the second. himmelblau aborts the first sign-in after the network drops (it learns it's offline) and
   answers from its offline cache when asked again; without the retry that first offline sign-in fails.
@@ -247,42 +246,43 @@ account     include     system-login
   before. Removing the package leaves a running SDDM pointing at a deleted session command; the scriptlet says to
   restart.
 
-## A second sign-in step at the login screen
+## More than a password at the login screen
 
 SDDM answers every PAM prompt with the password it collected (`Display::slotRequestChanged`) and its greeter can't
 answer anything else. pam_himmelblau, after a refusal, starts the sign-in over inside the same `pam_authenticate`. So
 SDDM sends the password as the authenticator code, and sends a mistyped password again, forever, until Entra's smart
-lockout throttles the account. For a provider with `second_step_screen = "true"`, `pamedit.py second-step
-/etc/pam.d/sddm HELPER` puts three rules in the login screen's service:
+lockout throttles the account (reported upstream, himmelblau#1882). For a provider with `login_steps = "true"`,
+`pamedit.py login-steps /etc/pam.d/sddm HELPER` puts two rules in the login screen's service, before
+`auth include system-login`:
 
 ```text
--auth     [success=done default=ignore]  pam_exec.so quiet expose_authtok HELPER   # before auth include system-login
--auth     [success=die default=ignore]   pam_exec.so quiet HELPER refused
--account  [success=done default=ignore]  pam_exec.so quiet HELPER                  # first in account
+-auth  [success=done default=ignore]  pam_exec.so quiet stdout expose_authtok HELPER
+-auth  [success=die default=ignore]   pam_exec.so quiet HELPER refused
 ```
 
-- **auth:** `lib/second-step` signs in through `/etc/pam.d/monarchy-identity-second-step` (the provider's module alone)
-  with the password, answering the first prompt only, so the directory sees each sign-in once. Signed in: success, and
-  the auth stack ends (the account stack still decides who may sign in). Asked for something else: the second step;
-  the sign-in is marked pending (`/run/monarchy-identity/second-step/USER`) and let through. Asked for the password
-  again: refused; the second rule then fails the stack at once (`die` on its success gives `PAM_PERM_DENIED`). Local
-  accounts and no answer (daemon down) fall through both rules to the normal stack, as before.
-- **account:** success, ending the stack, only for a sign-in pending in the last 120 s. The directory can't answer
-  for someone who hasn't finished signing in on this laptop (himmelblau's account check fails until it has a token
-  for them), so who may sign in is checked on the second-step screen.
-- **session:** `lib/sddm-session` (as for expired passwords). Pending: the same kiosk Hyprland and terminal, running
-  `second-step verify` as the person: the whole sign-in again on the terminal, every prompt shown, then the account
-  check. Done: the desktop. A repeated first prompt (the module starting over after a wrong code) ends that attempt;
-  the screen offers to try again or go back to sign-in.
-- **SDDM reads its config once:** as for expired passwords, a pending sign-in is only let through while the running
-  SDDM uses our session command; until it restarts after enroll, it's refused instead (never the desktop without the
-  step).
+- **The first rule:** `lib/login-steps` signs in through `/etc/pam.d/monarchy-identity-login-steps` (the provider's
+  module alone). It answers the first prompt with the password and a second, different one with a code, if it has
+  one. Our theme sends the password and a code as two lines of one answer.
+  - **Signed in:** success, and the auth stack ends there. The account stack still decides who may sign in.
+  - **The password asked again:** refused; the second rule then fails the stack at once (`die` on its success gives
+    `PAM_PERM_DENIED`).
+  - **A code wanted and none given:** also refused, but nothing is sent for the code. The helper first prints the
+    directory's message and `monarchy-identity: code wanted`. `pam_exec`'s `stdout` passes each line to SDDM as an
+    info message. The theme shows the message and a code line, keeps the password, and sends both on the next try.
+  - **A message left standing** (the number to enter on the phone while the module waits for the approval) is
+    printed after a few seconds, so the theme shows it.
+  - **Local accounts, or no answer** (daemon down): both rules are ignored, and the normal stack decides, as before.
+- **Each try asks Entra once:** the password, plus the code when one is given. A wrong code is one refusal.
 
-What this costs: someone who must give a code reaches a session (the kiosk, as them) on their password before the
-code, and their allowed-group check comes there. The kiosk is the gate, as it is for an expired password; the laptop
-already accepts the password alone offline (himmelblau's cached verifier). Approval on the phone (number matching)
-hasn't been tested: himmelblau polls without a prompt, so the login screen's check would wait for the approval with
-nothing on screen to show the number.
+A screen after the login screen was tried first, as for expired passwords, and can't work. Until someone has
+completed a sign-in on the laptop, himmelblau resolves them by name but not by user id. logind's `CreateSession`
+looks them up by id, so it fails, and the session (Hyprland) can't start. So the code has to be taken before the
+session, at the login screen. That also means nothing runs as the person before the second factor.
+
+Approval on the phone was checked by hand on the real login screen. The theme showed "Open your Authenticator app,
+and enter the number '63' to sign in" while the helper waited, the number was approved, and the desktop started. It
+needs a person with a phone, so no suite covers it. Entra's system-preferred MFA picks the push whenever one is
+registered, whatever the user's default, so most people will see this rather than the code line.
 
 ## Keeping it working after updates
 

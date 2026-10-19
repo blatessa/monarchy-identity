@@ -85,7 +85,13 @@ something.
   allowed or not: the account check needs a token. Answering no input to `Code:` ends the sign-in with `PAM_ABORT`
   and sends nothing; a wrong code is `MFAInvalidCode`, then the loop below.
 - SDDM 0.21 answers every PAM prompt with the typed password (`Display::slotRequestChanged`), so the loop below sends
-  it forever at the login screen: as the MFA code, or again after a typo. Reported upstream (owner, Oct 2026).
+  it forever at the login screen: as the MFA code, or again after a typo. Reported upstream (himmelblau#1882).
+- Before someone's first completed sign-in on the device, NSS resolves them by name but not by uid (`getent passwd
+  <uid>` is empty), so logind's `CreateSession` fails and Hyprland aborts: no session can start for them until
+  `pam_authenticate` has succeeded once. That rules out finishing MFA in a screen after the login screen.
+- Entra's system-preferred MFA sends a push (with number matching) whenever Authenticator push is registered, whatever
+  the user's default method. himmelblau's `mfa_method = PhoneAppOTP` (`[global]`) asks for the code instead; the lab
+  sets it in a test-only drop-in.
 - `ssh` (and other remote services in `password_only_remote_services_deny_list`) refuses password-only sign-in: a user
   without MFA gets AADSTS50072 "needs to enroll for second factor", in the same loop.
 - Offline needs `[offline_breakglass] enabled = true`. Without it the password verifier is only cached on the
@@ -112,6 +118,7 @@ something.
 ## Stubs in the fast layer (`test/unit/stubs/`)
 The fast layer runs the real CLI with stub commands first on `PATH`. A stub is only as good as the output it copies; these shapes were
 captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
+
 - `net ads search -S dc -U Administrator '(&(objectClass=group)(sAMAccountName=oi-laptop-users))' sAMAccountName distinguishedName`
   prints a blank line, `Got 1 replies`, a blank line, then `sAMAccountName: oi-laptop-users` and
   `distinguishedName: CN=oi-laptop-users,CN=Users,DC=corp,DC=test`; no match prints `Got 0 replies` and still exits 0.

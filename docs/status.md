@@ -27,12 +27,28 @@ repository yet.
 
 ## Entra ID (in development)
 
-Works in the lab: enrolling with an app registration (unattended too), password sign-in at the login screen, lock
-screen and terminal, allowing groups or people, `sudo` for a group, cached sign-in with no network, and leaving.
+Setup and behaviour: [Entra ID](providers/entra.md).
 
-- **Authenticator codes.** Where Entra asks for one (a person's first sign-in on a laptop, and when it wants MFA again),
-  the login screen takes the password and a screen before the desktop asks for the code. Approval on the phone
-  hasn't been tested, and Windows Hello PINs aren't there yet.
+**Works in the lab** (a virtual machine against a test tenant):
+
+- enrolling with an app registration, unattended too;
+- sign-in at the login screen, lock screen and terminal;
+- multi-factor authentication at the login screen, with an approval on the phone or a code;
+- allowing groups or people, and `sudo` for a group;
+- cached sign-in with no network;
+- leaving, and enrolling again.
+
+**Not tested yet:**
+
+- real laptops;
+- Conditional Access policies;
+- a password Entra says must be changed;
+- guest accounts;
+- the tenant setting that requires multi-factor authentication to join devices.
+
+- **MFA at the login screen.** Where Entra asks for a second step (a person's first sign-in on a laptop, and when it
+  wants MFA again), the login screen shows the number to approve in the Authenticator app, or asks for the code after
+  the password. Windows Hello PINs and security keys aren't supported.
 - **`ssh` with only a password is refused** by the Entra client for remote sign-in; with MFA it asks for the code
   every time.
 - **`--offline-days`** can't be honoured: Entra's client has no limit for its offline cache.
