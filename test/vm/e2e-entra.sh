@@ -1,5 +1,5 @@
 #!/bin/bash
-# The entra provider against a real test tenant: a refused enroll, enroll, sign-in on every service, the group policy,
+# The entra provider against a real test tenant: refused enrolls, enroll, sign-in on every service, the group policy,
 # sudo, offline, leave. Opt-in: needs the himmelblau package in the VM and the tenant's details in the env file named
 # by ENTRA_LAB_ENV (docs/dev/testing.md); without them it says so and exits 0.
 source "$(dirname "$0")/lib.sh"
@@ -27,6 +27,8 @@ printf '%s\n' "$ENTRA_CLIENT_SECRET" | "${V[@]}" "sudo install -m 600 /dev/stdin
 devices_cleanup
 
 echo "[refused before anything changes]"
+out=$(ecli enroll entra --tenant oi-no-such-tenant.onmicrosoft.com --client-id $ENTRA_CLIENT_ID --password-file $SECRET --groups linux-users)
+[[ $out == *"Entra has no tenant named oi-no-such-tenant.onmicrosoft.com"* ]] && ok "an unknown tenant is refused" || bad "unknown tenant: $out"
 out=$(ecli $E --groups linux-users,no-such-group)
 [[ $out == *"Entra has no group or user named: no-such-group"* ]] && ok "an unknown group is refused" || bad "unknown group: $out"
 "${V[@]}" '! grep -q himmelblau /etc/nsswitch.conf && ! grep -qs "managed by monarchy-identity" /etc/himmelblau/himmelblau.conf' && pam_stock && ok "  ... nothing changed" || bad "changed after a refusal"
@@ -42,6 +44,10 @@ expect ALLOWED "sddm: alice" sddm "$ENTRA_ALICE" "$ENTRA_ALICE_PASSWORD"
 expect ALLOWED "lock screen: bob" omarchy-lock-password "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
 expect DENIED  "login: carol (not in linux-users) is refused" login "$ENTRA_CAROL" "$ENTRA_CAROL_PASSWORD"
 expect ALLOWED "login: tester (local) as before" login tester tester
+# pam_himmelblau logs its re-prompt loop to stderr ahead of the result, so look at the result line only
+out=$(pt sshd "$ENTRA_ALICE" "$ENTRA_ALICE_PASSWORD" | grep -E '^(ALLOWED|DENIED)')
+[[ $out == DENIED* ]] && ok "ssh: alice with only a password is refused (Entra wants a second factor remotely)" || bad "ssh: alice (got: ${out:-<nothing>})"
+expect ALLOWED "ssh: tester (local) as before" sshd tester tester
 "${V[@]}" "h=\$(getent passwd $(q "$ENTRA_BOB") | cut -d: -f6); test -L \"\$h\" && test -d \"\$h/\"" && ok "bob's home directory, made by himmelblau" || bad "no home for bob"
 "${V[@]}" "sudo sudo -l -U $(q "$ENTRA_ALICE") | grep -q '(ALL : ALL) ALL'" && ok "sudo: alice (linux-admins)" || bad "alice has no sudo"
 ! "${V[@]}" "sudo sudo -l -U $(q "$ENTRA_BOB") | grep -q '(ALL : ALL) ALL'" && ok "sudo: not bob" || bad "bob has sudo"
@@ -50,7 +56,8 @@ st=$(ecli status --json)
 
 echo "[offline]"
 offline
-expect ALLOWED "login: bob with no network (cached)" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
+expect ALLOWED "lock screen: bob with no network (cached)" omarchy-lock-password "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
+expect ALLOWED "login: bob with no network" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
 expect ALLOWED "login: tester with no network" login tester tester
 online
 
