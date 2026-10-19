@@ -62,6 +62,10 @@ something.
 - The registration is `device_id` in `/var/cache/himmelblaud/himmelblau.conf` (himmelblau's "server config", its
   CacheDirectory), not in `/etc/himmelblau/himmelblau.conf`: rewriting ours keeps the laptop registered. After an
   unjoin the next sign-in registers a new device; Entra keeps both, with the same display name (no collision error).
+- The himmelblau package owns `/etc/himmelblau/himmelblau.conf` (a `backup` file). Writing ours there meant
+  `pacman -R himmelblau` saved it as `.pacsave` and a reinstall brought back the stock file, so `reassert` refused and
+  Entra sign-in stayed off. himmelblau reads `himmelblau.conf.d/*.conf` after the main file (the PAM and NSS modules
+  too), so ours is a drop-in. Caught by `e2e-package.sh` removing and reinstalling himmelblau while enrolled.
 - Graph's device list can lag a fresh registration by a minute or more; check the laptop's `device_id`, not the list.
 - NSS answers before anyone signs in, by UPN and by short name (`alice`). `files` stays first, so a local account of
   the same name wins. UIDs/GIDs are murmur3(tenant, object id) into `idmap_range`: the same on every machine.

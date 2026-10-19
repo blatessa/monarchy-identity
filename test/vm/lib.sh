@@ -38,6 +38,31 @@ leave() { # whatever the laptop is enrolled with (--admin is the ad provider's)
     || "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave' >/dev/null 2>&1
 }
 
+# --- Entra ID: a real test tenant, opt-in (docs/dev/testing.md) ---
+# entra_lab: load the tenant's details from $ENTRA_LAB_ENV, or say why not and return 1 (the suite or section skips)
+entra_lab() {
+  [[ -n ${ENTRA_LAB_ENV:-} && -r ${ENTRA_LAB_ENV:-} ]] || { echo "SKIP: no Entra test tenant (set ENTRA_LAB_ENV; see docs/dev/testing.md)"; return 1; }
+  source "$ENTRA_LAB_ENV"
+  local v; for v in ENTRA_TENANT ENTRA_CLIENT_ID ENTRA_CLIENT_SECRET ENTRA_ALICE ENTRA_ALICE_PASSWORD ENTRA_BOB ENTRA_BOB_PASSWORD ENTRA_CAROL ENTRA_CAROL_PASSWORD; do
+    [[ -n ${!v:-} ]] || { echo "SKIP: $ENTRA_LAB_ENV has no $v"; return 1; }
+  done
+}
+# himmelblau_install: put the himmelblau package back in the VM if a suite removed it, from test/vm/images/
+himmelblau_install() {
+  "${V[@]}" 'pacman -Q himmelblau' >/dev/null 2>&1 && return
+  local p; p=$(ls images/himmelblau-*.pkg.tar.zst 2>/dev/null | tail -1)
+  [[ -n $p ]] || { bad "no himmelblau package in test/vm/images/ (build pkgbuilds/himmelblau from omacom/omarchy-pkgs)"; return 1; }
+  scp -q "${SSHO[@]}" -P 2222 "$p" tester@127.0.0.1:/home/tester/himmelblau.pkg.tar.zst \
+    && "${V[@]}" 'sudo pacman -U --noconfirm ~/himmelblau.pkg.tar.zst' >/dev/null 2>&1
+}
+# Every Entra run registers the VM again; delete the device objects it leaves (needs az signed in to the tenant).
+# Entra's list can lag a registration by a minute, so a cleanup at exit may miss the last device; the next run's gets it.
+entra_devices_cleanup() {
+  command -v az >/dev/null || { echo "  NOTE: delete the device 'oi-client' in the Entra admin center"; return; }
+  local id; for id in $(az rest --method get --url "https://graph.microsoft.com/v1.0/devices?\$filter=displayName eq 'oi-client'&\$select=id" --query 'value[].id' -o tsv 2>/dev/null); do
+    az rest --method delete --url "https://graph.microsoft.com/v1.0/devices/$id" >/dev/null 2>&1; done
+}
+
 # fresh: push the repo, reset PAM/SDDM to stock Omarchy, make sure the machine isn't enrolled.
 fresh() {
   ./deploy.sh --fixtures >/dev/null

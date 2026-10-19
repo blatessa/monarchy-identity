@@ -9,7 +9,7 @@ export STUB_TENANT=corp.onmicrosoft.com STUB_CLIENT_ID=11111111-2222-3333-4444-5
 export STUB_ENTRA_GROUPS="linux-users=aaaaaaaa-0000-0000-0000-000000000001,linux-admins=aaaaaaaa-0000-0000-0000-000000000002"
 export STUB_ENTRA_USERS="alice@corp.onmicrosoft.com,bob@corp.onmicrosoft.com"
 unset STUB_NO_HIMMELBLAU STUB_HB_DOWN STUB_ENTRA_DOWN
-HB=$T/etc/himmelblau/himmelblau.conf SA=$T/etc/pam.d/system-auth
+HB=$T/etc/himmelblau/himmelblau.conf.d/50-monarchy-identity.conf SA=$T/etc/pam.d/system-auth
 E=(enroll entra --tenant corp.onmicrosoft.com --client-id "$STUB_CLIENT_ID")
 hb() { grep -sE "^$1 *=" "$HB" | sed 's/^[^=]*= *//'; }
 
@@ -84,7 +84,7 @@ mkdir -p "$T/himmelblaud"; printf '[corp.onmicrosoft.com]\ndevice_id = 0d1ce000-
   && ok "forgets the device registration, cached accounts and stored tokens" || bad "leave: $OUT / $(cat "$STUB_LOG")"
 [[ $OUT == *"(device ID 0d1ce000-0000-4000-8000-00000000abcd) stays registered in Entra"* ]] && ok "says the device stays in Entra, and which one" || bad "no device note: $OUT"
 cmp -s "$SA" "$FIX/pam.d/system-auth" && ! grep -q himmelblau "$T/etc/nsswitch.conf" && [[ ! -e $HB && ! -e $STUB_STATE/himmelblaud-active && ! -e $MONARCHY_IDENTITY_STATE ]] \
-  && ok "PAM stock, nsswitch clean, config gone, daemons stopped, not enrolled" || bad "leftovers"
+  && [[ ! -e $T/etc/himmelblau/himmelblau.conf.d ]] && ok "PAM stock, nsswitch clean, config gone, daemons stopped, not enrolled" || bad "leftovers"
 oi "${E[@]}" --groups linux-users; oi leave   # nobody signed in: never registered
 [[ $RC -eq 0 && $OUT != *"stays registered"* ]] && ok "never registered: no device to delete, says nothing about one" || bad "leave unregistered: $OUT"
 result

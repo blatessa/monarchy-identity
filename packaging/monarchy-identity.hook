@@ -4,6 +4,7 @@ Operation = Upgrade
 Type = Package
 Target = pambase
 Target = sssd
+Target = himmelblau
 Target = filesystem
 Target = omarchy
 Target = omarchy-settings

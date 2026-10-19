@@ -1,7 +1,8 @@
 # Entra ID provider helpers (himmelblau). Sourced, not executed.
 source "$OI_ROOT/lib/common.sh"
 
-HB_CONF="$ETC/himmelblau/himmelblau.conf"
+# A drop-in: the himmelblau package owns himmelblau.conf (removing the package moves an edited one to .pacsave)
+HB_CONF="$ETC/himmelblau/himmelblau.conf.d/50-monarchy-identity.conf"
 HB_UNITS=(himmelblaud himmelblaud-tasks)
 # himmelblau's own record of the registration (device_id), written at the first sign-in; cleared with its cache
 HB_SERVER_CONF="${MONARCHY_IDENTITY_HB_SERVER_CONF:-/var/cache/himmelblaud/himmelblau.conf}"

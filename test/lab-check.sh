@@ -32,7 +32,7 @@ else
   [[ -z $unset_vars ]] && ok "Entra test tenant ($ENTRA_LAB_ENV)" || note "$ENTRA_LAB_ENV lacks: $unset_vars" "add them (docs/dev/testing.md#labs-for-other-directories)"
   ssh -i test/vm/keys/id_oi -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=4 -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -p 2222 tester@127.0.0.1 'pacman -Q himmelblau' >/dev/null 2>&1 \
-    && ok "VM has himmelblau" || note "VM has no himmelblau" "build pkgbuilds/himmelblau from omacom/omarchy-pkgs and pacman -U it in the VM"
+    && ok "VM has himmelblau" || note "VM has no himmelblau" "the suites install it from test/vm/images/himmelblau-*.pkg.tar.zst (build pkgbuilds/himmelblau from omacom/omarchy-pkgs)"
   az account show >/dev/null 2>&1 && ok "az signed in (e2e-entra.sh deletes the devices it registers)" \
     || note "az not signed in: delete the device 'oi-client' in the Entra admin center after each run" "az login --tenant <tenant> --allow-no-subscriptions"
 fi
