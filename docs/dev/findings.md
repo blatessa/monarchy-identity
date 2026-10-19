@@ -79,6 +79,13 @@ something.
   password); it never returns PAM_AUTH_ERR, so faillock never counts. A test driver that always answers the same
   password hammers Entra until it answers AADSTS50196 (request loop) and smart lockout throttles that user for minutes.
   Use a timeout and never loop a wrong password against the tenant. The greeter must handle repeated prompts.
+- MFA (per-user, authenticator code): himmelblau asks `Code:` after the password only at the first sign-in on the
+  device; afterwards it logs "Sign-in frequency satisfied for user via PRT - skipping MFA" (login screen, lock screen,
+  `sudo`). `sshd` asks for the code every time. Before that first sign-in, `pam_acct_mgmt` alone fails for every user,
+  allowed or not: the account check needs a token. Answering no input to `Code:` ends the sign-in with `PAM_ABORT`
+  and sends nothing; a wrong code is `MFAInvalidCode`, then the loop below.
+- SDDM 0.21 answers every PAM prompt with the typed password (`Display::slotRequestChanged`), so the loop below sends
+  it forever at the login screen: as the MFA code, or again after a typo. Reported upstream (owner, Oct 2026).
 - `ssh` (and other remote services in `password_only_remote_services_deny_list`) refuses password-only sign-in: a user
   without MFA gets AADSTS50072 "needs to enroll for second factor", in the same loop.
 - Offline needs `[offline_breakglass] enabled = true`. Without it the password verifier is only cached on the

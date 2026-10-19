@@ -3,6 +3,7 @@
 
 usage: pamedit.py apply [--no-mkhomedir] [--retry-on-abort] FILE MODULE [TYPE=ARGS ...]    e.g. apply /etc/pam.d/system-auth pam_sss.so auth=forward_pass
        pamedit.py greeter FILE HELPER                   e.g. greeter /etc/pam.d/sddm /usr/share/monarchy-identity/lib/password-expired
+       pamedit.py second-step FILE HELPER               e.g. second-step /etc/pam.d/sddm /usr/share/monarchy-identity/lib/second-step
        pamedit.py remove|check FILE
 
 The provider names the module and its arguments per stack (TYPE is auth, account, password or session); the rules
@@ -163,18 +164,40 @@ def greeter(lines, helper):
     return lines
 
 
+def second_step(lines, helper):
+    """The login screen's service only: ask the directory once, and let a sign-in that needs a second step through.
+
+    SDDM answers every prompt with the password it collected, so a module that asks for a code, or starts over after a
+    refusal, would get that password again and again. HELPER, run by pam_exec ahead of the normal stack, signs in once
+    through its own service: done if it worked or a second step is pending (marked; the session command asks for it),
+    and the stack fails at once if the directory refused. Otherwise (local accounts, the daemon down) both rules are
+    ignored and the normal stack decides, as are all three if pam_exec or HELPER is missing.
+    """
+    lines = strip_blocks(lines)
+    a = find(lines, "auth", r"^\s*-?auth\s+(include|substack)\s+system-login\b")
+    c = next((i for i, ln in enumerate(lines) if is_rule(ln, "account")), None)
+    if a is None or c is None:
+        return lines
+    lines[c:c] = block(f"-account   [success=done default=ignore]  pam_exec.so quiet {helper}")
+    lines[a:a] = [BEGIN + "\n",
+                  f"-auth      [success=done default=ignore]  pam_exec.so quiet expose_authtok {helper}\n",
+                  f"-auth      [success=die default=ignore]  pam_exec.so quiet {helper} refused\n",
+                  END + "\n"]
+    return lines
+
+
 def main():
     opts = set()
     while len(sys.argv) > 2 and sys.argv[2] in ("--no-mkhomedir", "--retry-on-abort"):
         opts.add(sys.argv.pop(2))
     mode = sys.argv[1] if len(sys.argv) > 2 else ""
-    if mode not in ("apply", "greeter", "remove", "check") or (mode in ("remove", "check") and len(sys.argv) != 3) \
-            or (mode == "greeter" and len(sys.argv) != 4):
+    if mode not in ("apply", "greeter", "second-step", "remove", "check") \
+            or (mode in ("remove", "check") and len(sys.argv) != 3) or (mode in ("greeter", "second-step") and len(sys.argv) != 4):
         sys.exit(__doc__)
     path = sys.argv[2]
     if mode == "apply":
         module, args = parse_module(sys.argv[3:])
-    if mode == "greeter" and not re.fullmatch(r"/[A-Za-z0-9_./-]+", sys.argv[3]):
+    if mode in ("greeter", "second-step") and not re.fullmatch(r"/[A-Za-z0-9_./-]+", sys.argv[3]):
         sys.exit("pamedit: expected an absolute helper path")
     with open(path) as f:
         lines = f.readlines()
@@ -183,7 +206,8 @@ def main():
     if mode == "apply":
         new = apply(lines, module, args, "--no-mkhomedir" not in opts, "--retry-on-abort" in opts)
     else:
-        new = greeter(lines, sys.argv[3]) if mode == "greeter" else strip_blocks(lines)
+        new = greeter(lines, sys.argv[3]) if mode == "greeter" else second_step(lines, sys.argv[3]) \
+            if mode == "second-step" else strip_blocks(lines)
     if new != lines:
         tmp = path + ".oi-tmp"
         with open(tmp, "w") as f:

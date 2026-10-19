@@ -124,8 +124,10 @@ sddm_autologin_restore() { rm -f "$SDDM_OVERRIDE"; }
 # provider's pam.conf (module = "pam_x.so", plus optional per-stack arguments: auth = "...", account = "...", ...);
 # pamedit.py adds the safety rules. Two switches for modules that already do these themselves (default "true"):
 # mkhomedir = "false" (the module makes home directories), expired_password_screen = "false" (no change-password
-# screen at the login screen); and auth_retry_on_abort = "true" for a module that aborts the first time the directory
-# is unreachable and answers from its cache when asked again. Removal is by marker, so it needs no provider.
+# screen at the login screen); and two that default to "false": auth_retry_on_abort = "true" for a module that aborts
+# the first time the directory is unreachable and answers from its cache when asked again, second_step_screen = "true"
+# for a module that can ask for more than a password (it replaces the expired-password screen). Removal is by marker,
+# so it needs no provider.
 PAMEDIT="$OI_ROOT/lib/pamedit.py"
 PAM_FILES=(system-auth omarchy-lock-password)
 pam_apply() { # pam_apply PROVIDER
@@ -139,12 +141,17 @@ pam_apply() { # pam_apply PROVIDER
   for f in "${PAM_FILES[@]}"; do
     if [[ -f $ETC/pam.d/$f ]]; then python3 -I "$PAMEDIT" apply "${opt[@]}" "$ETC/pam.d/$f" "$module" "${args[@]}" || die "could not edit $ETC/pam.d/$f"; fi
   done
-  if [[ $(kv_get "$pc" expired_password_screen true) == true ]]; then greeter_apply "$module" "$(kv_get "$pc" account "")"
+  if [[ $(kv_get "$pc" second_step_screen false) == true ]]; then second_step_apply "$module" "$(kv_get "$pc" auth "")" "$(kv_get "$pc" account "")"
+  elif [[ $(kv_get "$pc" expired_password_screen true) == true ]]; then greeter_apply "$module" "$(kv_get "$pc" account "")"
   else greeter_remove; fi
 }
 greeter_remove() {
   [[ ! -f $ETC/pam.d/$GREETER_PAM ]] || python3 -I "$PAMEDIT" remove "$ETC/pam.d/$GREETER_PAM"
-  remove_if_ours "$ETC/pam.d/$EXPIRED_PAM"; rm -f "$SDDM_SESSION_CONF"
+  remove_if_ours "$ETC/pam.d/$EXPIRED_PAM"; remove_if_ours "$ETC/pam.d/$SECOND_STEP_PAM"; rm -f "$SDDM_SESSION_CONF"
+}
+greeter_edited() { # greeter_edited PROVIDER: true iff the core edits the login screen's service for this provider
+  local pc="$OI_ROOT/providers/$1/pam.conf"
+  [[ $(kv_get "$pc" second_step_screen false) == true || $(kv_get "$pc" expired_password_screen true) == true ]]
 }
 pam_remove() {
   local f; for f in "${PAM_FILES[@]}"; do [[ -f $ETC/pam.d/$f ]] && python3 -I "$PAMEDIT" remove "$ETC/pam.d/$f"; done
@@ -165,6 +172,7 @@ write_if_changed() { # write_if_changed FILE CONTENT: 0644, only when the conten
   printf '%s\n' "$2" > "$1"; chmod 0644 "$1"
 }
 greeter_apply() { # greeter_apply MODULE [ACCOUNT_ARGS]
+  remove_if_ours "$ETC/pam.d/$SECOND_STEP_PAM"
   write_if_changed "$ETC/pam.d/$EXPIRED_PAM" "$OI_MARK: lib/password-expired asks the directory if a password must be changed
 auth     required  $1
 account  required  $1${2:+ $2}"
@@ -174,6 +182,26 @@ SessionCommand=$OI_ROOT/lib/sddm-session
 [X11]
 SessionCommand=$OI_ROOT/lib/sddm-session"
   [[ ! -f $ETC/pam.d/$GREETER_PAM ]] || python3 -I "$PAMEDIT" greeter "$ETC/pam.d/$GREETER_PAM" "$OI_ROOT/lib/password-expired" \
+    || die "could not edit $ETC/pam.d/$GREETER_PAM"
+}
+
+# --- a second sign-in step at the login screen ----------------------------------------------------------------------
+# SDDM answers every prompt with the password, so a module that asks for an authenticator code (or starts over after a
+# refusal) would be sent the password forever. lib/second-step signs in once through its own service (the provider's
+# module alone) ahead of the normal stack; a sign-in that needs a second step is let through, marked, and the session
+# command asks for it before the desktop (pamedit.py second-step).
+SECOND_STEP_PAM=monarchy-identity-second-step
+second_step_apply() { # second_step_apply MODULE [AUTH_ARGS [ACCOUNT_ARGS]]
+  remove_if_ours "$ETC/pam.d/$EXPIRED_PAM"
+  write_if_changed "$ETC/pam.d/$SECOND_STEP_PAM" "$OI_MARK: lib/second-step signs in through it, at the login screen and the second-step screen
+auth     required  $1${2:+ $2}
+account  required  $1${3:+ $3}"
+  write_if_changed "$SDDM_SESSION_CONF" "$OI_MARK: a second sign-in step is asked for before the desktop
+[Wayland]
+SessionCommand=$OI_ROOT/lib/sddm-session
+[X11]
+SessionCommand=$OI_ROOT/lib/sddm-session"
+  [[ ! -f $ETC/pam.d/$GREETER_PAM ]] || python3 -I "$PAMEDIT" second-step "$ETC/pam.d/$GREETER_PAM" "$OI_ROOT/lib/second-step" \
     || die "could not edit $ETC/pam.d/$GREETER_PAM"
 }
 

@@ -47,6 +47,17 @@ entra_lab() {
     [[ -n ${!v:-} ]] || { echo "SKIP: $ENTRA_LAB_ENV has no $v"; return 1; }
   done
 }
+# totp SECRET: the authenticator code for SECRET now, with at least 8 s of its 30 s left (an MFA test user's codes)
+totp() {
+  python3 -I - "$1" <<'PY'
+import base64, hmac, struct, sys, time
+t = int(time.time())
+if 30 - t % 30 < 8:
+    time.sleep(30 - t % 30); t = int(time.time())
+s = sys.argv[1].upper().replace(" ", ""); h = hmac.new(base64.b32decode(s + "=" * (-len(s) % 8)), struct.pack(">Q", t // 30), "sha1").digest()
+print("%06d" % ((struct.unpack(">I", h[(o := h[-1] & 15):o + 4])[0] & 0x7fffffff) % 10**6))
+PY
+}
 # himmelblau_install: put the himmelblau package back in the VM if a suite removed it, from test/vm/images/
 himmelblau_install() {
   "${V[@]}" 'pacman -Q himmelblau' >/dev/null 2>&1 && return

@@ -1,4 +1,5 @@
--- The change-password screen (lib/sddm-session): one full-screen terminal, no shortcuts, no way to the desktop.
+-- The change-password and second-step screens (lib/sddm-session): one full-screen terminal, no shortcuts, no way to
+-- the desktop.
 -- It exits when the form does, whatever the outcome.
 
 -- Same keyboard layout as Omarchy's desktop (and its disk unlock), so the password is typed as on the login screen.

@@ -83,6 +83,21 @@ grep -A2 -E '^auth +include +system-login' "$SD" | tail -1 | grep -qx -- "-auth 
 printf 'auth required pam_unix.so\naccount required pam_unix.so\n' > "$T/plain2"; cp "$T/plain2" "$T/plain2.0"
 "${PE[@]}" greeter "$T/plain2" "$H"; cmp -s "$T/plain2" "$T/plain2.0" && ok "a service that doesn't include system-login is left alone" || bad "edited an unknown sddm file"
 
+echo "[the login screen's service: ask the directory once, a second step before the desktop]"
+H2=/usr/share/monarchy-identity/lib/second-step
+"${PE[@]}" second-step "$SD" "$H2"; once=$(cat "$SD")
+"${PE[@]}" second-step "$SD" "$H2"; [[ $(cat "$SD") == "$once" ]] && ok "apply twice is the same as once" || bad "second-step not idempotent"
+[[ $(grep -B1 -E '^auth +include +system-login' "$SD" | head -1) == "# END monarchy-identity" ]] \
+  && grep -qxF -- "-auth      [success=done default=ignore]  pam_exec.so quiet expose_authtok $H2" "$SD" \
+  && grep -qxF -- "-auth      [success=die default=ignore]  pam_exec.so quiet $H2 refused" "$SD" \
+  && ok "auth: before the normal stack, done when signed in or pending, failing at once when refused" || bad "auth rules: $(cat "$SD")"
+[[ $(grep -E '^-?account' "$SD" | head -1) == "-account   [success=done default=ignore]  pam_exec.so quiet $H2" ]] \
+  && ok "account: first, done only for a pending sign-in" || bad "account rule: $(grep account "$SD")"
+! grep -E '^[^#]*pam_exec' "$SD" | grep -vq '^-' && ok "all three rules -prefixed" || bad "a pam_exec rule is not -prefixed"
+"${PE[@]}" greeter "$SD" "$H"; ! grep -q second-step "$SD" && grep -q password-expired "$SD" && ok "switching to the expired-password rules replaces them" || bad "both sets"
+"${PE[@]}" second-step "$SD" "$H2"; "${PE[@]}" remove "$SD"; cmp -s "$SD" "$FIX/pam.d/sddm" && ok "remove restores the file byte for byte" || bad "second-step remove"
+"${PE[@]}" second-step "$SD" 'x; auth sufficient pam_permit.so' 2>/dev/null; cmp -s "$SD" "$FIX/pam.d/sddm" && ok "refused a helper that isn't a plain absolute path" || bad "accepted a bad helper"
+
 echo "[enroll and leave]"
 enroll --groups oi-laptop-users; [[ $OUT == *"enrolled in"* ]] || { bad "enroll: $OUT"; }
 has_pam system-auth && has_pam omarchy-lock-password && ok "both Omarchy services edited" || bad "PAM not applied"
