@@ -31,7 +31,8 @@ sudo monarchy-identity leave --admin joinuser
 `leave` turns off directory sign-in and removes everything enrolling changed: the login theme, the autologin setting and
 any `sudo` rule. Local accounts are untouched; directory users' home folders stay on disk. With the join account
 (`--admin`), Active Directory also deletes the laptop's computer account; without it, the account stays in the directory
-([details](../providers/ad.md#how-it-behaves)).
+([details](../providers/ad.md#how-it-behaves)). Entra ID keeps the device, and `leave` prints its ID so you can delete
+it in the admin center ([details](../providers/entra.md#how-it-behaves)).
 
 ## Uninstall
 

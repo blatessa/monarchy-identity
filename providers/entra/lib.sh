@@ -50,7 +50,7 @@ resolve_policy_ids() {
 
 write_himmelblau_conf() { # write_himmelblau_conf TENANT ALLOW
   # Password sign-in with the offline cache (offline_breakglass caches a verifier on every online sign-in; without it
-  # offline only works for the very first sign-in). Hello PIN waits for a login screen that can ask for one.
+  # offline only works for the very first sign-in). Hello PIN is on hold (#90).
   local allow=""
   [[ -z $2 ]] || allow="pam_allow_groups = $2"$'\n'
   install -d -m 0755 "$(dirname "$HB_CONF")"

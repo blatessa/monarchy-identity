@@ -12,7 +12,8 @@ sign in on an enrolled laptop, everywhere people sign in: login screen, lock scr
 | `--mode any` | Everyone in the directory | Rarely: only if the directory itself holds just the right people. |
 
 Different laptops can use different groups (one per team, for example). Use names the way your directory shows them;
-Active Directory uses short names like `alice`.
+Active Directory uses short names like `alice`; Entra ID takes sign-in names like `alice@corp.example.com` (a bare
+`alice` gets the tenant's domain).
 
 The policy doesn't cover local accounts (they always work) or admin rights (`--sudo-groups`, see
 [How sign-in works](how-it-works.md#admin-rights)). A correct password from someone who isn't allowed fails the same way
