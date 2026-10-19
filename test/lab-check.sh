@@ -22,5 +22,19 @@ if [[ -f test/vm/keys/id_oi ]] && ssh -i test/vm/keys/id_oi -o IdentitiesOnly=ye
     -o LogLevel=ERROR -p 2222 tester@127.0.0.1 'systemctl is-active -q polkit-agent-helper.socket' 2>/dev/null && ok "VM has polkit" \
     || no "VM has no polkit (VMs made before it was in the seed)" "ssh -i test/vm/keys/id_oi -p 2222 tester@127.0.0.1 'sudo pacman -S --noconfirm --needed polkit && sudo systemctl start polkit-agent-helper.socket'"
 else no "VM not reachable" "(cd test/vm && (setsid ./run.sh </dev/null >vm.log 2>&1 &)); first boot takes ~1 min, then test/vm/deploy.sh --fixtures"; fi
+# Entra (opt-in: test/vm/e2e-entra.sh skips without a tenant, so these are notes, not MISSING)
+note() { printf '  note  %s\n        -> %s\n' "$1" "$2"; }
+entra_vars=(ENTRA_TENANT ENTRA_CLIENT_ID ENTRA_CLIENT_SECRET ENTRA_ALICE ENTRA_ALICE_PASSWORD ENTRA_BOB ENTRA_BOB_PASSWORD ENTRA_CAROL ENTRA_CAROL_PASSWORD)
+if [[ -z ${ENTRA_LAB_ENV:-} || ! -r ${ENTRA_LAB_ENV:-} ]]; then
+  note "no Entra test tenant: e2e-entra.sh will SKIP" "export ENTRA_LAB_ENV=/path/to/lab.env (outside the repo; contents in docs/dev/testing.md#labs-for-other-directories)"
+else
+  unset_vars=$(set -a; source "$ENTRA_LAB_ENV" >/dev/null 2>&1; for v in "${entra_vars[@]}"; do [[ -n ${!v:-} ]] || printf '%s ' "$v"; done)
+  [[ -z $unset_vars ]] && ok "Entra test tenant ($ENTRA_LAB_ENV)" || note "$ENTRA_LAB_ENV lacks: $unset_vars" "add them (docs/dev/testing.md#labs-for-other-directories)"
+  ssh -i test/vm/keys/id_oi -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=4 -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -p 2222 tester@127.0.0.1 'pacman -Q himmelblau' >/dev/null 2>&1 \
+    && ok "VM has himmelblau" || note "VM has no himmelblau" "build pkgbuilds/himmelblau from omacom/omarchy-pkgs and pacman -U it in the VM"
+  az account show >/dev/null 2>&1 && ok "az signed in (e2e-entra.sh deletes the devices it registers)" \
+    || note "az not signed in: delete the device 'oi-client' in the Entra admin center after each run" "az login --tenant <tenant> --allow-no-subscriptions"
+fi
 [[ $rc == 0 ]] && echo "lab ready" || echo "lab NOT ready"
 exit $rc

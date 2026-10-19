@@ -98,6 +98,9 @@ one. It needs:
 - `az` signed in to the tenant, so the suite can delete the device each run registers (otherwise delete `oi-client`
   under Devices yourself).
 
+`test/lab-check.sh` checks these when `ENTRA_LAB_ENV` is set, as notes: the suite is opt-in, so a missing tenant
+doesn't make the lab "not ready".
+
 Never loop a wrong password against the tenant: `pam_himmelblau` re-prompts instead of failing, and Entra throttles
 the account. `pamtest.py` gives up when the same prompt comes a third time.
 

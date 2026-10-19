@@ -117,6 +117,40 @@ strictly, not guessed at.
 
 Everything else stays in `/etc` drop-ins or marked blocks; never edit `/usr/share/omarchy/` (package-owned).
 
+## The Entra ID provider
+
+Decided in #71 from the himmelblau spike ([findings](findings.md)). Entra fits the provider contract; the core knows
+nothing about it beyond the `pam.conf` switches ([below](#the-pam-edit)).
+
+- **Enroll doesn't register the device.** It checks the tenant (public OpenID discovery), looks up the policy's names,
+  writes `/etc/himmelblau/himmelblau.conf` (marked), adds `himmelblau` to `passwd`, `group` and `shadow` in nsswitch
+  and starts the daemons. The laptop registers itself at the first sign-in, so there is no per-laptop token for an MDM
+  to hand out. Never `aad-tool configure-pam`: the core edits PAM as for any provider.
+- **Group names, looked up with an app registration.** Admins think in names, but groups don't resolve through NSS
+  before the device is registered (users do), so enroll needs a credential: an app registration with `Group.Read.All`
+  and `User.Read.All` and its client secret (`--client-id`, `--password-file` or typed). Rejected: object ids on the
+  command line (unreadable, and a typo is a valid-looking id); a device-code sign-in at enroll (an MDM can't answer
+  it). The secret is used for the lookup and not kept. Ids go into `pam_allow_groups`, names stay in `config.toml`, and
+  `state.toml` keeps `name=id` so `policy set` with known names needs no secret.
+- **Default deny.** himmelblau lets every tenant user in when `pam_allow_groups` is unset, so enroll always writes it;
+  only `--mode any` leaves it out. `--users` become full sign-in names in the same list (a bare name gets the tenant's
+  domain).
+- **Usernames and ids.** Short names and full sign-in names both resolve; a local account of the same name wins. UIDs
+  and GIDs are derived from the tenant and object id, so they're the same on every laptop. Home is
+  `/home/<object id>` with a link at the sign-in name, made by himmelblau (hence `mkhomedir = "false"`).
+- **sudo** uses the core's `%group` sudoers rule: Entra groups resolve by name through NSS once registered.
+  himmelblau's own `sudo_groups` isn't used, so every provider's sudo works the same way.
+- **Offline**: `[offline_breakglass] enabled = true`, which caches a password verifier at each online sign-in. Its
+  `ttl` only applies to breakglass switched on by hand, not to automatic offline sign-in, and there's no verifier
+  lifetime, so `--offline-days` is refused rather than ignored.
+- **Passwords only for now.** `enable_hello = false` until the login screen can carry a multi-step conversation (#77);
+  then Hello PIN is the likely default (MFA once at setup, offline built in). Password-only `ssh` is refused by
+  himmelblau (its remote-services list); we keep that default.
+- **Leave** stops the daemons, clears himmelblau's registration, caches and the tokens systemd keeps for it, and
+  removes the config and nsswitch entries. It doesn't delete the device object in Entra (that needs a device
+  permission on the app registration, more than enroll asks for): it says so, as AD's `leave` does without
+  `--admin`.
+
 ## The PAM edit
 
 This is the one place a mistake locks people out, so the rules are the core's and the provider only names its module
