@@ -1,12 +1,12 @@
 #!/bin/bash
 # Stand-in for providers/entra/graph.py (set as MONARCHY_IDENTITY_ENTRA_GRAPH). The "tenant" is STUB_TENANT, with
 # groups STUB_ENTRA_GROUPS (name=id,...), users STUB_ENTRA_USERS (sign-in names), app STUB_CLIENT_ID whose secret is
-# STUB_PW. Knob: STUB_ENTRA_DOWN. Messages are graph.py's.
+# STUB_PW. Knobs: STUB_ENTRA_DOWN, STUB_OTHER_TENANT (a second tenant, same groups and app). Messages are graph.py's.
 echo "entra-graph $*" >> "$STUB_LOG"
 [[ -z ${STUB_ENTRA_DOWN:-} ]] || { echo "cannot reach Entra ID (timed out); check the network and try again" >&2; exit 1; }
-[[ ${2,,} == "${STUB_TENANT,,}" ]] || { echo "Entra has no tenant named $2" >&2; exit 1; }
+[[ ${2,,} == "${STUB_TENANT,,}" || ${2,,} == "${STUB_OTHER_TENANT:-}" ]] || { echo "Entra has no tenant named $2" >&2; exit 1; }
 case $1 in
-  discover) echo "d53deb61-0000-4000-8000-000000000001" ;;
+  discover) [[ ${2,,} == "${STUB_TENANT,,}" ]] && echo "d53deb61-0000-4000-8000-000000000001" || echo "d53deb61-0000-4000-8000-000000000002" ;;
   resolve)
     IFS= read -r secret
     [[ $3 == "$STUB_CLIENT_ID" ]] || { echo "the tenant has no app registration with client id $3" >&2; exit 1; }

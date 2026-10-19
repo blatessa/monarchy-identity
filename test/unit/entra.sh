@@ -60,6 +60,11 @@ oi_user policy show; [[ $OUT == *"tenant:        corp.onmicrosoft.com"* ]] && ok
 : > "$STUB_LOG"; oi "${E[@]}" --groups linux-users --if-needed
 [[ $RC -eq 0 && $OUT == *"already enrolled in corp.onmicrosoft.com"* ]] && ! called "entra-graph discover" && ok "--if-needed: no re-enrollment" || bad "if-needed: $OUT"
 BEFORE=$(snap); oi enroll entra --tenant other.onmicrosoft.com --groups linux-users --if-needed; refused "--if-needed, other tenant" "already enrolled in 'corp.onmicrosoft.com'"
+BEFORE=$(snap); STUB_OTHER_TENANT=other.onmicrosoft.com oi enroll entra --tenant other.onmicrosoft.com --client-id "$STUB_CLIENT_ID" --groups linux-users
+refused "another tenant without leave" "already enrolled in 'corp.onmicrosoft.com'"
+: > "$STUB_LOG"; oi "${E[@]}" --groups linux-users
+[[ $RC -eq 0 && $OUT == *"enrolled in corp.onmicrosoft.com"* ]] && [[ $(hb pam_allow_groups) == aaaaaaaa-0000-0000-0000-000000000001 ]] \
+  && ok "enroll again, same tenant: picks up as enrolled" || bad "re-enroll: $OUT"
 
 echo "[status and reassert]"
 oi status --json
@@ -73,10 +78,13 @@ oi reassert
 oi reassert; [[ $(grep -c '\bhimmelblau\b' "$T/etc/nsswitch.conf") == 3 && $(grep -c 'BEGIN monarchy' "$SA") == 4 ]] && ok "reassert is idempotent" || bad "duplicated edits"
 
 echo "[leave]"
+mkdir -p "$T/himmelblaud"; printf '[corp.onmicrosoft.com]\ndevice_id = 0d1ce000-0000-4000-8000-00000000abcd\n' > "$T/himmelblaud/himmelblau.conf"   # what the first sign-in leaves
 : > "$STUB_LOG"; oi leave
 [[ $RC -eq 0 ]] && called "aad-tool cache-clear --full" && called "systemctl clean --what=fdstore --what=state --what=cache himmelblaud himmelblaud-tasks" \
   && ok "forgets the device registration, cached accounts and stored tokens" || bad "leave: $OUT / $(cat "$STUB_LOG")"
-[[ $OUT == *"stays registered in Entra"* ]] && ok "says the device stays in Entra" || bad "no device note: $OUT"
+[[ $OUT == *"(device ID 0d1ce000-0000-4000-8000-00000000abcd) stays registered in Entra"* ]] && ok "says the device stays in Entra, and which one" || bad "no device note: $OUT"
 cmp -s "$SA" "$FIX/pam.d/system-auth" && ! grep -q himmelblau "$T/etc/nsswitch.conf" && [[ ! -e $HB && ! -e $STUB_STATE/himmelblaud-active && ! -e $MONARCHY_IDENTITY_STATE ]] \
   && ok "PAM stock, nsswitch clean, config gone, daemons stopped, not enrolled" || bad "leftovers"
+oi "${E[@]}" --groups linux-users; oi leave   # nobody signed in: never registered
+[[ $RC -eq 0 && $OUT != *"stays registered"* ]] && ok "never registered: no device to delete, says nothing about one" || bad "leave unregistered: $OUT"
 result

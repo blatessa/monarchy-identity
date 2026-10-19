@@ -59,6 +59,10 @@ something.
   join step. It shows in Entra as an Entra-joined Linux device named after the hostname.
 - Unjoining locally (`aad-tool cache-clear --full`, prompts Y/N) leaves the device object in Entra, enabled. Deleting
   it needs Graph rights (Cloud Device Administrator or similar).
+- The registration is `device_id` in `/var/cache/himmelblaud/himmelblau.conf` (himmelblau's "server config", its
+  CacheDirectory), not in `/etc/himmelblau/himmelblau.conf`: rewriting ours keeps the laptop registered. After an
+  unjoin the next sign-in registers a new device; Entra keeps both, with the same display name (no collision error).
+- Graph's device list can lag a fresh registration by a minute or more; check the laptop's `device_id`, not the list.
 - NSS answers before anyone signs in, by UPN and by short name (`alice`). `files` stays first, so a local account of
   the same name wins. UIDs/GIDs are murmur3(tenant, object id) into `idmap_range`: the same on every machine.
 - `nsswitch.conf` needs `himmelblau` on `shadow:` too, or `pam_unix`'s account check fails with "Authentication

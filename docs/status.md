@@ -37,6 +37,7 @@ screen and terminal, allowing groups or people, `sudo` for a group, cached sign-
   changed or reset in Entra isn't known to it (the old one still works), and disabling an account, removing it from
   the allowed groups or a Conditional Access policy doesn't reach it. Someone who never signed in on the laptop can't
   sign in offline.
-- **Leaving** keeps the laptop's device record in Entra; delete it in the Entra admin center.
+- **Leaving** keeps the laptop's device record in Entra; delete it in the Entra admin center (`leave` prints its device
+  ID). Enrolling a reinstalled laptop registers a new device with the same name next to the old one.
 
 Planned work: [GitHub issues](https://github.com/blatessa/monarchy-identity/issues).

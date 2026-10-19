@@ -38,8 +38,8 @@ Connects the laptop to a directory and turns on directory sign-in. `PROVIDER` is
 with. Entra ID takes `--tenant` (the tenant's domain) and `--client-id` (an app registration that may read groups and
 users; its client secret is the enrollment password, used to check the names and not kept). `enroll --help` lists
 every option. Before it changes anything, `enroll` checks what the directory can (credentials, that the groups exist),
-so mistakes fail without touching the laptop. A laptop enrolled with one directory must `leave` before enrolling with
-another.
+so mistakes fail without touching the laptop. A laptop enrolled with one directory (or Entra tenant) must `leave` before
+enrolling with another. Enrolling again with the same one is safe: the laptop keeps its registration.
 
 **Who may sign in** (see [Who may sign in](../concepts/login-policy.md)). One is required.
 
@@ -77,7 +77,8 @@ monarchy-identity leave [provider options] [--quiet]
 ```
 
 Disconnects the laptop from the directory and removes directory sign-in. Active Directory's `--admin` also deletes the
-computer account. See [Manage enrolled laptops](../guides/manage.md#leave-the-directory).
+computer account. With Entra ID the laptop's device stays in Entra; `leave` prints its device ID, so you can delete the
+right one when a reinstalled laptop has left several of the same name. See [Manage enrolled laptops](../guides/manage.md#leave-the-directory).
 
 ## reassert
 

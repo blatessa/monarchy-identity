@@ -8,6 +8,7 @@ for u in "${units[@]}"; do
     is-active) [[ -e $STUB_STATE/$u-active ]] || exit 3 ;;
     start|restart|enable) [[ $verb == enable && " $* " != *" --now "* ]] || touch "$STUB_STATE/$u-active" ;;
     stop|disable) [[ $verb == disable && " $* " != *" --now "* ]] || rm -f "$STUB_STATE/$u-active" ;;
+    clean) [[ $u != himmelblaud || " $* " != *" --what=cache "* ]] || rm -f "${MONARCHY_IDENTITY_HB_SERVER_CONF:-/nonexistent}" ;;   # its CacheDirectory
   esac
 done
 exit 0

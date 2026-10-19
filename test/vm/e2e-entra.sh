@@ -1,6 +1,6 @@
 #!/bin/bash
 # The entra provider against a real test tenant: refused enrolls, enroll, sign-in on every service, the group policy,
-# sudo, offline, leave. Opt-in: needs the himmelblau package in the VM and the tenant's details in the env file named
+# sudo, offline, enrolling again (registered, and after leave with the old device still in Entra), leave. Opt-in: needs the himmelblau package in the VM and the tenant's details in the env file named
 # by ENTRA_LAB_ENV (docs/dev/testing.md); without them it says so and exits 0.
 source "$(dirname "$0")/lib.sh"
 if [[ -z ${ENTRA_LAB_ENV:-} || ! -r ${ENTRA_LAB_ENV:-} ]]; then echo "SKIP: no Entra test tenant (set ENTRA_LAB_ENV; see docs/dev/testing.md)"; exit 0; fi
@@ -11,12 +11,14 @@ done
 SECRET=/root/entra-secret
 E="enroll entra --tenant $ENTRA_TENANT --client-id $ENTRA_CLIENT_ID --password-file $SECRET"
 ecli() { "${V[@]}" "sudo ~/oi/bin/monarchy-identity $*" 2>&1; }
-# Every run registers the VM again; delete the device objects it leaves (needs az signed in to the tenant).
+# Every run registers the VM again; delete the device objects it leaves (needs az signed in to the tenant). Entra's
+# list can lag a registration by a minute, so the one at exit may miss the last device; the next run's start gets it.
 devices_cleanup() {
   command -v az >/dev/null || { echo "  NOTE: delete the device 'oi-client' in the Entra admin center"; return; }
   local id; for id in $(az rest --method get --url "https://graph.microsoft.com/v1.0/devices?\$filter=displayName eq 'oi-client'&\$select=id" --query 'value[].id' -o tsv 2>/dev/null); do
     az rest --method delete --url "https://graph.microsoft.com/v1.0/devices/$id" >/dev/null 2>&1; done
 }
+device_id() { "${V[@]}" 'sudo sed -n "s/^device_id *= *//p" /var/cache/himmelblaud/himmelblau.conf'; }   # himmelblau's record
 offline() { "${V[@]}" "sudo nft add table inet oi-offline; sudo nft add chain inet oi-offline out '{ type filter hook output priority 0; policy drop; }'; sudo nft add rule inet oi-offline out oif lo accept; sudo nft add rule inet oi-offline out ct state established accept"; }
 online() { "${V[@]}" "sudo nft delete table inet oi-offline" 2>/dev/null; }
 trap 'online; ecli leave >/dev/null; "${V[@]}" "sudo rm -f $SECRET"; devices_cleanup' EXIT
@@ -54,6 +56,12 @@ expect ALLOWED "ssh: tester (local) as before" sshd tester tester
 st=$(ecli status --json)
 [[ $st == *'"himmelblaud_active":"true"'* && $st == *'"entra_reachable":"true"'* && $st == *'"pam_system_auth":"true"'* ]] && ok "status: healthy" || bad "status: $st"
 
+echo "[enroll again: the laptop keeps its registration]"
+d1=$(device_id); [[ -n $d1 ]] || bad "no device id after the first sign-in"
+out=$(ecli $E --groups linux-users --sudo-groups linux-admins)
+[[ $out == *"enrolled in $ENTRA_TENANT"* && $(device_id) == "$d1" ]] && ok "enroll entra again: same device" || bad "re-enroll: $(device_id) vs $d1: $out"
+expect ALLOWED "login: bob after enrolling again" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
+
 echo "[offline]"
 offline
 expect ALLOWED "lock screen: bob with no network (cached)" omarchy-lock-password "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
@@ -63,14 +71,16 @@ online
 
 echo "[leave]"
 out=$(ecli leave)
-[[ $out == *"stays registered in Entra"* ]] && ok "leave says the device stays in Entra" || bad "leave: $out"
+[[ $out == *"(device ID $d1) stays registered in Entra"* ]] && ok "leave says the device stays in Entra, and which" || bad "leave: $out"
 pam_stock && "${V[@]}" '! grep -q himmelblau /etc/nsswitch.conf && ! test -e /etc/himmelblau/himmelblau.conf && ! systemctl is-active --quiet himmelblaud' \
   && ok "PAM stock, nsswitch clean, config gone, daemon stopped" || bad "leftovers after leave"
 expect ALLOWED "login: tester after leave" login tester tester
 
-echo "[enroll again after leave]"   # leave must clear what himmelblau kept, or the daemon wedges on stale tokens
-devices_cleanup
+# A reinstalled laptop: its old device is still in Entra under the same name. leave must also clear what himmelblau
+# kept, or the daemon wedges on stale tokens.
+echo "[enroll again after leave, the old device still in Entra]"
 out=$(ecli $E --groups linux-users)
 [[ $out == *"enrolled in $ENTRA_TENANT"* ]] && ok "enroll entra again" || { bad "re-enroll"; sed 's/^/      /' <<<"$out"; }
-expect ALLOWED "login: bob after re-enrolling" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
+expect ALLOWED "login: bob after re-enrolling" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD" --session
+d2=$(device_id); [[ -n $d2 && $d2 != "$d1" ]] && ok "registered as a new device" || bad "device id after re-enroll: '$d2' (was $d1)"
 result
