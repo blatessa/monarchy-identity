@@ -3,6 +3,8 @@ source "$OI_ROOT/lib/common.sh"
 
 HB_CONF="$ETC/himmelblau/himmelblau.conf"
 HB_UNITS=(himmelblaud himmelblaud-tasks)
+# himmelblau's own record of the registration (device_id), written at the first sign-in; cleared with its cache
+HB_SERVER_CONF="${MONARCHY_IDENTITY_HB_SERVER_CONF:-/var/cache/himmelblaud/himmelblau.conf}"
 # Talks to Entra (tenant discovery, group and user lookups); the fast tests swap in a stub.
 GRAPH="${MONARCHY_IDENTITY_ENTRA_GRAPH:-$OI_ROOT/providers/entra/graph.py}"
 graph() { if [[ $GRAPH == *.py ]]; then python3 -I "$GRAPH" "$@"; else "$GRAPH" "$@"; fi; }

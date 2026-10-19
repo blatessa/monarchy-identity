@@ -148,8 +148,11 @@ nothing about it beyond the `pam.conf` switches ([below](#the-pam-edit)).
   himmelblau (its remote-services list); we keep that default.
 - **Leave** stops the daemons, clears himmelblau's registration, caches and the tokens systemd keeps for it, and
   removes the config and nsswitch entries. It doesn't delete the device object in Entra (that needs a device
-  permission on the app registration, more than enroll asks for): it says so, as AD's `leave` does without
-  `--admin`.
+  permission on the app registration, more than enroll asks for): it says so with the device ID, as AD's `leave`
+  does without `--admin`. Entra allows several devices of one name, so the ID is how an admin finds the stale one.
+- **Enrolling again** with the same tenant keeps the registration (himmelblau's device id is in its own cache, not
+  the config we write). Another tenant is refused until `leave`, compared by tenant id: himmelblau would stay
+  registered with the first. Entra has nothing to reject up front: a reinstalled laptop just registers a new device.
 
 ## The PAM edit
 

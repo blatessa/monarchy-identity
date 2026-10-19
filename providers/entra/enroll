@@ -28,6 +28,11 @@ need_himmelblau
 
 # ---- check Entra BEFORE changing anything: the tenant, the credential, the groups and users -------
 tenant_id=$(graph discover "$tenant") || exit 1
+# Already enrolled (a re-run): same tenant picks up where it stopped; another would leave himmelblau registered with
+# the first. Compared by id: a verified domain and the onmicrosoft.com name are the same tenant.
+cur_id=$(state_get tenant_id "")
+[[ -z $cur_id || $cur_id == "$tenant_id" ]] \
+  || die "already enrolled in '$(state_get tenant "")'; run 'monarchy-identity leave' before enrolling in '$tenant'"
 resolve_policy_ids "$tenant" "$client_id"
 
 log "configuring this machine for $tenant"
