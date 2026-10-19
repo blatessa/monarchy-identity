@@ -112,6 +112,31 @@ something.
   `systemctl stop`. After an unjoin they no longer match the device keys ("Failed unsealing PRT"), and on the next
   enroll the daemon answers nothing: users unknown, every sign-in times out. `leave` runs
   `systemctl clean --what=fdstore --what=state --what=cache` on both units.
+- `passwd` (`pam_sm_chauthtok`) changes a Hello PIN ("This command changes your local Hello PIN, NOT your Entra Id
+  password"), never the Entra password. A password Entra says must be changed (expired, or an admin reset with
+  `forceChangePasswordNextSignIn`) is changed inside `pam_authenticate`: after the password, the daemon's "Update your
+  password" message, `New password:`, `Confirm password:` (both translated: `himmelblau.mo`), then libhimmelblau's
+  `handle_password_change`, then sign-in goes on with the new one. A new password under 8 characters is refused
+  locally, before Entra.
+- In 4.0.6 that only works on the laptop's first sign-in (before it joins), for a user without MFA. Two bugs, fixed
+  by the patches in the lab's himmelblau build (`test/vm/images/himmelblau-patches/`, not yet upstream):
+    - **Joined laptop:** the password is checked by getting a PRT, which Entra issues, then trading it for an
+      authorization code silently; a must-change user can't be signed in silently, so Entra answers AADSTS50058 (or
+      AADSTS50133, "session isn't valid due to password expiration or recent password change", when the user had a
+      PRT before the reset), and himmelblau reports a refusal. The patch falls back to the interactive flow, without
+      ForceMFA, which reaches Entra's change page and checks the password again.
+    - **MFA user:** Entra asks the code first, then shows the change page; `handle_password_change` threw that page
+      away and signed in again with the password alone, which ends at MFA ("url_async_sspr_begin missing from auth
+      config"; the person saw "Failed to change user password: Authentication failed"). The libhimmelblau patch keeps
+      the change page the sign-in reached (single use, 10 minutes) and changes the password through it.
+- A user created, or a password set, through Graph isn't taken by Entra's sign-in for a minute or two (refused as a
+  wrong password). The lab waits with `entra_takes`.
+- An MFA user who signed in on the laptop minutes before an admin reset is let in with the reset password, without
+  a change, for several minutes: Entra checks the password and wants MFA, and the laptop's session from before still
+  satisfies it until Entra revokes it. The change comes at a later sign-in. The lab tests it without such a session.
+- Twice, a sign-in step sent after the daemon sat idle ~30 s logged "Network down detected" (on `GetCredentialType`),
+  so the daemon went offline and answered "NotFound: token in AuthSession" for a user with nothing cached. Probably a
+  pooled connection Microsoft had closed (unverified). Asking again works; the lab avoids idle gaps it doesn't need.
 - Harmless noise: the profile-photo task warns that `/var/lib/AccountsService/icons/` doesn't exist
   (`fetch_profile_picture`).
 

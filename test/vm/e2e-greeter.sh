@@ -142,6 +142,20 @@ if entra_lab && [[ -n ${ENTRA_DAVE:-} && -n ${ENTRA_DAVE_PASSWORD:-} && -n ${ENT
   wait_for 60 'has "$ENTRA_DAVE" Hyprland >/dev/null' && ok "  the code on the login screen: dave's desktop starts" || { bad "no desktop after the code"; shot 12-no-desktop; diag; }
   sleep 3; shot 12-desktop
   n=$(greeter_up); "${V[@]}" "sudo loginctl terminate-user $(q "$ENTRA_DAVE")"; wait_for 40 '[[ $(greeter_up) -gt $n ]]'
+  # A password that must be changed: the theme's two new-password lines, then the desktop
+  if entra_expired_user; then
+    trap entra_expired_user_delete EXIT
+    entra_takes "$EXP_UPN" "$EXP_PW" || bad "Entra doesn't take $EXP_UPN's password yet"
+    last_session /usr/share/wayland-sessions/hyprland.desktop; greeter_restart
+    ./qmon.py type "$EXP_UPN"; ./qmon.py key ret; sleep 1; ./qmon.py type "$EXP_PW"; ./qmon.py key ret
+    sleep 10; shot 13-new-password-wanted
+    ! has "$EXP_UPN" Hyprland >/dev/null && ok "must change the password: no desktop with the old one" || bad "a desktop before the change"
+    ./qmon.py type "$EXP_NEW"; ./qmon.py key ret; sleep 1; ./qmon.py type "$EXP_NEW"; shot 14-new-typed; ./qmon.py key ret   # focus: the new line, then the second
+    wait_for 60 'has "$EXP_UPN" Hyprland >/dev/null' && ok "  the new password on the login screen: the desktop starts" || { bad "no desktop after the change"; shot 15-no-desktop; diag; }
+    expect ALLOWED "  ... and it's the password now" system-auth "$EXP_UPN" "$EXP_NEW"
+    n=$(greeter_up); "${V[@]}" "sudo loginctl terminate-user $(q "$EXP_UPN")"; wait_for 40 '[[ $(greeter_up) -gt $n ]]'
+    entra_expired_user_delete; trap - EXIT
+  fi
   "${V[@]}" 'sudo /usr/bin/monarchy-identity leave' >/dev/null 2>&1
   entra_codes off; entra_devices_cleanup
   last_session /usr/share/xsessions/oi-test.desktop

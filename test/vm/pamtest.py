@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""pamtest.py SERVICE USER PASSWORD  - run authenticate + acct_mgmt via libpam (no pamtester on Arch)."""
-import ctypes, ctypes.util, sys
+"""pamtest.py SERVICE USER PASSWORD  - run authenticate + acct_mgmt via libpam (no pamtester on Arch).
+--messages: after the result, the messages the stack showed (MSG lines), as a login screen would get them."""
+import atexit, ctypes, ctypes.util, sys
 newpw=None
 argv=sys.argv[1:]
 if "--chauthtok" in argv:
     i=argv.index("--chauthtok"); newpw=argv[i+1]; del argv[i:i+2]
-args=[a for a in argv if a!="--session"]; want_session="--session" in argv
+args=[a for a in argv if a not in ("--session", "--messages")]; want_session="--session" in argv
+shown = []
+if "--messages" in argv:
+    atexit.register(lambda: [print("MSG", m) for m in shown])
 svc, user, pw = args[:3]
 libpam = ctypes.CDLL(ctypes.util.find_library("pam")); libc = ctypes.CDLL(ctypes.util.find_library("c"))
 class Msg(ctypes.Structure): _fields_ = [("style", ctypes.c_int), ("msg", ctypes.c_char_p)]
@@ -17,6 +21,8 @@ asked = {}
 def conv(n, msgs, resp, _):
     arr = libc.calloc(n, ctypes.sizeof(Resp)); resp[0] = ctypes.cast(arr, ctypes.POINTER(Resp))
     for i in range(n):
+        if msgs[i].contents.style in (3, 4):  # ERROR_MSG / TEXT_INFO
+            shown.append((msgs[i].contents.msg or b"").decode(errors="replace"))
         if msgs[i].contents.style in (1, 2):  # PROMPT_ECHO_OFF / ON
             text = (msgs[i].contents.msg or b"").lower()
             # A module that asks the same thing again after a wrong answer (pam_himmelblau re-prompts forever) gets one

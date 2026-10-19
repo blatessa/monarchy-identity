@@ -34,6 +34,8 @@ Setup and behaviour: [Entra ID](providers/entra.md).
 - enrolling with an app registration, unattended too;
 - sign-in at the login screen, lock screen and terminal;
 - multi-factor authentication at the login screen, with an approval on the phone or a code;
+- changing a password Entra says must be changed, at the login screen, with multi-factor authentication too (needs
+  a fix to the Entra client that isn't released yet: see below);
 - allowing groups or people, and `sudo` for a group;
 - cached sign-in with no network;
 - leaving, and enrolling again.
@@ -42,13 +44,15 @@ Setup and behaviour: [Entra ID](providers/entra.md).
 
 - real laptops;
 - Conditional Access policies;
-- a password Entra says must be changed;
 - guest accounts;
 - the tenant setting that requires multi-factor authentication to join devices.
 
 - **MFA at the login screen.** Where Entra asks for a second step (a person's first sign-in on a laptop, and when it
   wants MFA again), the login screen shows the number to approve in the Authenticator app, or asks for the code after
   the password. Windows Hello PINs and security keys aren't supported.
+- **Passwords are changed with Microsoft**, not with `passwd` on the laptop. A password Entra says must be changed
+  is changed at the login screen. Released versions of the Entra client (himmelblau 4.0.6) only manage that on the
+  laptop's first sign-in, for people without multi-factor authentication; the fix for the rest isn't released yet.
 - **`ssh` with only a password is refused** by the Entra client for remote sign-in; with MFA it asks for the code
   every time.
 - **`--offline-days`** can't be honoured: Entra's client has no limit for its offline cache.
