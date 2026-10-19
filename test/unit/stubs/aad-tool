@@ -1,0 +1,11 @@
+#!/bin/bash
+# Stand-in for himmelblau's aad-tool. Knobs: STUB_NO_HIMMELBLAU (not installed), STUB_HB_DOWN (daemon never answers).
+# State: $STUB_STATE/himmelblaud-active (systemctl stub), $STUB_STATE/hb-joined.
+echo "aad-tool $*" >> "$STUB_LOG"
+[[ -z ${STUB_NO_HIMMELBLAU:-} ]] || exit 127
+case ${1:-} in
+  version) echo "aad-tool 4.0.6" ;;
+  status) [[ -e $STUB_STATE/himmelblaud-active && -z ${STUB_HB_DOWN:-} ]] && echo "working!" || exit 1 ;;
+  cache-clear) [[ -e $STUB_STATE/himmelblaud-active ]] || exit 1; rm -f "$STUB_STATE/hb-joined"; echo success ;;
+  *) exit 2 ;;
+esac

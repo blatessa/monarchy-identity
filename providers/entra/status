@@ -1,0 +1,8 @@
+#!/bin/bash
+# prints key=value health lines for the core status command (the core adds the PAM ones)
+export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
+source "$OI_ROOT/providers/entra/lib.sh"
+chk() { "$@" >/dev/null 2>&1 && echo true || echo false; }
+echo "himmelblaud_active=$(chk systemctl is-active --quiet himmelblaud)"
+echo "nss_himmelblau=$(chk grep -qE '^passwd:.*\bhimmelblau\b' "$ETC/nsswitch.conf")"
+echo "entra_reachable=$(chk timeout 15 aad-tool status)"

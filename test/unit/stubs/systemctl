@@ -1,9 +1,13 @@
 #!/bin/bash
-# Stand-in for systemctl: sssd is "active" once started, until stopped or disabled.
+# Stand-in for systemctl: a unit is "active" once started, until stopped or disabled ($STUB_STATE/<unit>-active).
 echo "systemctl $*" >> "$STUB_LOG"
-case $1 in
-  is-active) [[ -e $STUB_STATE/sssd-active ]]; exit ;;
-  start|restart|enable) touch "$STUB_STATE/sssd-active" ;;
-  stop|disable) rm -f "$STUB_STATE/sssd-active" ;;
-esac
+verb=$1; shift; units=()
+for a in "$@"; do [[ $a == -* ]] || units+=("${a%.service}"); done
+for u in "${units[@]}"; do
+  case $verb in
+    is-active) [[ -e $STUB_STATE/$u-active ]] || exit 3 ;;
+    start|restart|enable) [[ $verb == enable && " $* " != *" --now "* ]] || touch "$STUB_STATE/$u-active" ;;
+    stop|disable) [[ $verb == disable && " $* " != *" --now "* ]] || rm -f "$STUB_STATE/$u-active" ;;
+  esac
+done
 exit 0

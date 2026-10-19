@@ -1,0 +1,22 @@
+#!/bin/bash
+# Stand-in for providers/entra/graph.py (set as MONARCHY_IDENTITY_ENTRA_GRAPH). The "tenant" is STUB_TENANT, with
+# groups STUB_ENTRA_GROUPS (name=id,...), users STUB_ENTRA_USERS (sign-in names), app STUB_CLIENT_ID whose secret is
+# STUB_PW. Knob: STUB_ENTRA_DOWN. Messages are graph.py's.
+echo "entra-graph $*" >> "$STUB_LOG"
+[[ -z ${STUB_ENTRA_DOWN:-} ]] || { echo "cannot reach Entra ID (timed out); check the network and try again" >&2; exit 1; }
+[[ ${2,,} == "${STUB_TENANT,,}" ]] || { echo "Entra has no tenant named $2" >&2; exit 1; }
+case $1 in
+  discover) echo "d53deb61-0000-4000-8000-000000000001" ;;
+  resolve)
+    IFS= read -r secret
+    [[ $3 == "$STUB_CLIENT_ID" ]] || { echo "the tenant has no app registration with client id $3" >&2; exit 1; }
+    [[ $secret == "$STUB_PW" ]] || { echo "the client secret is wrong" >&2; exit 1; }
+    shift 3; groups="" users=""
+    while [[ $# -gt 0 ]]; do case $1 in --groups) groups=$2;; --users) users=$2;; esac; shift 2; done
+    declare -A gid=(); IFS=, read -ra kv <<<"${STUB_ENTRA_GROUPS:-}"; for x in "${kv[@]}"; do gid[${x%%=*}]=${x#*=}; done
+    out=() missing=()
+    IFS=, read -ra gl <<<"$groups"; for g in "${gl[@]}"; do [[ -n ${gid[$g]-} ]] && out+=("group"$'\t'"$g"$'\t'"${gid[$g]}") || missing+=("$g"); done
+    IFS=, read -ra ul <<<"$users"; for u in "${ul[@]}"; do [[ ",${STUB_ENTRA_USERS:-}," == *",$u,"* ]] && out+=("user"$'\t'"$u") || missing+=("$u"); done
+    ((${#missing[@]} == 0)) || { echo "Entra has no group or user named: $(IFS=,; echo "${missing[*]}" | sed 's/,/, /g')" >&2; exit 1; }
+    ((${#out[@]} == 0)) || printf '%s\n' "${out[@]}" ;;
+esac

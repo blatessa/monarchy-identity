@@ -5,7 +5,7 @@ H="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; cd "$H"
 SSHO=(-i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=8)
 V=(ssh "${SSHO[@]}" -p 2222 tester@127.0.0.1)
 PW='Passw0rd!Test'
-LAB="--realm CORP.TEST --server dc.corp.test --admin Administrator"
+LAB="ad --realm CORP.TEST --server dc.corp.test --admin Administrator"
 fail=0
 
 ok()  { printf '  PASS %s\n' "$1"; }
@@ -21,7 +21,7 @@ dc() { docker exec oi-test-dc samba-tool "$@" 2>&1; }
 has_account() { dc computer list | grep -qxF "$1"; }   # -F: the $ of a computer name is not a regex anchor
 
 # pt [--session] SERVICE USER PASSWORD [--chauthtok NEW]: runs the real PAM stack in the VM; prints ALLOWED/DENIED/...
-pt() { "${V[@]}" "sudo python3 -I /tmp/pamtest.py$(q "$@")" 2>&1; }
+pt() { "${V[@]}" "sudo timeout 120 python3 -I /tmp/pamtest.py$(q "$@")" 2>&1; }
 expect() { local want=$1 desc=$2 out; shift 2; out=$(pt "$@"); [[ $out == "$want"* ]] && ok "$desc" || bad "$desc (got: ${out:-<nothing>})"; }
 # admin_prompt IDENTITY PASSWORD: answer a real polkit admin prompt as IDENTITY ("-": the first offered), asked by tester;
 # prints AUTHORIZED/REFUSED/NOT-OFFERED and the identity
@@ -33,7 +33,10 @@ pam_stock() { local f; for f in system-auth omarchy-lock-password sddm; do "${V[
 # because before enrollment directory users don't resolve and the reset is a silent no-op.
 enroll() { local out; out=$(echo "$PW" | "${V[@]}" "sudo ~/oi/bin/monarchy-identity enroll$(q $LAB "$@")" 2>&1); reset_locks; printf '%s' "$out"; }
 enroll_ok() { local out; out=$(enroll "$@"); [[ $out == *"enrolled in"* ]] && ok "enroll $*" || { bad "enroll $*"; sed 's/^/      /' <<<"$out"; }; }
-leave() { echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1; }
+leave() { # whatever the laptop is enrolled with (--admin is the ad provider's)
+  echo "$PW" | "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1 \
+    || "${V[@]}" 'sudo ~/oi/bin/monarchy-identity leave' >/dev/null 2>&1
+}
 
 # fresh: push the repo, reset PAM/SDDM to stock Omarchy, make sure the machine isn't enrolled.
 fresh() {

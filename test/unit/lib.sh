@@ -19,7 +19,7 @@ sandbox() {
   export ETC_T="$T/etc" MONARCHY_IDENTITY_ETC="$T/etc" MONARCHY_IDENTITY_ROOT="$REPO" HOME="$T/home"
   export MONARCHY_IDENTITY_CONF="$T/etc/monarchy-identity/config.toml" MONARCHY_IDENTITY_STATE="$T/var/lib/monarchy-identity/state.toml" MONARCHY_IDENTITY_SDDM_CONF_D="$T/etc/sddm.conf.d"
   export MONARCHY_IDENTITY_SUDOERS="$T/etc/sudoers.d/50-monarchy-identity" MONARCHY_IDENTITY_SUDOERS_THEME="$T/etc/sudoers.d/51-monarchy-identity-theme" MONARCHY_IDENTITY_POLKIT="$T/etc/polkit-1/rules.d/49-monarchy-identity.rules" MONARCHY_IDENTITY_LOCK="$T/lock"
-  export MONARCHY_IDENTITY_SDDM_THEMES="$T/themes" MONARCHY_IDENTITY_SSS_DIR="$T/sss"
+  export MONARCHY_IDENTITY_SDDM_THEMES="$T/themes" MONARCHY_IDENTITY_SSS_DIR="$T/sss" MONARCHY_IDENTITY_HB_NSS_CACHE="$T/nss-himmelblau"
   export STUB_STATE="$T/state" STUB_LOG="$T/calls.log" STUB_PW="$PW" STUB_HOSTNAME=oi-client
   export STUB_GROUPS=oi-laptop-users,oi-admins STUB_COMPUTERS="" PATH="$REPO/test/unit/stubs:$PATH"
   unset STUB_DC_DOWN STUB_NO_DNS STUB_JOIN_FAIL STUB_VISUDO_FAIL STUB_KINIT_FAIL STUB_JOINED MONARCHY_IDENTITY_PASSWORD_FILE
@@ -33,7 +33,7 @@ sandbox() {
 oi() { OUT=$(printf '%s\n' "${PWIN-$PW}" | unshare -r "$OIBIN" "$@" 2>&1); RC=$?; }
 # oi_user ARGS...: same, without root (the real uid).
 oi_user() { OUT=$(printf '%s\n' "$PW" | "$OIBIN" "$@" 2>&1 </dev/null); RC=$?; }
-enroll() { oi enroll --realm CORP.TEST --server dc.corp.test --admin Administrator "$@"; }
+enroll() { oi enroll ad --realm CORP.TEST --server dc.corp.test --admin Administrator "$@"; }
 
 # snap: every file that decides how someone signs in, and what the stubs hold (joined, sssd running). krb5.conf and
 # smb.conf are left out: enroll writes them to talk to the directory, before it has checked anything.

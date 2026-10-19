@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Idempotently add/remove a provider's PAM module (+ mkhomedir) in an Omarchy PAM service file.
 
-usage: pamedit.py apply FILE MODULE [TYPE=ARGS ...]    e.g. apply /etc/pam.d/system-auth pam_sss.so auth=forward_pass
+usage: pamedit.py apply [--no-mkhomedir] [--retry-on-abort] FILE MODULE [TYPE=ARGS ...]    e.g. apply /etc/pam.d/system-auth pam_sss.so auth=forward_pass
        pamedit.py greeter FILE HELPER                   e.g. greeter /etc/pam.d/sddm /usr/share/monarchy-identity/lib/password-expired
        pamedit.py remove|check FILE
 
@@ -62,10 +62,10 @@ def block(rule):
     return [BEGIN + "\n", rule + "\n", END + "\n"]
 
 
-def guarded(kind, rule):
-    """A block whose rule local accounts skip (pam_localuser succeeds for names in /etc/passwd)."""
-    guard = f"-{kind:<9} [success=1 default=ignore]  pam_localuser.so"
-    return [BEGIN + "\n", guard + "\n", rule + "\n", END + "\n"]
+def guarded(kind, *rules):
+    """A block whose rules local accounts skip (pam_localuser succeeds for names in /etc/passwd)."""
+    guard = f"-{kind:<9} [success={len(rules)} default=ignore]  pam_localuser.so"
+    return [BEGIN + "\n", guard + "\n"] + [r + "\n" for r in rules] + [END + "\n"]
 
 
 TYPES = ("auth", "account", "password", "session")
@@ -84,7 +84,7 @@ def parse_module(argv):
     return argv[0], args
 
 
-def apply(lines, module, args):
+def apply(lines, module, args, mkhomedir=True, retry=False):
     lines = strip_blocks(lines)
     # --- auth: before the first of (pam_systemd_home | pam_unix) in the auth stack
     first = None
@@ -100,8 +100,14 @@ def apply(lines, module, args):
             skip = count_rules(lines, "auth", first, u)
         else:
             skip = count_rules(lines, "auth", first, fail)
-        lines[first:first] = guarded("auth",
-            f"-auth      [success={skip} default=ignore]  {module}{args['auth']}")
+        rule = f"-auth      [success={skip} default=ignore]  {module}{args['auth']}"
+        if retry:
+            # A module that gives up (abort) the first time the directory turns out to be unreachable, and answers
+            # from its offline cache when asked again: ask again, once, only after an abort.
+            first_try = f"-auth      [success={skip + 1} abort=ignore default=1]  {module}{args['auth']}"
+            lines[first:first] = guarded("auth", first_try, rule)
+        else:
+            lines[first:first] = guarded("auth", rule)
     # --- account: before first of (pam_systemd_home | pam_unix) account rule
     first = None
     for pat in (r"pam_systemd_home\.so", r"pam_unix\.so"):
@@ -131,8 +137,8 @@ def apply(lines, module, args):
             s = i
             break
     if s is not None and find(lines, "session", r"pam_unix\.so") is not None:
-        lines[s:s] = [BEGIN + "\n",
-                      "session    required   pam_mkhomedir.so umask=0077\n",
+        # pam_mkhomedir unless the provider's module makes home directories itself
+        lines[s:s] = [BEGIN + "\n"] + (["session    required   pam_mkhomedir.so umask=0077\n"] if mkhomedir else []) + [
                       "-session   [success=1 default=ignore]  pam_localuser.so\n",
                       f"-session   optional   {module}{args['session']}\n",
                       END + "\n"]
@@ -158,6 +164,9 @@ def greeter(lines, helper):
 
 
 def main():
+    opts = set()
+    while len(sys.argv) > 2 and sys.argv[2] in ("--no-mkhomedir", "--retry-on-abort"):
+        opts.add(sys.argv.pop(2))
     mode = sys.argv[1] if len(sys.argv) > 2 else ""
     if mode not in ("apply", "greeter", "remove", "check") or (mode in ("remove", "check") and len(sys.argv) != 3) \
             or (mode == "greeter" and len(sys.argv) != 4):
@@ -172,7 +181,7 @@ def main():
     if mode == "check":
         sys.exit(0 if any(ln.strip() == BEGIN for ln in lines) else 1)
     if mode == "apply":
-        new = apply(lines, module, args)
+        new = apply(lines, module, args, "--no-mkhomedir" not in opts, "--retry-on-abort" in opts)
     else:
         new = greeter(lines, sys.argv[3]) if mode == "greeter" else strip_blocks(lines)
     if new != lines:

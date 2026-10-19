@@ -1,0 +1,21 @@
+#!/bin/bash
+# Remove the Entra side of enroll (the core has already removed PAM, SDDM and sudoers): forget the device
+# registration and the cached accounts, stop himmelblau, take it out of nsswitch.
+# The device object stays in Entra; an admin deletes it (Entra admin center > Devices).
+set -uo pipefail
+export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
+source "$OI_ROOT/providers/entra/lib.sh"
+need_root
+[[ $# -eq 0 ]] || die "unknown option $1"
+nss_remove
+if systemctl is-active --quiet himmelblaud; then   # it needs the daemon
+  echo Y | timeout 60 aad-tool cache-clear --full >/dev/null 2>&1 || log "WARNING: could not clear himmelblau's device registration and cache"
+fi
+systemctl disable --now "${HB_UNITS[@]}" >/dev/null 2>&1 || true
+# Everything himmelblau kept: its state and cache directories, and the sign-in tokens systemd holds for it across
+# restarts (FileDescriptorStorePreserve). Stale tokens left there wedge the daemon after a later enroll.
+systemctl clean --what=fdstore --what=state --what=cache "${HB_UNITS[@]}" >/dev/null 2>&1 \
+  || log "WARNING: could not clear himmelblau's stored state (systemctl clean himmelblaud)"
+rm -rf "${MONARCHY_IDENTITY_HB_NSS_CACHE:-/var/cache/nss-himmelblau}"/* 2>/dev/null
+remove_if_ours "$HB_CONF"
+log "the device '$(uname -n)' stays registered in Entra ($(state_get tenant "")); delete it in the Entra admin center > Devices"

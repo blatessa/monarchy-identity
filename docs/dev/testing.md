@@ -85,6 +85,22 @@ allowed and in `oi-admins`, `bob` is allowed, `carol` exists in the directory on
 Each new provider brings its own lab directory: a container where one exists (FreeIPA), otherwise a test tenant or
 a documented stand-in, chosen in the provider's issue. The client VM, `lib.sh` and the core suites are shared.
 
+**Entra ID** has no container: `test/vm/e2e-entra.sh` runs against a real test tenant and is skipped (passing) without
+one. It needs:
+
+- the himmelblau package in the VM (build `pkgbuilds/himmelblau` from `omacom/omarchy-pkgs`, `pacman -U` it), until
+  it's in Omarchy's repository;
+- in the tenant: users `alice`, `bob`, `carol` with password-only sign-in, groups `linux-users` (alice, bob) and
+  `linux-admins` (alice), and an app registration with the `Group.Read.All` and `User.Read.All` application
+  permissions (admin consent) and a client secret;
+- an env file outside the repo, named by `ENTRA_LAB_ENV`, with `ENTRA_TENANT`, `ENTRA_CLIENT_ID`,
+  `ENTRA_CLIENT_SECRET`, and `ENTRA_ALICE`/`ENTRA_ALICE_PASSWORD` (same for `BOB`, `CAROL`; full sign-in names);
+- `az` signed in to the tenant, so the suite can delete the device each run registers (otherwise delete `oi-client`
+  under Devices yourself).
+
+Never loop a wrong password against the tenant: `pam_himmelblau` re-prompts instead of failing, and Entra throttles
+the account. `pamtest.py` gives up when the same prompt comes a third time.
+
 ## Running the lab suites
 
 ```bash
