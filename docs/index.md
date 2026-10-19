@@ -16,9 +16,10 @@ inventory, locking down settings); that's your MDM's job.
 
 ## Providers
 
-Each kind of directory is supported by a provider. **Active Directory** (including Samba AD) is the only provider
-today; Microsoft Entra ID, Okta, Google Workspace and FreeIPA are planned. Who may sign in, `sudo`, offline sign-in, the
-login screen and updates work the same whichever provider you use. See [Status and limits](status.md).
+Each kind of directory is supported by a provider. [Active Directory](providers/ad.md) (including Samba AD) is
+supported; [Microsoft Entra ID](providers/entra.md) is in development; Okta, Google Workspace and FreeIPA are planned.
+Who may sign in, `sudo`, offline sign-in, the login screen and updates work the same whichever provider you use. See
+[Status and limits](status.md).
 
 ## Where to start
 

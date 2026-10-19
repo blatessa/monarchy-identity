@@ -36,6 +36,7 @@ out=$(ecli $E --groups linux-users --sudo-groups linux-admins)
 echo "[sign-in]"
 expect ALLOWED "login: bob (in linux-users; registers the device)" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD" --session
 expect ALLOWED "sddm: alice" sddm "$ENTRA_ALICE" "$ENTRA_ALICE_PASSWORD"
+expect ALLOWED "sddm: bob by his short name" sddm "${ENTRA_BOB%@*}" "$ENTRA_BOB_PASSWORD"
 expect ALLOWED "lock screen: bob" omarchy-lock-password "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
 expect DENIED  "login: carol (not in linux-users) is refused" login "$ENTRA_CAROL" "$ENTRA_CAROL_PASSWORD"
 expect ALLOWED "login: tester (local) as before" login tester tester

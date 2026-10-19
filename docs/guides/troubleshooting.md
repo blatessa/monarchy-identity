@@ -15,7 +15,7 @@ Start with `monarchy-identity status`, `monarchy-identity policy show` and `jour
 - **Testing with `su`?** On Arch, `su` never asks the directory. Test on a text console (Ctrl+Alt+F3), the lock screen
   or the login screen.
 - **Which password?** People sign in with their own directory password. `enroll` asks for the join account's directory
-  password, and `sudo` for your own.
+  password (Entra ID: the app registration's client secret), and `sudo` for your own.
 
 ## Opening someone's home folder asks for a password
 
@@ -33,7 +33,7 @@ laptop needs re-enrolling, run `leave` and `enroll` again.
 ## `enroll` refuses
 
 `say who may sign in`: add `--groups` or `--users`. `has no group named`: check the name in the directory.
-`accessible by group/other`: `chmod 600` the password file. The rest: [Active Directory](../providers/ad.md#troubleshooting).
+`accessible by group/other`: `chmod 600` the password file. The rest: [Active Directory](../providers/ad.md#troubleshooting), [Entra ID](../providers/entra.md#troubleshooting).
 A refusal changes nothing; if `enroll` stops partway, fix the cause and run the same command again.
 
 ## Getting back in

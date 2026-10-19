@@ -3,7 +3,8 @@
 By the end of this page one Omarchy laptop is connected to your directory, and a person from the directory can sign in
 on it. Try it on a spare laptop or a virtual machine first.
 
-This walkthrough uses **Active Directory** with the example values `CORP.EXAMPLE.COM` (the domain), `joinuser` (an
+This walkthrough uses **Active Directory**; for Entra ID, the same steps with its options are on the
+[Entra ID page](providers/entra.md). The example values are `CORP.EXAMPLE.COM` (the domain), `joinuser` (an
 account that may join computers), `laptop-users` (the group allowed to sign in) and `alice` (a member of it). Replace
 them with yours.
 

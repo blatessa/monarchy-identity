@@ -1,7 +1,8 @@
 # Automate enrollment
 
 Run one command on every laptop, every time: on a new laptop it enrolls, on an enrolled one it brings the policy up to
-date. Put the join account's password in a root-only file for the length of the run, then delete it.
+date. Put the join account's password (Entra ID: the client secret) in a root-only file for the length of the run, then
+delete it. The example is Active Directory's; Entra ID's options are on [its page](../providers/entra.md#enroll-options).
 
 ```bash
 sudo monarchy-identity enroll ad --realm CORP.EXAMPLE.COM --admin joinuser \

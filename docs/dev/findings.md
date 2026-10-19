@@ -118,6 +118,7 @@ something.
 ## Stubs in the fast layer (`test/unit/stubs/`)
 The fast layer runs the real CLI with stub commands first on `PATH`. A stub is only as good as the output it copies; these shapes were
 captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
+
 - `net ads search -S dc -U Administrator '(&(objectClass=group)(sAMAccountName=oi-laptop-users))' sAMAccountName distinguishedName`
   prints a blank line, `Got 1 replies`, a blank line, then `sAMAccountName: oi-laptop-users` and
   `distinguishedName: CN=oi-laptop-users,CN=Users,DC=corp,DC=test`; no match prints `Got 0 replies` and still exits 0.
