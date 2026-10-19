@@ -37,7 +37,7 @@ need, such as "Client secret of the app registration").
 | `unenroll [own options]` | `leave`, after the core removed PAM, SDDM and sudoers | Remove every other change `enroll` made, and what it created in the directory when it can. |
 | `status` | `status` | Print read-only `key=value` health lines (`true`/`false`/`unknown`); they become `details`. |
 | `detect` | (reserved) | Exit 0 if prerequisites are installed. |
-| `pam.conf` (a file) | the core's PAM edit | `module = "pam_x.so"`, plus optional arguments per stack: `auth = "..."`, `account`, `password`, `session`; and `mkhomedir`, `expired_password_screen`, `auth_retry_on_abort` for modules that need them ([The PAM edit](architecture.md#the-pam-edit)). |
+| `pam.conf` (a file) | the core's PAM edit | `module = "pam_x.so"`, plus optional arguments per stack: `auth = "..."`, `account`, `password`, `session`; and `mkhomedir`, `expired_password_screen`, `auth_retry_on_abort`, `second_step_screen` for modules that need them ([The PAM edit](architecture.md#the-pam-edit)). |
 
 The active provider is `provider` in `/var/lib/monarchy-identity/state.toml`. `test/unit/stub-provider/` is a complete
 provider with no directory behind it, and `test/unit/provider.sh` checks the contract against it.

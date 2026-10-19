@@ -18,7 +18,7 @@ sha256sums=('SKIP')
 package_monarchy-identity() {
   local _root="$srcdir/$pkgbase-$pkgver"
   install=monarchy-identity.install
-  depends=(bash python sssd samba krb5 hyprland foot gum)   # the last three: the change-password screen
+  depends=(bash python sssd samba krb5 hyprland foot gum)   # the last three: the change-password and second-step screens
   optdepends=('himmelblau: Microsoft Entra ID sign-in')
   backup=(etc/monarchy-identity/config.toml)
 
@@ -29,7 +29,7 @@ package_monarchy-identity() {
   install -d "$pkgdir/usr/share/monarchy-identity/lib"
   install -m755 "$_root/lib/pamedit.py" "$pkgdir/usr/share/monarchy-identity/lib/"
   install -m644 "$_root/lib/common.sh" "$_root/lib/password-change.lua" "$pkgdir/usr/share/monarchy-identity/lib/"
-  install -m755 "$_root/lib/password-expired" "$_root/lib/sddm-session" "$pkgdir/usr/share/monarchy-identity/lib/"
+  install -m755 "$_root/lib/password-expired" "$_root/lib/second-step" "$_root/lib/sddm-session" "$pkgdir/usr/share/monarchy-identity/lib/"
 
   install -d "$pkgdir/usr/share/monarchy-identity/hooks/post-update.d"
   install -m755 "$_root/hooks/reassert.sh" "$pkgdir/usr/share/monarchy-identity/hooks/reassert.sh"

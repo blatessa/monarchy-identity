@@ -38,7 +38,7 @@ cmd_status() {
     while IFS='=' read -r k v; do details+="${details:+,}\"$k\":\"$(json_escape "$v")\""; done \
       < <("$ROOT/providers/$provider/status" 2>/dev/null)
     local svcs=("${PAM_FILES[@]}")   # the PAM edit is the core's, whatever the provider
-    [[ $(kv_get "$ROOT/providers/$provider/pam.conf" expired_password_screen true) != true ]] || svcs+=("$GREETER_PAM")
+    ! greeter_edited "$provider" || svcs+=("$GREETER_PAM")
     for f in "${svcs[@]}"; do
       v=false; python3 -I "$PAMEDIT" check "$ETC/pam.d/$f" 2>/dev/null && v=true
       details+="${details:+,}\"pam_${f//-/_}\":\"$v\""
