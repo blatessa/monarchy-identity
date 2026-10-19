@@ -58,6 +58,13 @@ s = sys.argv[1].upper().replace(" ", ""); h = hmac.new(base64.b32decode(s + "=" 
 print("%06d" % ((struct.unpack(">I", h[(o := h[-1] & 15):o + 4])[0] & 0x7fffffff) % 10**6))
 PY
 }
+# entra_codes [off]: ask Entra for an authenticator code rather than a push (Microsoft's system-preferred MFA picks the
+# push whenever the user has one registered), so an MFA user's sign-in runs unattended. A test-only drop-in.
+HB_TEST_CONF=/etc/himmelblau/himmelblau.conf.d/90-oi-test.conf
+entra_codes() {
+  if [[ ${1:-} == off ]]; then "${V[@]}" "sudo rm -f $HB_TEST_CONF"; return; fi
+  "${V[@]}" "sudo install -d ${HB_TEST_CONF%/*} && printf '[global]\nmfa_method = PhoneAppOTP\n' | sudo tee $HB_TEST_CONF >/dev/null"
+}
 # himmelblau_install: put the himmelblau package back in the VM if a suite removed it, from test/vm/images/
 himmelblau_install() {
   "${V[@]}" 'pacman -Q himmelblau' >/dev/null 2>&1 && return

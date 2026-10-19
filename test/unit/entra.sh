@@ -40,11 +40,10 @@ grep -qF -- '-auth      [success=3 default=ignore]  pam_himmelblau.so ignore_unk
   && ok "pam_himmelblau in system-auth and the lock screen" || bad "PAM: $(grep himmelblau "$SA")"
 ! grep -q pam_mkhomedir "$SA" && [[ ! -e $T/etc/pam.d/monarchy-identity-expired ]] \
   && ok "no pam_mkhomedir, no expired-password screen (himmelblau does both its own way)" || bad "extras applied"
-grep -qF -- "-auth      [success=done default=ignore]  pam_exec.so quiet expose_authtok $REPO/lib/second-step" "$T/etc/pam.d/sddm" \
-  && grep -qx 'auth     required  pam_himmelblau.so ignore_unknown_user set_authtok' "$T/etc/pam.d/monarchy-identity-second-step" \
-  && grep -qx 'account  required  pam_himmelblau.so ignore_unknown_user' "$T/etc/pam.d/monarchy-identity-second-step" \
-  && [[ $(sed -n 's/^SessionCommand=//p' "$T/etc/sddm.conf.d/zz-monarchy-identity-session.conf" | sort -u) == "$REPO/lib/sddm-session" ]] \
-  && ok "the login screen asks Entra once, through its own service; a second step comes before the desktop" || bad "second step: $(cat "$T/etc/pam.d/sddm")"
+grep -qF -- "-auth      [success=done default=ignore]  pam_exec.so quiet stdout expose_authtok $REPO/lib/login-steps" "$T/etc/pam.d/sddm" \
+  && [[ $(grep -v '^#' "$T/etc/pam.d/monarchy-identity-login-steps") == 'auth     required  pam_himmelblau.so ignore_unknown_user set_authtok' ]] \
+  && [[ ! -e $T/etc/sddm.conf.d/zz-monarchy-identity-session.conf ]] \
+  && ok "the login screen asks Entra once, through its own service (codes and numbers there too)" || bad "login steps: $(cat "$T/etc/pam.d/sddm")"
 [[ $(cat "$MONARCHY_IDENTITY_SUDOERS") == *"%linux-admins ALL=(ALL:ALL) ALL" ]] && ok "core: sudo for the admin group" || bad "sudoers"
 [[ $(st provider) == entra && $(st tenant) == corp.onmicrosoft.com && $(st group_ids) == linux-users=aaaaaaaa-0000-0000-0000-000000000001 ]] && ok "state: tenant and the looked-up group id" || bad "state: $(cat "$MONARCHY_IDENTITY_STATE")"
 ! grep -rqF -- "$PW" "$T/etc" "$T/var" && ok "the client secret is stored nowhere" || bad "secret written to disk"
@@ -78,7 +77,7 @@ python3 -I -c 'import json,sys; d=json.loads(sys.argv[1])["details"]; assert d==
 printf 'passwd: files systemd\ngroup: files [SUCCESS=merge] systemd\nshadow: files systemd\nhosts: files dns\n' > "$T/etc/nsswitch.conf"
 cp "$FIX/pam.d/system-auth" "$SA"; cp "$FIX/pam.d/sddm" "$T/etc/pam.d/sddm"; rm -f "$STUB_STATE/himmelblaud-active"
 oi reassert
-[[ $(grep -c '\bhimmelblau\b' "$T/etc/nsswitch.conf") == 3 ]] && grep -q pam_himmelblau "$SA" && grep -q second-step "$T/etc/pam.d/sddm" && [[ -e $STUB_STATE/himmelblaud-active ]] \
+[[ $(grep -c '\bhimmelblau\b' "$T/etc/nsswitch.conf") == 3 ]] && grep -q pam_himmelblau "$SA" && grep -q login-steps "$T/etc/pam.d/sddm" && [[ -e $STUB_STATE/himmelblaud-active ]] \
   && ok "reassert: nsswitch, PAM (the login screen's too) and the daemon back" || bad "reassert: $OUT"
 oi reassert; [[ $(grep -c '\bhimmelblau\b' "$T/etc/nsswitch.conf") == 3 && $(grep -c 'BEGIN monarchy' "$SA") == 4 ]] && ok "reassert is idempotent" || bad "duplicated edits"
 
@@ -89,7 +88,7 @@ mkdir -p "$T/himmelblaud"; printf '[corp.onmicrosoft.com]\ndevice_id = 0d1ce000-
   && ok "forgets the device registration, cached accounts and stored tokens" || bad "leave: $OUT / $(cat "$STUB_LOG")"
 [[ $OUT == *"(device ID 0d1ce000-0000-4000-8000-00000000abcd) stays registered in Entra"* ]] && ok "says the device stays in Entra, and which one" || bad "no device note: $OUT"
 cmp -s "$SA" "$FIX/pam.d/system-auth" && cmp -s "$T/etc/pam.d/sddm" "$FIX/pam.d/sddm" && ! grep -q himmelblau "$T/etc/nsswitch.conf" && [[ ! -e $HB && ! -e $STUB_STATE/himmelblaud-active && ! -e $MONARCHY_IDENTITY_STATE ]] \
-  && [[ ! -e $T/etc/pam.d/monarchy-identity-second-step && ! -e $T/etc/sddm.conf.d/zz-monarchy-identity-session.conf ]] \
+  && [[ ! -e $T/etc/pam.d/monarchy-identity-login-steps ]] \
   && [[ ! -e $T/etc/himmelblau/himmelblau.conf.d ]] && ok "PAM stock, nsswitch clean, config gone, daemons stopped, not enrolled" || bad "leftovers"
 oi "${E[@]}" --groups linux-users; oi leave   # nobody signed in: never registered
 [[ $RC -eq 0 && $OUT != *"stays registered"* ]] && ok "never registered: no device to delete, says nothing about one" || bad "leave unregistered: $OUT"

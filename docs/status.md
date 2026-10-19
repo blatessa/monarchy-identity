@@ -30,9 +30,9 @@ repository yet.
 Works in the lab: enrolling with an app registration (unattended too), password sign-in at the login screen, lock
 screen and terminal, allowing groups or people, `sudo` for a group, cached sign-in with no network, and leaving.
 
-- **Authenticator codes.** Where Entra asks for one (a person's first sign-in on a laptop, and when it wants MFA again),
-  the login screen takes the password and a screen before the desktop asks for the code. Approval on the phone
-  hasn't been tested, and Windows Hello PINs aren't there yet.
+- **MFA at the login screen.** Where Entra asks for a second step (a person's first sign-in on a laptop, and when it
+  wants MFA again), the login screen shows the number to approve in the Authenticator app, or asks for the code after
+  the password. Windows Hello PINs aren't there yet.
 - **`ssh` with only a password is refused** by the Entra client for remote sign-in; with MFA it asks for the code
   every time.
 - **`--offline-days`** can't be honoured: Entra's client has no limit for its offline cache.
