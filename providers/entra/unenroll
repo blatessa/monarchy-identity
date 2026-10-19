@@ -21,6 +21,7 @@ systemctl clean --what=fdstore --what=state --what=cache "${HB_UNITS[@]}" >/dev/
   || log "WARNING: could not clear himmelblau's stored state (systemctl clean himmelblaud)"
 rm -rf "${MONARCHY_IDENTITY_HB_NSS_CACHE:-/var/cache/nss-himmelblau}"/* 2>/dev/null
 remove_if_ours "$HB_CONF"
+rmdir "$(dirname "$HB_CONF")" 2>/dev/null || true   # only if empty
 # No id: nobody signed in, so the laptop never registered and there's nothing in Entra to delete
 [[ -z $device_id ]] \
   || log "the device '$(uname -n)' (device ID $device_id) stays registered in Entra ($(state_get tenant "")); delete it in the Entra admin center > Devices"

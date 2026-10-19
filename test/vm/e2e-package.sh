@@ -1,6 +1,7 @@
 #!/bin/bash
 # The real package: builds, installs, works without a repo checkout, its pacman hook repairs overwritten config, and
-# removing it while enrolled takes sign-in back to stock. Needs DC + VM.
+# removing it while enrolled takes sign-in back to stock. Needs DC + VM. The same for Entra ID with the himmelblau
+# package, when a test tenant is configured (ENTRA_LAB_ENV, docs/dev/testing.md); without one that part is skipped.
 source "$(dirname "$0")/lib.sh"
 fresh
 st() { "${V[@]}" '/usr/bin/monarchy-identity status --json'; }
@@ -34,4 +35,41 @@ check "sudoers drop-ins and polkit rule gone" "${V[@]}" "for f in $DROPINS; do s
 check "login theme and autologin drop-ins gone" "${V[@]}" 'test -z "$(ls /etc/sddm.conf.d/zz-monarchy-identity* 2>/dev/null)"'
 expect ALLOWED "tester (local) fine" sudo tester tester
 dc computer delete 'OI-CLIENT$' >/dev/null   # removal has no directory credentials, so the account stays
+
+echo "[Entra ID from the package]"
+if entra_lab; then
+  SECRET=/root/entra-secret
+  ecli() { "${V[@]}" "sudo /usr/bin/monarchy-identity $*" 2>&1; }
+  E="enroll entra --tenant $ENTRA_TENANT --client-id $ENTRA_CLIENT_ID --password-file $SECRET --groups linux-users"
+  trap '"${V[@]}" "sudo rm -f $SECRET"; himmelblau_install; entra_devices_cleanup' EXIT
+  ./install-package.sh >/dev/null && "${V[@]}" 'sudo pacman -R --noconfirm himmelblau' >/dev/null 2>&1
+  printf '%s\n' "$ENTRA_CLIENT_SECRET" | "${V[@]}" "sudo install -m 600 /dev/stdin $SECRET"
+  entra_devices_cleanup
+  out=$(ecli $E)
+  [[ $out == *"sudo pacman -S himmelblau"* ]] && pam_stock && ok "without himmelblau: refused with the install line, nothing changed" || bad "no himmelblau: $out"
+
+  himmelblau_install && out=$(ecli $E)
+  [[ $out == *"enrolled in $ENTRA_TENANT"* ]] && ok "enroll entra with the packaged files" || { bad "enroll entra"; sed 's/^/      /' <<<"$out"; }
+  expect ALLOWED "bob signs in (registers the device)" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD" --session
+
+  "${V[@]}" 'sudo python3 -I /usr/share/monarchy-identity/lib/pamedit.py remove /etc/pam.d/system-auth; sudo sed -i -E "/^(passwd|group|shadow):/ s/[[:space:]]+himmelblau\b//" /etc/nsswitch.conf; sudo systemctl stop himmelblaud'
+  [[ $(st) == *'"nss_himmelblau":"false"'* ]] || bad "could not overwrite the config"
+  "${V[@]}" 'sudo pacman -U --noconfirm ~/himmelblau.pkg.tar.zst' >/dev/null 2>&1
+  s=$(st); [[ $s == *'"pam_system_auth":"true"'* && $s == *'"nss_himmelblau":"true"'* && $s == *'"himmelblaud_active":"true"'* ]] \
+    && ok "repaired by the himmelblau transaction" || bad "not repaired: $s"
+
+  # The client gone while enrolled (removed by hand): its PAM and NSS entries are skipped, local accounts unaffected.
+  # pacman doesn't stop a removed package's daemon, so stop it as a reboot would.
+  "${V[@]}" 'sudo systemctl stop himmelblaud himmelblaud-tasks; sudo pacman -R --noconfirm himmelblau' >/dev/null 2>&1
+  expect ALLOWED "himmelblau removed while enrolled: tester (local) signs in" login tester tester
+  expect ALLOWED "  ... and gets sudo" sudo tester tester
+  [[ $(st) == *'"himmelblaud_active":"false"'* ]] && ok "  ... status says so" || bad "status with himmelblau gone: $(st)"
+  himmelblau_install
+  expect ALLOWED "himmelblau back: bob signs in again" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
+
+  check "package removes while enrolled with Entra" "${V[@]}" 'sudo pacman -R --noconfirm monarchy-identity >/dev/null 2>&1'
+  pam_stock && "${V[@]}" '! grep -q himmelblau /etc/nsswitch.conf && ! test -e /etc/himmelblau/himmelblau.conf.d/50-monarchy-identity.conf && ! systemctl is-active --quiet himmelblaud' \
+    && ok "PAM stock, nsswitch clean, himmelblau config gone, daemon stopped" || bad "leftovers after removing the package"
+  expect ALLOWED "tester (local) fine" sudo tester tester
+fi
 result

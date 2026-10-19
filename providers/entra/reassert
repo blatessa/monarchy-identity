@@ -4,6 +4,6 @@ set -euo pipefail
 export OI_ROOT="${OI_ROOT:-$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)}"
 source "$OI_ROOT/providers/entra/lib.sh"
 need_root
-[[ -f $HB_CONF ]] && grep -qF "$OI_MARK" "$HB_CONF" || die "himmelblau.conf missing or not ours; machine needs re-enrollment"
+[[ -f $HB_CONF ]] && grep -qF "$OI_MARK" "$HB_CONF" || die "$HB_CONF missing or not ours; machine needs re-enrollment"
 nss_apply
 systemctl is-active --quiet himmelblaud || systemctl enable --now "${HB_UNITS[@]}" >/dev/null 2>&1 || true

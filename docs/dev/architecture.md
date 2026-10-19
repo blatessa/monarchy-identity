@@ -123,7 +123,8 @@ Decided in #71 from the himmelblau spike ([findings](findings.md)). Entra fits t
 nothing about it beyond the `pam.conf` switches ([below](#the-pam-edit)).
 
 - **Enroll doesn't register the device.** It checks the tenant (public OpenID discovery), looks up the policy's names,
-  writes `/etc/himmelblau/himmelblau.conf` (marked), adds `himmelblau` to `passwd`, `group` and `shadow` in nsswitch
+  writes its settings as a drop-in, `/etc/himmelblau/himmelblau.conf.d/50-monarchy-identity.conf` (marked; the
+  himmelblau package owns `himmelblau.conf`, and removing the package would move an edited one aside), adds `himmelblau` to `passwd`, `group` and `shadow` in nsswitch
   and starts the daemons. The laptop registers itself at the first sign-in, so there is no per-laptop token for an MDM
   to hand out. Never `aad-tool configure-pam`: the core edits PAM as for any provider.
 - **Group names, looked up with an app registration.** Admins think in names, but groups don't resolve through NSS
@@ -243,8 +244,8 @@ account     include     system-login
 `reassert` re-applies PAM, SDDM and sudoers edits from `config.toml` and `state.toml`, after the provider's own `reassert` (for AD:
 nsswitch, and starting sssd if stopped). It runs:
 
-- from the pacman hook (`packaging/monarchy-identity.hook`) after transactions on `pambase`, `sssd`, `filesystem`,
-  `omarchy`, `omarchy-settings`;
+- from the pacman hook (`packaging/monarchy-identity.hook`) after transactions on `pambase`, the directory clients (`sssd`,
+  `himmelblau`), `filesystem`, `omarchy`, `omarchy-settings`;
 - from the optional per-user Omarchy post-update hook (`install-hooks`), via `sudo -n`.
 
 There is deliberately no file watcher: guarding config against a local admin is an MDM's job, not ours.

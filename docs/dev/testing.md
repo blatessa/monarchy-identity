@@ -85,11 +85,11 @@ allowed and in `oi-admins`, `bob` is allowed, `carol` exists in the directory on
 Each new provider brings its own lab directory: a container where one exists (FreeIPA), otherwise a test tenant or
 a documented stand-in, chosen in the provider's issue. The client VM, `lib.sh` and the core suites are shared.
 
-**Entra ID** has no container: `test/vm/e2e-entra.sh` runs against a real test tenant and is skipped (passing) without
-one. It needs:
+**Entra ID** has no container: `test/vm/e2e-entra.sh` and the Entra part of `e2e-package.sh` run against a real test
+tenant and are skipped (passing) without one. They need:
 
-- the himmelblau package in the VM (build `pkgbuilds/himmelblau` from `omacom/omarchy-pkgs`, `pacman -U` it), until
-  it's in Omarchy's repository;
+- the himmelblau package file in `test/vm/images/` (build `pkgbuilds/himmelblau` from `omacom/omarchy-pkgs`), until
+  it's in Omarchy's repository: the suites install it in the VM, and `e2e-package.sh` removes and reinstalls it;
 - in the tenant: users `alice`, `bob`, `carol` with password-only sign-in, groups `linux-users` (alice, bob) and
   `linux-admins` (alice), and an app registration with the `Group.Read.All` and `User.Read.All` application
   permissions (admin consent) and a client secret;
@@ -120,7 +120,7 @@ you need before writing a new one; a new suite pays for its own deploy, enroll a
 | `e2e` | The core: the directory's refusals (wrong password, unknown group), every Omarchy PAM service (allowed, refused, wrong password, local), a real admin prompt, home creation, `passwd`, repair with `reassert`, who-may-sign-in policies and sudo as sssd enforces them, the sudoers and polkit drop-ins (`visudo -c`, the theme rule granted only to allowed users), local users with sssd stopped and `pam_sss.so` missing, `leave`; then `--computer-name`, `--ou`, `--password-file`, an existing computer account (refused, then `--replace-computer-account`) re-running a half-finished enrollment, and `enroll --if-needed` on an enrolled laptop (converges, doesn't re-join) |
 | `e2e-offline` | Enroll refused with the DC down, an expired password through SDDM's PAM stack (let through and marked, wrong password counted once, not-allowed refused, the guard while SDDM predates enroll), cached sign-in with the DC down, `--offline-days` expiry (the VM's clock moved forward), recovery |
 | `e2e-dns` | Enrolling without `--server` (DNS SRV discovery) |
-| `e2e-package` | The real package: install, pacman hook repair (also on its own upgrade), removal while enrolled (PAM, nsswitch, SDDM, sudoers and polkit drop-ins gone) |
+| `e2e-package` | The real package: install, pacman hook repair (also on its own upgrade), removal while enrolled (PAM, nsswitch, SDDM, sudoers and polkit drop-ins gone). With a tenant, the same for Entra: enroll refused without himmelblau, repair on a himmelblau transaction, local sign-in with himmelblau removed, removal while enrolled |
 | `e2e-greeter` | The real SDDM greeter (X11), driven with typed keys: sign-in, refusals, local user; an expired password in the change-password screen (Hyprland session): giving up, then changing it and reaching the desktop. Separate run: only for login-screen changes |
 
 Suites share `test/vm/lib.sh`: `fresh` (deploy and reset), `enroll`/`leave`, `expect` (run a PAM service), `check`,
