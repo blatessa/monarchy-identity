@@ -2,7 +2,7 @@
 # Build the real package from the working tree and install it in the VM (replaces any installed version).
 set -euo pipefail
 H="$(cd "$(dirname "$0")" && pwd)"; R="$(cd "$H/../.." && pwd)"; cd "$H"
-SSHO=(-i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR)
+source ./ssh.sh
 B=$(mktemp -d); trap 'rm -rf "$B"' EXIT
 rsync -a --exclude=.git --exclude=test "$R/" "$B/src/"
 ("$B/src/packaging/build-local.sh" --nodeps >"$B/build.log" 2>&1) || { tail "$B/build.log"; exit 1; }

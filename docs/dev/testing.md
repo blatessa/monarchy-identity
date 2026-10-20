@@ -72,6 +72,10 @@ test/vm/deploy.sh --fixtures                                           # push th
 ssh -i test/vm/keys/id_oi -p 2222 tester@127.0.0.1
 ```
 
+The suites reuse one ssh connection for all their calls (`test/vm/ssh.sh`; it stays open two minutes after the last
+one), which cut the default suites' run by about a fifth. It means a call doesn't go through `sshd`'s PAM stack: test
+sign-in with `pt` (`pamtest.py`) or `trylogin.sh`, never by whether ssh connects.
+
 `deploy.sh` without `--fixtures` keeps the current PAM files. `--fixtures` resets `/etc/pam.d` and `sddm.conf.d` to
 the Omarchy fixtures, removes the installed package, and deletes stale lab computer accounts. Stop the VM by PID
 (`pgrep -x qemu-system-x86`).
@@ -163,7 +167,7 @@ explicit check (`e2e`, `unit/refused`) instead of relying on a second run.
 `.github/workflows/ci.yml` runs on pushes to `main` and on pull requests (skipped for documentation-only changes; a
 newer push cancels the run in progress):
 
-- **Unit tests and lint**: shellcheck (errors only), Python syntax, the fast layer (`test/unit/run.sh`), the hook test.
+- **Unit tests and lint**: shellcheck (errors only), Python syntax, the fast layer (`test/unit/run.sh`, its suites in parallel).
 - **Build the Arch package**: `packaging/build-local.sh` (makepkg on the checkout) in an `archlinux:base-devel`
   container and a check of the package contents.
 
