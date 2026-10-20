@@ -21,6 +21,66 @@ echo "[the login-steps helper]"
 LS=(python3 -I "$REPO/lib/login-steps")
 ! printf 'pw\0' | PAM_TYPE=auth PAM_USER=dave "${LS[@]}" && ! PAM_TYPE=auth PAM_USER=dave "${LS[@]}" refused \
   && ok "refuses to run without root (it signs people in)" || bad "login-steps ran unprivileged"
+# Its conversation with the module, against scripts of what pam_himmelblau 4.0.6 asks (P a prompt, T a message, then
+# the result): the outcome, what it answered, and what reaches the login screen.
+steps() { python3 -I - "$REPO/lib/login-steps" "$@" <<'PY'
+import importlib.machinery, importlib.util, io, contextlib, sys
+loader = importlib.machinery.SourceFileLoader("login_steps", sys.argv[1])
+ls = importlib.util.module_from_spec(importlib.util.spec_from_loader("login_steps", loader)); loader.exec_module(ls)
+code, new, script = sys.argv[2], sys.argv[3], sys.argv[4:]
+sent, calls = [], [0]
+def sign_in(user, answer):
+    calls[0] += 1; n = 0
+    for step in script:
+        kind, _, text = step.partition(" ")
+        if kind == "rc":
+            return int(text)
+        reply = answer(n, 1 if kind == "P" else 4, text)
+        if kind == "P":
+            n += 1
+            if reply is None:
+                return ls.PAM_CONV_ERR
+            sent.append(reply)
+    return 0
+ls.sign_in = sign_in
+out = io.StringIO()
+with contextlib.redirect_stdout(out):
+    r = ls.once("dave", "old-pw", code, new)
+print(r, "|", ",".join(sent), "|", calls[0], "|", out.getvalue().strip().replace("\n", " / "))
+PY
+}
+BANNER="T Update your password
+You need to update your password because this is
+the first time you are signing in, or because your
+password has expired."
+BANNER1="Update your password You need to update your password because this is the first time you are signing in, or because your password has expired."
+CHANGE=("P Password: " "$BANNER" "P New password: " "$BANNER" "P Confirm password: " "T Changing the password. Please wait...")
+r=$(steps "" "" "P Password: "); [[ $r == "ok | old-pw | 1 | " ]] && ok "a password alone: signed in" || bad "password: $r"
+r=$(steps "" "" "P Password: " "P Password: "); [[ $r == "refused | old-pw | 1 | " ]] && ok "the password asked again: refused, sent once" || bad "wrong password: $r"
+r=$(steps "" "" "P Password: " "T Enter the code" "P Code: "); [[ $r == "code | old-pw | 1 | Enter the code / monarchy-identity: code wanted" ]] \
+  && ok "a code wanted: its message and 'code wanted', nothing sent for it" || bad "code: $r"
+r=$(steps "" "" "P Password: " "$BANNER" "P New password: ")
+[[ $r == "new | old-pw | 1 | $BANNER1 / monarchy-identity: new password wanted" ]] \
+  && ok "must be changed: the directory's message and 'new password wanted', nothing sent as a new password" || bad "new wanted: $r"
+r=$(steps "" "new-pw-123" "${CHANGE[@]}"); [[ $r == "ok | old-pw,new-pw-123,new-pw-123 | 1 | " ]] \
+  && ok "must be changed, a new password given: the new one twice, signed in" || bad "changed: $r"
+r=$(steps "" "new-pw-123" "${CHANGE[@]}" "T Enter the code" "P Code: ")
+[[ $r == "code | old-pw,new-pw-123,new-pw-123 | 1 | monarchy-identity: password changed / Enter the code / monarchy-identity: code wanted" ]] \
+  && ok "changed, then a code wanted: says the password changed, then asks for the code" || bad "changed then code: $r"
+r=$(steps 123456 "new-pw-123" "${CHANGE[@]}" "T Enter the code" "P Code: "); [[ $r == "ok | old-pw,new-pw-123,new-pw-123,123456 | 1 | monarchy-identity: password changed" ]] \
+  && ok "changed and the code given: signed in" || bad "changed with code: $r"
+r=$(steps 123456 "new-pw-123" "P Password: " "T Enter the code" "P Code: " "${CHANGE[@]:1}" "T Enter the code" "P Code: ")
+[[ $r == "code | old-pw,123456,new-pw-123,new-pw-123 | 1 | monarchy-identity: password changed / Enter the code / monarchy-identity: code wanted" ]] \
+  && ok "MFA: the code, the change, then a code again: the spent code isn't sent twice, a fresh one is wanted" || bad "code, change, code: $r"
+r=$(steps "" "short" "P Password: " "$BANNER" "P New password: " "T Chosen password is too short! 8 chars required." "$BANNER" "P New password: ")
+[[ $r == "refused | old-pw,short | 1 | Chosen password is too short! 8 chars required." ]] \
+  && ok "a new password the module won't take: why, and refused (never sent again)" || bad "too short: $r"
+r=$(steps "" "new-pw-123" "${CHANGE[@]}" "T Failed to change user password: it was used before" "P New password: ")
+[[ $r == "refused | old-pw,new-pw-123,new-pw-123 | 1 | Failed to change user password: it was used before" ]] \
+  && ok "a new password Entra won't take: its reason, and refused" || bad "Entra refuses: $r"
+r=$(steps "" "new-pw-123" "${CHANGE[@]}" "rc 26"); [[ $r == "None | old-pw,new-pw-123,new-pw-123 | 1 | " ]] \
+  && ok "aborted after the new password was sent: not tried again with the old one" || bad "abort after change: $r"
+r=$(steps "" "" "rc 26"); [[ $(cut -d'|' -f3 <<<"$r") == " 2 " ]] && ok "aborted before anything was sent: asked once more (the offline cache)" || bad "abort: $r"
 
 echo "[the session command]"
 L=$T/lib B=$T/bin; mkdir -p "$L" "$B"; cp "$REPO/lib/sddm-session" "$L/"

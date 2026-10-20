@@ -6,12 +6,15 @@ SDDM answers every PAM prompt with the one password it collected, and its greete
 module that restarts after a refusal (pam_himmelblau) would then send that password to the directory forever: as the
 code, or again after a typo. pamedit.py (login-steps) runs this from SDDM's PAM service with pam_exec, ahead of the
 normal stack. It signs in through its own PAM service (the provider's module alone) with what SDDM gave: the password,
-or, from our theme's code field, the password and the code on two lines.
-  auth (expose_authtok, stdout): answers the first prompt with the password and a second one with the code.
+or, from our theme's extra fields, up to three lines: the password, the code, a new password.
+  auth (expose_authtok, stdout): answers the first prompt with the password, the module's new-password prompts (a
+      password that must be changed) with the new password, and anything else once with the code.
       Signed in: exit 0 (the auth stack ends there, successfully; the account stack still decides who may sign in).
-      Refused (the password asked again, or a code asked for and none given): marks this sign-in, exit 1. For a code it
-      first prints the directory's message and then CODE_WANTED: pam_exec passes both to the login screen, and the
-      theme shows its code field. Anything else (a local account, the daemon down): exit 1, the normal stack decides.
+      Refused (the password asked again, a code or a new password asked for and none given, or a new password not
+      accepted): marks this sign-in, exit 1. For something wanted it first prints the directory's message and then
+      CODE_WANTED or NEW_PASSWORD_WANTED: pam_exec passes both to the login screen, and the theme shows the fields; a
+      new password not accepted prints why. PASSWORD_CHANGED: the new password was accepted (the theme uses it from
+      then on). Anything else (a local account, the daemon down): exit 1, the normal stack decides.
       A message the module leaves standing (the number to approve on the phone, while it waits) is printed too.
   auth, `refused`: exit 0 iff this sign-in was just refused (the stack then fails at once, without asking again).
 """
@@ -25,6 +28,12 @@ import time
 MARKS = "/run/monarchy-identity/login-steps"
 SERVICE = b"monarchy-identity-login-steps"
 CODE_WANTED = "monarchy-identity: code wanted"   # sddm-theme/monarchy-identity/Main.qml shows its code field
+NEW_PASSWORD_WANTED = "monarchy-identity: new password wanted"   # ... and its new-password fields
+PASSWORD_CHANGED = "monarchy-identity: password changed"   # ... and then signs in with the new one
+# pam_himmelblau's prompts for a password Entra says must be changed (it changes it, then goes on signing in). Matched
+# by text, so the module speaks English to us (LC_ALL in main); what the person reads comes from the daemon.
+NEW_PROMPTS = ("New password:", "Confirm password:")
+NOT_A_REASON = ("Changing the password. Please wait...",)
 FRESH = 120   # seconds: a mark only counts for the sign-in that made it
 WAITING = 3   # seconds a message stands with nothing asked after it: the module is waiting (a push to approve)
 PAM_ABORT = 26
@@ -89,32 +98,60 @@ def sign_in(user, answer):
     return rc
 
 
-def once(user, password, code):
-    """Signs USER in: the first prompt gets PASSWORD, a second, different one CODE. 'ok', 'refused', 'code' (a code was
-    asked for and none given; nothing was sent for it) or None (no answer either way)."""
+def once(user, password, code, new=""):
+    """Signs USER in: the first prompt gets PASSWORD, new-password prompts NEW, another, different one CODE. 'ok',
+    'refused', 'code' or 'new' (a code or a new password was asked for and none given; nothing was sent for it), or None
+    (no answer either way). Prints PASSWORD_CHANGED when the module goes on past the new password (it has taken it)."""
     timers = []
 
     def cancel():
         while timers:
             timers.pop().cancel()
+    changed, spent = [], []
     for _ in (1, 2):
-        first, seen, last = [], [], []
+        first, seen, last, since, asked = [], [], [], [], {}
 
         def answer(n, style, text):
             cancel()
             if style not in (1, 2):
                 if first and text.strip():
                     last[:] = [text]
+                    since.append(text)
                     timers.append(threading.Timer(WAITING, say, (text,)))
                     timers[-1].start()
                 return None
+            told, since[:] = list(since), []
             if n == 0:
                 first.append(text)
                 return password
-            if text == first[0] or n > 1:   # asked again: the directory refused what it got
+            prompt = text.strip()
+            if prompt in NEW_PROMPTS:
+                asked[prompt] = asked.get(prompt, 0) + 1
+                if asked[prompt] == 1 and prompt == NEW_PROMPTS[0]:
+                    asked["banner"] = told[-1:]
+                if asked[prompt] > 1:   # asked again: the new password wasn't accepted; the message just before says why
+                    why = [m for m in told if m not in asked["banner"] and m.strip() not in NOT_A_REASON]
+                    if why:
+                        say(why[-1])
+                    seen.append("refused")
+                    return None
+                if new:
+                    return new
+                seen.append("new")
+                if last:
+                    say(last[0])
+                say(NEW_PASSWORD_WANTED)
+                return None
+            if asked.get(NEW_PROMPTS[1]) and not changed:   # past the new password: the directory took it
+                changed.append(True)
+                say(PASSWORD_CHANGED)
+                asked.pop("code", None)   # the module signs in again with the new one: a code may be asked again
+            if text == first[0] or asked.get("code"):   # asked again: the directory refused what it got
                 seen.append("refused")
                 return None
-            if code:
+            asked["code"] = 1
+            if code and not spent:   # a code is good for one sign-in
+                spent.append(True)
                 return code
             seen.append("code")
             if last:
@@ -128,7 +165,8 @@ def once(user, password, code):
         if seen:
             return seen[0]
         # A module that learns the directory is unreachable aborts once, then answers from its cache when asked again
-        if rc != PAM_ABORT:
+        # (not after a new password was sent: the directory may have it, and the old one would be sent again)
+        if rc != PAM_ABORT or asked.get(NEW_PROMPTS[1]):
             return None
     return None
 
@@ -150,11 +188,12 @@ def main():
     except FileNotFoundError:
         pass
     secret = sys.stdin.buffer.read().split(b"\0")[0].decode(errors="replace")
-    password, _, code = secret.partition("\n")   # our theme's code field: the password, then the code
+    password, code, new = (secret.split("\n", 2) + ["", ""])[:3]   # our theme's fields: password, code, new password
     if not password or local_account(user):
         sys.exit(1)
-    outcome = once(user, password, code.strip())
-    if outcome in ("refused", "code"):
+    os.environ["LC_ALL"] = "C.UTF-8"   # the module's prompts in English (NEW_PROMPTS); set before it loads
+    outcome = once(user, password, code.strip(), new)
+    if outcome in ("refused", "code", "new"):
         os.makedirs(MARKS, mode=0o755, exist_ok=True)
         open(mark, "w").close()
     sys.exit(0 if outcome == "ok" else 1)

@@ -43,6 +43,9 @@ new one twice; the directory's own messages ("too short", "used before") appear 
 starts; if they give up, they're back at the login screen. Nothing else (the lock screen, `ssh`, `sudo`) lets an
 expired password in. The screen works from the first restart after enrolling.
 
+With Entra ID, passwords are changed with Microsoft rather than with `passwd`, and a password that must be changed is
+changed on the login screen itself: see [Entra ID](../providers/entra.md#how-it-behaves).
+
 ## Admin rights
 
 Signing in doesn't make someone an administrator. Directory users get `sudo` only if you name their group with

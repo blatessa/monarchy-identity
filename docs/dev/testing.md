@@ -88,8 +88,10 @@ a documented stand-in, chosen in the provider's issue. The client VM, `lib.sh` a
 **Entra ID** has no container: `test/vm/e2e-entra.sh` and the Entra part of `e2e-package.sh` run against a real test
 tenant and are skipped (passing) without one. They need:
 
-- the himmelblau package file in `test/vm/images/` (build `pkgbuilds/himmelblau` from `omacom/omarchy-pkgs`), until
-  it's in Omarchy's repository: the suites install it in the VM, and `e2e-package.sh` removes and reinstalls it;
+- the himmelblau package file in `test/vm/images/`, until it's in Omarchy's repository: `test/vm/himmelblau/build.sh`
+  builds it (the omarchy-pkgs recipe, in an Arch container) with the fixes upstream hasn't released yet, which the
+  password-change checks need (`docs/dev/findings.md`). The suites install the newest package in the VM, and
+  `e2e-package.sh` removes and reinstalls it;
 - in the tenant: users `alice`, `bob`, `carol` with password-only sign-in, groups `linux-users` (alice, bob) and
   `linux-admins` (alice), and an app registration with the `Group.Read.All` and `User.Read.All` application
   permissions (admin consent) and a client secret;
@@ -98,8 +100,9 @@ tenant and are skipped (passing) without one. They need:
 - optionally an MFA user for the code checks: `dave` in `linux-users` with per-user MFA and an authenticator-app
   code as the default method (set up with "I want to use a different authenticator app", "Can't scan image?"), and
   `ENTRA_DAVE`, `ENTRA_DAVE_PASSWORD`, `ENTRA_DAVE_TOTP_SECRET` (that key) in the env file: the suite makes the codes;
-- `az` signed in to the tenant, so the suite can delete the device each run registers (otherwise delete `oi-client`
-  under Devices yourself).
+- `az` signed in to the tenant as an administrator who may manage users and devices, so the suite can delete the
+  device each run registers (otherwise delete `oi-client` under Devices yourself), and for the password-change checks:
+  it creates and deletes a throwaway user `oi-expired`, and resets the MFA user's password and puts it back.
 
 `test/lab-check.sh` checks these when `ENTRA_LAB_ENV` is set, as notes: the suite is opt-in, so a missing tenant
 doesn't make the lab "not ready".
@@ -124,9 +127,9 @@ you need before writing a new one; a new suite pays for its own deploy, enroll a
 | `e2e` | The core: the directory's refusals (wrong password, unknown group), every Omarchy PAM service (allowed, refused, wrong password, local), a real admin prompt, home creation, `passwd`, repair with `reassert`, who-may-sign-in policies and sudo as sssd enforces them, the sudoers and polkit drop-ins (`visudo -c`, the theme rule granted only to allowed users), local users with sssd stopped and `pam_sss.so` missing, `leave`; then `--computer-name`, `--ou`, `--password-file`, an existing computer account (refused, then `--replace-computer-account`) re-running a half-finished enrollment, and `enroll --if-needed` on an enrolled laptop (converges, doesn't re-join) |
 | `e2e-offline` | Enroll refused with the DC down, an expired password through SDDM's PAM stack (let through and marked, wrong password counted once, not-allowed refused, the guard while SDDM predates enroll), cached sign-in with the DC down, `--offline-days` expiry (the VM's clock moved forward), recovery |
 | `e2e-dns` | Enrolling without `--server` (DNS SRV discovery) |
-| `e2e-entra` | With a tenant: refused enrolls, enroll, every PAM service, groups and sudo, password-only `ssh` refused, the login screen asking Entra once (a wrong password tried once) and, with an MFA user, the code there (password alone refused with nothing sent as the code, a wrong code, the code, then password only), offline, enrolling again, `leave` |
+| `e2e-entra` | With a tenant: refused enrolls, enroll, every PAM service, groups and sudo, password-only `ssh` refused, the login screen asking Entra once (a wrong password tried once) and, with an MFA user, the code there (password alone refused with nothing sent as the code, a wrong code, the code, then password only), a password that must be changed there on a joined laptop (a throwaway user: a new one wanted, one too short refused, changed and signed in; the MFA user: the code, the change, a fresh code), offline, enrolling again, `leave` |
 | `e2e-package` | The real package: install, pacman hook repair (also on its own upgrade), removal while enrolled (PAM, nsswitch, SDDM, sudoers and polkit drop-ins gone). With a tenant, the same for Entra: enroll refused without himmelblau, repair on a himmelblau transaction, local sign-in with himmelblau removed, removal while enrolled |
-| `e2e-greeter` | The real SDDM greeter (X11), driven with typed keys: sign-in, refusals, local user; an expired password in the change-password screen (Hyprland session): giving up, then changing it and reaching the desktop. With a tenant and an MFA user: a wrong Entra password tried once, and the code typed into the theme's code line, then the desktop. Separate run: only for login-screen changes |
+| `e2e-greeter` | The real SDDM greeter (X11), driven with typed keys: sign-in, refusals, local user; an expired password in the change-password screen (Hyprland session): giving up, then changing it and reaching the desktop. With a tenant and an MFA user: a wrong Entra password tried once, and the code typed into the theme's code line, then the desktop; a throwaway user's password that must be changed, typed twice into the theme's new-password lines, then the desktop. Separate run: only for login-screen changes |
 
 Suites share `test/vm/lib.sh`: `fresh` (deploy and reset), `enroll`/`leave`, `expect` (run a PAM service), `check`,
 `cli`/`scli` (the CLI as tester/root) and `result`.

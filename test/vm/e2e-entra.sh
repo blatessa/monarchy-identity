@@ -1,6 +1,8 @@
 #!/bin/bash
 # The entra provider against a real test tenant: refused enrolls, enroll, sign-in on every service, the group policy,
-# sudo, the login screen asking once and an authenticator code there (an MFA user, optional), offline, enrolling again
+# sudo, the login screen asking once and an authenticator code there (an MFA user, optional), a password that must be
+# changed there (a throwaway user, and the MFA user's; needs az and a himmelblau with the change-password fixes, see
+# docs/dev/testing.md), offline, enrolling again
 # (registered, and after leave with the old device still in Entra), leave. Opt-in: needs the tenant's details in the
 # env file named by ENTRA_LAB_ENV and the himmelblau package (docs/dev/testing.md); without a tenant it says so and
 # exits 0.
@@ -12,7 +14,9 @@ ecli() { "${V[@]}" "sudo ~/oi/bin/monarchy-identity $*" 2>&1; }
 device_id() { "${V[@]}" 'sudo sed -n "s/^device_id *= *//p" /var/cache/himmelblaud/himmelblau.conf'; }   # himmelblau's record
 offline() { "${V[@]}" "sudo nft add table inet oi-offline; sudo nft add chain inet oi-offline out '{ type filter hook output priority 0; policy drop; }'; sudo nft add rule inet oi-offline out oif lo accept; sudo nft add rule inet oi-offline out ct state established accept"; }
 online() { "${V[@]}" "sudo nft delete table inet oi-offline" 2>/dev/null; }
-trap 'online; ecli leave >/dev/null; "${V[@]}" "sudo rm -f $SECRET"; entra_codes off; entra_devices_cleanup' EXIT
+DAVE_RESET=""   # set while dave's password is not the env file's
+trap 'online; ecli leave >/dev/null; "${V[@]}" "sudo rm -f $SECRET"; entra_codes off; entra_devices_cleanup; entra_expired_user_delete
+  [[ -z $DAVE_RESET ]] || entra_password "$ENTRA_DAVE" "$ENTRA_DAVE_PASSWORD"' EXIT
 
 fresh
 himmelblau_install || result
@@ -70,6 +74,17 @@ if [[ -n ${ENTRA_DAVE:-} && -n ${ENTRA_DAVE_PASSWORD:-} && -n ${ENTRA_DAVE_TOTP_
 else
   echo "  SKIP the code: $ENTRA_LAB_ENV has no ENTRA_DAVE, ENTRA_DAVE_PASSWORD, ENTRA_DAVE_TOTP_SECRET (an MFA user)"
 fi
+echo "[the login screen: a password that must be changed]"
+if entra_expired_user; then
+  entra_takes "$EXP_UPN" "$EXP_PW" && [[ $OUT == DENIED* && $OUT == *"MSG monarchy-identity: new password wanted"* ]] \
+    && ok "sddm: the password alone: a new one is wanted" || bad "must change: $OUT"
+  out=$(pt --messages sddm "$EXP_UPN" "$EXP_PW"$'\n\n'short)
+  [[ $out == DENIED* && $out == *"MSG Chosen password is too short"* && $out != *"password changed"* ]] && ok "  ... one too short is refused, and says why" || bad "too short: $out"
+  expect ALLOWED "  ... the new one on the login screen: signed in" sddm "$EXP_UPN" "$EXP_PW"$'\n\n'"$EXP_NEW"
+  expect ALLOWED "  ... and it's the password now" login "$EXP_UPN" "$EXP_NEW"
+  entra_expired_user_delete
+fi
+
 st=$(ecli status --json)
 [[ $st == *'"himmelblaud_active":"true"'* && $st == *'"entra_reachable":"true"'* && $st == *'"pam_system_auth":"true"'* && $st == *'"pam_sddm":"true"'* ]] && ok "status: healthy" || bad "status: $st"
 
@@ -100,4 +115,25 @@ out=$(ecli $E --groups linux-users)
 [[ $out == *"enrolled in $ENTRA_TENANT"* ]] && ok "enroll entra again" || { bad "re-enroll"; sed 's/^/      /' <<<"$out"; }
 expect ALLOWED "login: bob after re-enrolling" login "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD" --session
 d2=$(device_id); [[ -n $d2 && $d2 != "$d1" ]] && ok "registered as a new device" || bad "device id after re-enroll: '$d2' (was $d1)"
+
+echo "[a password that must be changed, with MFA]"
+# A password to change, on a joined laptop where he has no session (a session from minutes before the reset still
+# satisfies MFA, and himmelblau lets him in with the reset password until Entra revokes it). Entra asks for the code
+# first; after the change himmelblau signs in again with the new password: a fresh code (one per 30 s) each time.
+# dave's password goes back after.
+if [[ -n ${ENTRA_DAVE:-} && -n ${ENTRA_DAVE_TOTP_SECRET:-} ]] && command -v az >/dev/null && az account show >/dev/null 2>&1; then
+  tmp="Oi-$(openssl rand -hex 8)-3c" new="Oi-$(openssl rand -hex 8)-4d"
+  DAVE_RESET=1; entra_must_change "$ENTRA_DAVE" "$tmp"
+  entra_takes "$ENTRA_DAVE" "$tmp" && [[ $OUT == *"MSG monarchy-identity: code wanted"* ]] \
+    && ok "sddm: dave (MFA), a password to change: the code first" || bad "dave, must change: $OUT"
+  out=$(pt --messages sddm "$ENTRA_DAVE" "$tmp"$'\n'"$(totp "$ENTRA_DAVE_TOTP_SECRET")")   # no code sent yet: no wait
+  [[ $out == DENIED* && $out == *"MSG monarchy-identity: new password wanted"* ]] && ok "  ... with the code: a new password is wanted" || bad "dave, code: $out"
+  sleep 31; out=$(pt --messages sddm "$ENTRA_DAVE" "$tmp"$'\n'"$(totp "$ENTRA_DAVE_TOTP_SECRET")"$'\n'"$new")
+  [[ $out == *"MSG monarchy-identity: password changed"* && $out == *"MSG monarchy-identity: code wanted"* ]] \
+    && ok "  ... with a fresh code and the new one: changed, and a fresh code wanted" || bad "dave, change: $out"
+  sleep 31; expect ALLOWED "  ... then the new password and a code: signed in" sddm "$ENTRA_DAVE" "$new"$'\n'"$(totp "$ENTRA_DAVE_TOTP_SECRET")"
+  entra_password "$ENTRA_DAVE" "$ENTRA_DAVE_PASSWORD" && DAVE_RESET=""
+else
+  echo "  SKIP dave's password to change: needs the MFA user and az signed in to the tenant"
+fi
 result

@@ -83,7 +83,13 @@ and user exists (and that no two groups share a name). If it stops partway, run 
 - **Offline**, people who have signed in on the laptop before can sign in with the password they last used online.
   There's no expiry. Until the laptop is online again, it doesn't learn about a changed password, a disabled account
   or a removed group membership. Someone who has never signed in on the laptop can't sign in offline.
-- **Passwords** are changed with Microsoft (for example at <https://myaccount.microsoft.com>), not on the laptop.
+- **A password Entra says must be changed** (it expired, or you reset it with "change at next sign-in"): at the
+  login screen, after the password, two lines appear for the new one. Type it twice and press Enter: the password is
+  changed in Entra and the desktop starts. Entra's password rules apply, and its message says why a password isn't
+  taken. People with multi-factor authentication give a code first, as Entra asks for it before the change, and a
+  fresh one after it, as they're signed in again with the new password.
+- **Any other password change** is made with Microsoft (for example at <https://myaccount.microsoft.com>), not with
+  `passwd` on the laptop.
 - **`sudo`** for `--sudo-groups` works by group name, as with every provider.
 - **Leaving** keeps the device in Entra. `leave` prints its device ID: delete it under **Devices** in the admin
   center. A reinstalled laptop joins as a new device with the same name, next to the old one.
@@ -113,6 +119,7 @@ and user exists (and that no two groups share a name). If it stops partway, run 
 | Sees a number on the login screen | Enter it in the Microsoft Authenticator app on their phone. |
 | Is refused by `ssh` with the right password | Expected for people without multi-factor authentication. |
 | Signed in offline with an old password | The laptop learns the new one at the next online sign-in. |
+| Sees "Failed to change user password" at the login screen | The rest of the message says why: usually Entra's password rules. They type another new password. |
 
 ## Status details
 

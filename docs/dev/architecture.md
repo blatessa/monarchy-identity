@@ -193,7 +193,8 @@ all four):
 - `mkhomedir = "false"`: no `pam_mkhomedir`. himmelblau makes `/home/<object id>` and a `/home/<sign-in name>` link at
   session open; `pam_mkhomedir`, first in the stack, would make a real directory at the link's path.
 - `expired_password_screen = "false"`: no expired-password rules on `sddm` (below), so SDDM sign-in doesn't ask the
-  directory twice. Entra passwords are changed in Entra.
+  directory twice. pam_himmelblau asks for the new password itself, during sign-in; with `login_steps` that's on the
+  login screen.
 - `login_steps = "true"`: instead of the expired-password rules, the login screen's service asks the directory once,
   with a code if it wants one ([below](#more-than-a-password-at-the-login-screen)).
 - `auth_retry_on_abort = "true"`: the auth rule twice, the first `[success=N+1 abort=ignore default=1]` so only an
@@ -272,6 +273,15 @@ lockout throttles the account (reported upstream, himmelblau#1882). For a provid
   - **A message left standing** (the number to enter on the phone while the module waits for the approval) is
     printed after a few seconds, so the theme shows it.
   - **Local accounts, or no answer** (daemon down): both rules are ignored, and the normal stack decides, as before.
+- **A password that must be changed:** pam_himmelblau asks `New password:` and `Confirm password:` after the
+  password (and, for an MFA user, after the code), changes it in Entra, and signs in again with the new one (an MFA
+  user gives a fresh code: the helper never sends a code twice). The helper
+  recognises those prompts by text (it sets `LC_ALL=C.UTF-8`, as the module's prompts are translated) and treats them
+  like a code: none given, it prints the directory's message and `monarchy-identity: new password wanted`, and the
+  theme shows two new-password lines; its third line answers both prompts. Asked again (too short, or Entra refused
+  it), it prints why and refuses. Once the module goes on past them, `monarchy-identity: password changed` tells the
+  theme to use the new password from then on. The AD screen after the login screen can't do this, for the reason
+  below.
 - **Each try asks Entra once:** the password, plus the code when one is given. A wrong code is one refusal.
 
 A screen after the login screen was tried first, as for expired passwords, and can't work. Until someone has
