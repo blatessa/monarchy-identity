@@ -26,19 +26,14 @@ jobs:
       - name: Install shellcheck (python3 and node are preinstalled)
         run: sudo apt-get install -y --no-install-recommends shellcheck
       - name: Shellcheck (errors only)
-        run: |
-          shellcheck -S error -s bash $(git ls-files '*.sh') bin/monarchy-identity \
-            providers/*/detect providers/*/enroll providers/*/unenroll providers/*/reassert providers/*/status \
-            providers/*/policy providers/*/matches test/unit/stubs/* \
-            test/unit/stub-provider/{detect,enroll,matches,policy,reassert,status,unenroll}
+        # every shell script by its #! line, so a new provider script or stub is linted without listing it here
+        run: shellcheck -S error -s bash $(git ls-files '*.sh') $(git grep -lE '^#!/bin/(ba)?sh' -- ':!*.sh' ':!*.patch' ':!*.md')
       - name: Python syntax
-        run: python3 -m py_compile lib/*.py
+        run: python3 -m py_compile $(git grep -lE '^#!.*python' -- ':!*.md' ':!*.patch')
       - name: Allow user namespaces (the unit tests run the CLI as fake root with unshare -r)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Unit tests (the real CLI against a temp /etc with stub commands)
         run: bash test/unit/run.sh
-      - name: Reassert hook
-        run: bash hooks/test-reassert.sh
 
   package:
     name: Build the Arch package

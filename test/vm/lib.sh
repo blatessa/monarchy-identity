@@ -2,7 +2,7 @@
 # Needs the lab (test/lab-check.sh). Every suite ends with `result`, which prints RESULT: ALL PASS or RESULT: FAIL.
 set -u
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; cd "$H"
-SSHO=(-i keys/id_oi -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=8)
+source ./ssh.sh
 V=(ssh "${SSHO[@]}" -p 2222 tester@127.0.0.1)
 PW='Passw0rd!Test'
 LAB="ad --realm CORP.TEST --server dc.corp.test --admin Administrator"

@@ -22,7 +22,9 @@ user_unknown / authinfo_unavail / module_unknown to ignore. Only a real answer f
 new token required) may fail a login. With a plain `default=bad` a missing module failed EVERY login, local
 users and root included, even sshd.
 """
+import os
 import re
+import shutil
 import sys
 
 BEGIN = "# BEGIN monarchy-identity"
@@ -53,6 +55,12 @@ def find(lines, kind, pattern, start=0):
         if is_rule(lines[i], kind) and re.search(pattern, lines[i]):
             return i
     return None
+
+
+def first_rule(lines, kind):
+    """The first KIND rule of pam_systemd_home or pam_unix: where the module goes in front of the local stack."""
+    found = [i for i in (find(lines, kind, r"pam_systemd_home\.so"), find(lines, kind, r"pam_unix\.so")) if i is not None]
+    return min(found, default=None)
 
 
 def count_rules(lines, kind, a, b):
@@ -88,11 +96,7 @@ def parse_module(argv):
 def apply(lines, module, args, mkhomedir=True, retry=False):
     lines = strip_blocks(lines)
     # --- auth: before the first of (pam_systemd_home | pam_unix) in the auth stack
-    first = None
-    for pat in (r"pam_systemd_home\.so", r"pam_unix\.so"):
-        i = find(lines, "auth", pat)
-        if i is not None and (first is None or i < first):
-            first = i
+    first = first_rule(lines, "auth")
     fail = find(lines, "auth", r"pam_faillock\.so\s+authfail")
     if first is not None:
         if fail is None:
@@ -110,22 +114,14 @@ def apply(lines, module, args, mkhomedir=True, retry=False):
         else:
             lines[first:first] = guarded("auth", rule)
     # --- account: before first of (pam_systemd_home | pam_unix) account rule
-    first = None
-    for pat in (r"pam_systemd_home\.so", r"pam_unix\.so"):
-        i = find(lines, "account", pat)
-        if i is not None and (first is None or i < first):
-            first = i
+    first = first_rule(lines, "account")
     u = find(lines, "account", r"pam_unix\.so")
     if first is not None and u is not None:
         skip = count_rules(lines, "account", first, u)
         lines[first:first] = guarded("account",
             f"-account   [success={skip} user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]  {module}{args['account']}")
     # --- password: same pattern as auth (the module first; unknown/local users are ignored and fall through)
-    first = None
-    for pat in (r"pam_systemd_home\.so", r"pam_unix\.so"):
-        i = find(lines, "password", pat)
-        if i is not None and (first is None or i < first):
-            first = i
+    first = first_rule(lines, "password")
     u = find(lines, "password", r"pam_unix\.so")
     if first is not None and u is not None:
         skip = count_rules(lines, "password", first, u)
@@ -211,7 +207,6 @@ def main():
         tmp = path + ".oi-tmp"
         with open(tmp, "w") as f:
             f.writelines(new)
-        import os, shutil
         shutil.copymode(path, tmp)
         os.replace(tmp, path)
 

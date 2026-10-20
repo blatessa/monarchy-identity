@@ -8,7 +8,7 @@ source "$(dirname "$(readlink -f "$0")")/../lib/common.sh"   # the config and st
 
 log() { logger -t "$TAG" -- "reassert: $*" 2>/dev/null || true; echo "$TAG: reassert: $*" >&2; }
 
-provider=$(state_get provider "") || { log "cannot read $OI_STATE or $OI_CONF, skipping"; exit 0; }
+provider=$(state_get provider "") || { log "cannot read $OI_STATE, skipping"; exit 0; }
 
 if [[ -z $provider || $provider == local ]]; then
   log "not enrolled (provider='${provider:-unset}'), nothing to do"

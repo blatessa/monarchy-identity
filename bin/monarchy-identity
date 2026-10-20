@@ -175,7 +175,7 @@ cmd_enroll() {
   save_policy
   apply_sign_in "$P"
   log "enrolled in $desc (login mode: $mode)"
-  [[ -z $(sddm_autologin_user 2>/dev/null) ]] || log "NOTE: Omarchy autologin is on (--keep-autologin), so this laptop signs in its local user automatically at boot. Re-run enroll --if-needed without it if people should sign in themselves."
+  ! autologin_enabled || log "NOTE: Omarchy autologin is on (--keep-autologin), so this laptop signs in its local user automatically at boot. Re-run enroll --if-needed without it if people should sign in themselves."
 }
 
 cmd_policy() {
@@ -226,21 +226,24 @@ cmd_leave() {
   ((quiet)) || log "left the directory; sign-in changes removed"
 }
 
+cmd_hooks() { # cmd_hooks install-hooks|remove-hooks: Omarchy's post-update hook, for the desktop user
+  [[ $EUID -ne 0 ]] || { echo "run as the desktop user, not root (Omarchy hooks live in ~/.config/omarchy/hooks)" >&2; exit 1; }
+  local name=10-monarchy-identity-reassert src dst
+  src="$ROOT/hooks/post-update.d/$name" dst="$HOME/.config/omarchy/hooks/post-update.d/$name"
+  if [[ $1 == install-hooks ]]; then
+    [[ -f $src ]] || { echo "hook source not found: $src" >&2; exit 1; }
+    if command -v omarchy >/dev/null 2>&1; then omarchy hook install post-update "$src"   # Omarchy's own installer
+    else install -D -m 0755 "$src" "$dst"; echo "installed $dst"; fi
+  else rm -f "$dst"; echo "removed $dst"; fi
+}
+
 case "${1:-}" in status|enroll|leave|reassert|policy) conf_check ;; esac   # here, not in a $(conf_get ...) that can't stop us
-case "${1:-}" in enroll|leave|reassert|policy) [[ $EUID -eq 0 ]] && { oi_lock; state_migrate; } ;; esac
+case "${1:-}" in enroll|leave|reassert|policy) [[ $EUID -eq 0 ]] && oi_lock ;; esac
 case "${1:-}" in
   status) shift; cmd_status "$@" ;;
   providers) cmd_providers ;;
   enroll) shift; cmd_enroll "$@" ;;
-  install-hooks|remove-hooks)
-    [[ $EUID -ne 0 ]] || { echo "run as the desktop user, not root (Omarchy hooks live in ~/.config/omarchy/hooks)" >&2; exit 1; }
-    hook_name=10-monarchy-identity-reassert; hook_src="$ROOT/hooks/post-update.d/$hook_name"
-    hook_dst="$HOME/.config/omarchy/hooks/post-update.d/$hook_name"
-    if [[ $1 == install-hooks ]]; then
-      [[ -f $hook_src ]] || { echo "hook source not found: $hook_src" >&2; exit 1; }
-      if command -v omarchy >/dev/null 2>&1; then omarchy hook install post-update "$hook_src"   # Omarchy's own installer
-      else install -D -m 0755 "$hook_src" "$hook_dst"; echo "installed $hook_dst"; fi
-    else rm -f "$hook_dst"; echo "removed $hook_dst"; fi ;;
+  install-hooks|remove-hooks) cmd_hooks "$1" ;;
   policy) shift; cmd_policy "$@" ;;
   reassert) cmd_reassert ;;
   leave) shift; cmd_leave "$@" ;;
