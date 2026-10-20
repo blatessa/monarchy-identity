@@ -22,6 +22,7 @@ fresh
 himmelblau_install || result
 entra_codes
 printf '%s\n' "$ENTRA_CLIENT_SECRET" | "${V[@]}" "sudo install -m 600 /dev/stdin $SECRET"
+"${V[@]}" "sudo install -D /dev/null /etc/skel/.config/oi-skel-marker; sudo rm -rf /home/bob"   # a home made new from a skeleton
 entra_devices_cleanup
 
 echo "[refused before anything changes]"
@@ -48,7 +49,8 @@ expect ALLOWED "login: tester (local) as before" login tester tester
 out=$(pt sshd "$ENTRA_ALICE" "$ENTRA_ALICE_PASSWORD" | grep -E '^(ALLOWED|DENIED)')
 [[ $out == DENIED* ]] && ok "ssh: alice with only a password is refused (Entra wants a second factor remotely)" || bad "ssh: alice (got: ${out:-<nothing>})"
 expect ALLOWED "ssh: tester (local) as before" sshd tester tester
-"${V[@]}" "h=\$(getent passwd $(q "$ENTRA_BOB") | cut -d: -f6); test -L \"\$h\" && test -d \"\$h/\"" && ok "bob's home directory, made by himmelblau" || bad "no home for bob"
+"${V[@]}" "test \"\$(getent passwd $(q "$ENTRA_BOB") | cut -d: -f6)\" = /home/bob && test -d /home/bob && ! test -L /home/bob" && ok "bob's home is /home/bob, made by himmelblau" || bad "no /home/bob for bob"
+"${V[@]}" "sudo test -e /home/bob/.config/oi-skel-marker" && ok "bob's new home came from /etc/skel" || bad "bob's home is missing /etc/skel's files"
 "${V[@]}" "sudo sudo -l -U $(q "$ENTRA_ALICE") | grep -q '(ALL : ALL) ALL'" && ok "sudo: alice (linux-admins)" || bad "alice has no sudo"
 ! "${V[@]}" "sudo sudo -l -U $(q "$ENTRA_BOB") | grep -q '(ALL : ALL) ALL'" && ok "sudo: not bob" || bad "bob has sudo"
 # SDDM answers every prompt with the password it has, and pam_himmelblau starts over after a refusal: the login

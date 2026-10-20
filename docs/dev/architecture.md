@@ -136,9 +136,13 @@ nothing about it beyond the `pam.conf` switches ([below](#the-pam-edit)).
   domain).
 - **Usernames and ids.** Short names and full sign-in names both resolve; a local account of the same name wins. UIDs
   and GIDs are derived from the tenant and object id, so they're the same on every laptop. Home is
-  `/home/<object id>` with a link at the sign-in name, made by himmelblau (hence `mkhomedir = "false"`).
+  `/home/<short name>`, made by himmelblau (hence `mkhomedir = "false"`).
 - **sudo** uses the core's `%group` sudoers rule: Entra groups resolve by name through NSS once registered.
   himmelblau's own `sudo_groups` isn't used, so every provider's sudo works the same way.
+- **Home directories**: himmelblau makes them, so `use_etc_skel = true` gives them `/etc/skel` (Omarchy's config), as
+  `pam_mkhomedir` does for AD. Without it the desktop starts on Hyprland's stock config. `home_attr` and `home_alias`
+  are both `cn` (the sign-in name before the `@`), so the home is `/home/alice` as with AD; himmelblau's default is
+  `/home/<object id>`, with the full sign-in name as the path in passwd.
 - **Offline**: `[offline_breakglass] enabled = true`, which caches a password verifier at each online sign-in. Its
   `ttl` only applies to breakglass switched on by hand, not to automatic offline sign-in, and there's no verifier
   lifetime, so `--offline-days` is refused rather than ignored.
