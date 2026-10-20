@@ -28,7 +28,7 @@ Status: 0.1.0; the AD provider is supported, Entra (`providers/entra`, himmelbla
 
 ## Layout
     bin/monarchy-identity    core CLI (status|enroll|leave|policy|reassert|install-hooks|providers)
-    providers/<name>/        one per directory (ad, entra): enroll matches unenroll policy reassert status detect pam.conf (+lib.sh)
+    providers/<name>/        one per directory (ad, entra): enroll matches unenroll policy reassert status pam.conf (+lib.sh)
     lib/                     common.sh, pamedit.py (idempotent BEGIN/END-marked PAM editor; the provider names the module)
     sddm-theme/              login theme: Omarchy's look + a username field (stock theme only logs in the last user)
     hooks/                   reassert.sh + post-update wrapper
@@ -42,7 +42,6 @@ Prerequisites for the lab: Docker, QEMU/KVM + OVMF, ssh, python3, node (polkit r
 
     test/lab-check.sh                 # prerequisites + lab state; prints the exact fix for anything missing
     test/unit/run.sh                                                                   # fast layer: real CLI, temp /etc, stub commands; seconds, no lab or root
-    bash hooks/test-reassert.sh                                                        # no lab needed
     cd test/dc && docker compose up -d && ./seed-users.sh                              # directory
     (cd test/vm && ./fetch-image.sh && (setsid ./run.sh </dev/null >vm.log 2>&1 &))   # VM; makes its own ssh key; first boot ~1 min
     test/vm/deploy.sh [--fixtures]    # push repo to the VM (--fixtures resets PAM to stock Omarchy, removes the package)
