@@ -119,7 +119,7 @@ something.
   `handle_password_change`, then sign-in goes on with the new one. A new password under 8 characters is refused
   locally, before Entra.
 - In 4.0.6 that only works on the laptop's first sign-in (before it joins), for a user without MFA. Two bugs, fixed
-  by the patches in the lab's himmelblau build (`test/vm/images/himmelblau-patches/`, not yet upstream):
+  by the patches in the lab's himmelblau build (`test/vm/himmelblau/`; upstream PRs, not yet released):
     - **Joined laptop:** the password is checked by getting a PRT, which Entra issues, then trading it for an
       authorization code silently; a must-change user can't be signed in silently, so Entra answers AADSTS50058 (or
       AADSTS50133, "session isn't valid due to password expiration or recent password change", when the user had a

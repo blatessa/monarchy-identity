@@ -69,7 +69,7 @@ entra_codes() {
 # may have removed it, or the lab has a newer build)
 himmelblau_install() {
   local p; p=$(ls images/himmelblau-*.pkg.tar.zst 2>/dev/null | sort -V | tail -1)
-  [[ -n $p ]] || { bad "no himmelblau package in test/vm/images/ (build pkgbuilds/himmelblau from omacom/omarchy-pkgs)"; return 1; }
+  [[ -n $p ]] || { bad "no himmelblau package in test/vm/images/ (build it: himmelblau/build.sh)"; return 1; }
   local want; want=$(basename "$p" | sed -E 's/^himmelblau-(.*)-[^-]+\.pkg\.tar\.zst$/\1/')
   [[ $("${V[@]}" 'pacman -Q himmelblau 2>/dev/null' | cut -d' ' -f2) == "$want" ]] && return
   scp -q "${SSHO[@]}" -P 2222 "$p" tester@127.0.0.1:/home/tester/himmelblau.pkg.tar.zst \

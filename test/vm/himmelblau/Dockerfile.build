@@ -1,0 +1,2 @@
+FROM archlinux:latest
+RUN pacman -Syu --noconfirm --needed base-devel rust clang cmake gettext libcap pcre2 python tpm2-tss sqlite dbus openssl pam libunistring systemd && pacman -Scc --noconfirm

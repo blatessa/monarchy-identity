@@ -88,11 +88,10 @@ a documented stand-in, chosen in the provider's issue. The client VM, `lib.sh` a
 **Entra ID** has no container: `test/vm/e2e-entra.sh` and the Entra part of `e2e-package.sh` run against a real test
 tenant and are skipped (passing) without one. They need:
 
-- the himmelblau package file in `test/vm/images/` (build `pkgbuilds/himmelblau` from `omacom/omarchy-pkgs`), until
-  it's in Omarchy's repository: the suites install the newest one in the VM, and `e2e-package.sh` removes and
-  reinstalls it. The password-change checks need the change-password fixes (`docs/dev/findings.md`), until a
-  himmelblau release has them: the lab builds that package from `test/vm/images/himmelblau-patches/pkg/`
-  (`makepkg` in an Arch container; `Dockerfile.build` there);
+- the himmelblau package file in `test/vm/images/`, until it's in Omarchy's repository: `test/vm/himmelblau/build.sh`
+  builds it (the omarchy-pkgs recipe, in an Arch container) with the fixes upstream hasn't released yet, which the
+  password-change checks need (`docs/dev/findings.md`). The suites install the newest package in the VM, and
+  `e2e-package.sh` removes and reinstalls it;
 - in the tenant: users `alice`, `bob`, `carol` with password-only sign-in, groups `linux-users` (alice, bob) and
   `linux-admins` (alice), and an app registration with the `Group.Read.All` and `User.Read.All` application
   permissions (admin consent) and a client secret;

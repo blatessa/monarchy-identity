@@ -33,7 +33,7 @@ Status: 0.1.0; the AD provider is supported, Entra (`providers/entra`, himmelbla
     sddm-theme/              login theme: Omarchy's look + a username field (stock theme only logs in the last user)
     hooks/                   reassert.sh + post-update wrapper
     packaging/               PKGBUILD, alpm hook, install scriptlet, default config
-    test/                    dc (Samba AD container for the ad provider), vm (Arch QEMU client, lib.sh + e2e suites), unit (+ stub-provider)
+    test/                    dc (Samba AD container for the ad provider), vm (Arch QEMU client, lib.sh + e2e suites; himmelblau/: the lab's Entra client build), unit (+ stub-provider)
     docs/                    MkDocs site (user-facing docs + developer pages)
     .github/workflows/       ci.yml, release.yml, docs.yml
 
