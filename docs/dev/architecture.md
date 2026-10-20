@@ -136,13 +136,14 @@ nothing about it beyond the `pam.conf` switches ([below](#the-pam-edit)).
   domain).
 - **Usernames and ids.** Short names and full sign-in names both resolve; a local account of the same name wins. UIDs
   and GIDs are derived from the tenant and object id, so they're the same on every laptop. Home is
-  `/home/<short name>`, made by himmelblau (hence `mkhomedir = "false"`).
+  `/home/<short name>`, made by `pam_mkhomedir` as for AD.
 - **sudo** uses the core's `%group` sudoers rule: Entra groups resolve by name through NSS once registered.
   himmelblau's own `sudo_groups` isn't used, so every provider's sudo works the same way.
-- **Home directories**: himmelblau makes them, so `use_etc_skel = true` gives them `/etc/skel` (Omarchy's config), as
-  `pam_mkhomedir` does for AD. Without it the desktop starts on Hyprland's stock config. `home_attr` and `home_alias`
-  are both `cn` (the sign-in name before the `@`), so the home is `/home/alice` as with AD; himmelblau's default is
-  `/home/<object id>`, with the full sign-in name as the path in passwd.
+- **Home directories**: `pam_mkhomedir` makes them from `/etc/skel` (Omarchy's config, theme and migration markers), as
+  for AD. himmelblau's own copy (`use_etc_skel`) stops partway, so it stays off. `home_attr` and `home_alias` are both
+  `cn` (the sign-in name before the `@`): passwd names `/home/alice`, which `pam_mkhomedir` makes, and himmelblau finds
+  it there. Its default is `/home/<object id>`, with the full sign-in name as the path in passwd, which `pam_mkhomedir`
+  would make a real directory at.
 - **Offline**: `[offline_breakglass] enabled = true`, which caches a password verifier at each online sign-in. Its
   `ttl` only applies to breakglass switched on by hand, not to automatic offline sign-in, and there's no verifier
   lifetime, so `--offline-days` is refused rather than ignored.
@@ -190,10 +191,9 @@ can't start another rule or control field. `remove FILE` restores the file byte 
 inserted.
 
 Four `pam.conf` switches cover modules that do part of this themselves or ask for more (Entra's `pam_himmelblau` uses
-all four):
+all but the first):
 
-- `mkhomedir = "false"`: no `pam_mkhomedir`. himmelblau makes `/home/<object id>` and a `/home/<sign-in name>` link at
-  session open; `pam_mkhomedir`, first in the stack, would make a real directory at the link's path.
+- `mkhomedir = "false"`: no `pam_mkhomedir`, for a module that makes complete home directories itself.
 - `expired_password_screen = "false"`: no expired-password rules on `sddm` (below), so SDDM sign-in doesn't ask the
   directory twice. pam_himmelblau asks for the new password itself, during sign-in; with `login_steps` that's on the
   login screen.

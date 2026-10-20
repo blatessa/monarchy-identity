@@ -50,9 +50,8 @@ resolve_policy_ids() {
 
 write_himmelblau_conf() { # write_himmelblau_conf TENANT ALLOW
   # Password sign-in with the offline cache (offline_breakglass caches a verifier on every online sign-in; without it
-  # offline only works for the very first sign-in). Hello PIN is on hold (#90). use_etc_skel: himmelblau makes the home
-  # itself, and without it the home is empty (no Omarchy config), unlike AD's pam_mkhomedir. home_attr/home_alias = cn: /home/alice
-  # (as for AD), not the object id with the sign-in name as the path in passwd.
+  # offline only works for the very first sign-in). Hello PIN is on hold (#90). home_attr/home_alias = cn: the home is
+  # /home/alice (passwd says so, and pam_mkhomedir makes it), not the object id with the sign-in name as the path.
   local allow=""
   [[ -z $2 ]] || allow="pam_allow_groups = $2"$'\n'
   install -d -m 0755 "$(dirname "$HB_CONF")"
@@ -60,7 +59,6 @@ write_himmelblau_conf() { # write_himmelblau_conf TENANT ALLOW
 [global]
 domain = $1
 ${allow}enable_hello = false
-use_etc_skel = true
 home_attr = cn
 home_alias = cn
 
