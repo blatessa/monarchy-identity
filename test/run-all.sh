@@ -4,7 +4,6 @@
 # test/vm/e2e-entra.sh needs a test tenant (ENTRA_LAB_ENV); without one it prints SKIP and passes.
 cd "$(dirname "$0")/.."
 suites=(
-  "bash hooks/test-reassert.sh"
   "test/unit/run.sh"
   "test/vm/e2e.sh"
   "test/vm/e2e-offline.sh"

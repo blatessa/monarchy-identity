@@ -24,7 +24,6 @@ screen.
 ```bash
 test/unit/run.sh                  # all of it
 bash test/unit/pam.sh             # or one suite
-bash hooks/test-reassert.sh       # reassert hook wrapper
 ```
 
 `test/unit/lib.sh` builds a sandbox per suite: a temp `/etc` seeded with the lab's Omarchy PAM and SDDM fixtures

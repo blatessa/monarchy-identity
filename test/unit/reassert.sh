@@ -1,14 +1,14 @@
 #!/bin/bash
-# Test reassert.sh with stub monarchy-identity on PATH. No system changes.
+# The update hooks (hooks/reassert.sh and the Omarchy post-update wrapper) with a stub monarchy-identity on PATH.
 set -u
 export OI_SUDO=env   # real hook uses `sudo -n`; tests run an unprivileged stub on PATH
-H="$(cd "$(dirname "$0")" && pwd)"
+H="$(cd "$(dirname "$0")/../../hooks" && pwd)"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin"; CALLS="$T/calls"
 printf '#!/bin/bash\necho "$@" >> %s\nexit ${STUB_RC:-0}\n' "$CALLS" > "$T/bin/monarchy-identity"; chmod +x "$T/bin/monarchy-identity"
 fail=0
 export MONARCHY_IDENTITY_CONF="$T/no-config.toml"   # state is what tells the hook whether it is enrolled
-check() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi; }
+check() { if eval "$2"; then printf '  PASS %s\n' "$1"; else printf '  FAIL %s\n' "$1"; fail=1; fi; }
 
 printf 'provider = "local"\nlogin_mode = "none"\n' > "$T/local.toml"
 printf 'provider = "ad"\nlogin_mode = "groups"\n' > "$T/enrolled.toml"
@@ -38,7 +38,7 @@ check "enrolled, CLI missing: exit 0" '[[ $rc -eq 0 ]]'
 : > "$CALLS"; for _ in 1 2; do PATH="$T/bin:$PATH" MONARCHY_IDENTITY_STATE="$T/enrolled.toml" "$H/reassert.sh" 2>/dev/null; done
 check "idempotent: 2 calls, both ok" '[[ $(wc -l < "$CALLS") -eq 2 ]]'
 
-# wrapper (it prefers an installed reassert.sh, which may be an older one that reads the provider from config.toml)
-: > "$CALLS"; PATH="$T/bin:$PATH" MONARCHY_IDENTITY_STATE="$T/enrolled.toml" MONARCHY_IDENTITY_CONF="$T/enrolled.toml" "$H/post-update.d/10-monarchy-identity-reassert" 2>/dev/null
+# wrapper
+: > "$CALLS"; PATH="$T/bin:$PATH" MONARCHY_IDENTITY_STATE="$T/enrolled.toml" "$H/post-update.d/10-monarchy-identity-reassert" 2>/dev/null
 check "wrapper delegates" '[[ $(cat "$CALLS") == reassert ]]'
-exit $fail
+((fail)) && { echo "RESULT: FAIL"; exit 1; }; echo "RESULT: ALL PASS"
