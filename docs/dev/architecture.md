@@ -100,14 +100,12 @@ The PAM, nsswitch, SDDM and sudoers rows apply to every provider; the rest are t
 | `/etc/sudoers.d/50-monarchy-identity` | `%group ALL=(ALL:ALL) ALL`, visudo-validated, 0440 | Deleted |
 | `/etc/sudoers.d/51-monarchy-identity-theme` | The sign-in groups (or users) may run Omarchy's `omarchy-theme-set-browser-policy` with a six-hex-digit argument without a password; absent for `--mode any` | Deleted |
 | `/etc/polkit-1/rules.d/49-monarchy-identity.rules` | Admin identities for graphical admin prompts: `wheel` plus the sudo groups, with an admin who asks listed first (only when polkit's rules directory exists) | Deleted |
-| `/etc/monarchy-identity/config.toml` | What the admin chose: who may sign in, sudo groups, offline days, autologin, login theme | Emptied |
+| `/etc/monarchy-identity/config.toml` | What the admin chose: who may sign in, sudo groups, offline days, autologin | Emptied |
 | `/var/lib/monarchy-identity/state.toml` | What enroll did: the provider, and the provider's own keys (for AD: realm, server, computer name, OU) | Deleted |
 
 The admin's choices and the enrollment are separate files so an MDM can manage `config.toml` without clobbering the
 enrollment, and enrolling never rewrites keys the MDM didn't mention. Being enrolled means `state.toml` names a
-provider. Enrollments from before the split kept everything in `config.toml`: until a root command runs, the state is
-read from there, and the first `enroll`, `policy set`, `reassert` or `leave` moves every key that isn't the admin's
-into `state.toml` (`state_migrate`, under the lock).
+provider.
 
 Both files (and each provider's `pam.conf`) are a flat subset of TOML: `key = "value"` lines, `#` comments and blank
 lines, values escaped with `\"`, `\\`, `\n`, `\t`. `lib/common.sh` reads and writes them (`conf_get`/`conf_set`,

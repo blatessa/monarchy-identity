@@ -50,19 +50,7 @@ bad_file "a section"            '[sssd]'                      'not key = "value"
 bad_file "unknown escape"       'login_mode = "a\qb"'         "unknown escape '\\q'"
 bad_file "duplicate key"        'provider = "evil"'           "sets 'provider' a second time"
 
-# an enrollment from before the split keeps everything in config.toml: the first root command moves the state out
-S=$MONARCHY_IDENTITY_STATE
-printf 'provider = "stub"\nlogin_mode = "groups"\ngroups = "staff"\ntenant = "acme"\nlogin_theme = "identity"\n' > "$C"; rm -f "$S"
-lib 'echo "$(state_get provider)|$(state_get tenant)"'
-[[ $OUT == "stub|acme" ]] && ok "before moving, state is read from config.toml" || bad "fallback: $OUT"
-lib 'state_migrate 2>/dev/null; echo "$(state_get provider)|$(state_get tenant)|$(conf_get groups)|$(conf_get provider)|$(conf_get tenant)"'
-[[ $OUT == "stub|acme|staff||" && $(cat "$C") == $'login_mode = "groups"\ngroups = "staff"\nlogin_theme = "identity"' ]] \
-  && ok "state_migrate: provider keys to state.toml, the policy stays in config.toml" || bad "migrate: $OUT / $(cat "$C")"
-lib 'state_migrate; cat "$OI_STATE"'
-[[ $OUT == $'provider = "stub"\ntenant = "acme"' ]] && ok "state_migrate again changes nothing" || bad "migrate twice: $OUT"
-printf 'login_mode = "groups"\n' > "$C"; rm -f "$S"
-lib 'state_migrate; [[ ! -e $OI_STATE ]] && echo none'
-[[ $OUT == none ]] && ok "nothing to move: no state file" || bad "migrate empty: $OUT"
+S=$MONARCHY_IDENTITY_STATE; mkdir -p "$(dirname "$S")"
 printf 'provider = "stub"\nlogin_mode = none\n' > "$S"; printf '' > "$C"
 oi status; [[ $RC -ne 0 && $OUT == *"state.toml line 2"* ]] && ok "status refuses a malformed state file" || bad "status: rc $RC, $OUT"
 rm -f "$S"

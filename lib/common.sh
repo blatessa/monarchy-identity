@@ -42,9 +42,7 @@ kv_get() { # kv_get file key default: a value from a config file (the default wh
   printf '%s\n' "${v:-${3:-}}"
 }
 conf_get() { kv_get "$OI_CONF" "$@"; }   # conf_get key default
-state_get() { # state_get key default; enrollments made before the split kept state in config.toml until state_migrate
-  if [[ -e $OI_STATE ]]; then kv_get "$OI_STATE" "$@"; else kv_get "$OI_CONF" "$@"; fi
-}
+state_get() { kv_get "$OI_STATE" "$@"; }   # state_get key default
 conf_check() { kv_read "$OI_CONF"; kv_read "$OI_STATE"; }   # dies on a malformed file (run in the main shell, not in $(...))
 
 kv_write() { # kv_write FILE key=value ... (rewrites the whole file, 0644)
@@ -70,24 +68,14 @@ conf_write() { kv_write "$OI_CONF" "$@"; }
 conf_set() { kv_set "$OI_CONF" "$@"; }
 state_set() { kv_set "$OI_STATE" "$@"; }
 
-# The admin's keys; anything else in config.toml is enrollment state from before the split, which state_migrate moves
-# (once, as root, before a command changes anything).
-CONF_KEYS=" login_mode groups users sudo_groups offline_days autologin_disabled login_theme "   # login_theme: no longer written or read; kept so older configs keep it
-state_migrate() {
-  [[ ! -e $OI_STATE && -f $OI_CONF ]] || return 0
-  local k conf=() state=()
-  kv_read "$OI_CONF"
-  for k in "${OI_KV_KEYS[@]}"; do
-    if [[ $CONF_KEYS == *" $k "* ]]; then conf+=("$k=${OI_KV[$k]}"); else state+=("$k=${OI_KV[$k]}"); fi
-  done
-  ((${#state[@]})) || return 0
-  kv_write "$OI_STATE" "${state[@]}"; kv_write "$OI_CONF" "${conf[@]}"
-  log "moved enrollment state from $OI_CONF to $OI_STATE"
-}
-
 # Files we write carry this marker; `leave` deletes only files that have it.
 OI_MARK="# managed by monarchy-identity"
 remove_if_ours() { local f; for f in "$@"; do [[ -f $f ]] && grep -qF "$OI_MARK" "$f" && rm -f "$f"; done; return 0; }
+write_if_changed() { # write_if_changed FILE CONTENT: 0644, only when the content differs (the mtime means something)
+  install -d -m 0755 "$(dirname "$1")"
+  [[ -f $1 && $(cat "$1") == "$2" ]] && return 0
+  printf '%s\n' "$2" > "$1"; chmod 0644 "$1"
+}
 
 # --- SDDM autologin ---------------------------------------------------------------------------
 # SDDM merges $SDDM_CONF_D/*.conf in C-locale name order; the LAST [Autologin] User= wins. Omarchy's
@@ -111,12 +99,10 @@ sddm_conf_value() { # sddm_conf_value Section Key -> effective value (last file 
 }
 sddm_autologin_user() { sddm_conf_value Autologin User; }   # prints the effective autologin user ("" if none)
 
-sddm_autologin_disable() { # idempotent: only writes when content differs
-  local want=$'# managed by monarchy-identity: disables autologin on managed machines\n[Autologin]\nUser=\nSession=\n'
-  install -d -m 0755 "$SDDM_CONF_D"
-  [[ -f $SDDM_OVERRIDE && $(cat "$SDDM_OVERRIDE") == "${want%$'\n'}" ]] && return 0
-  printf '%s' "$want" > "$SDDM_OVERRIDE"; chmod 0644 "$SDDM_OVERRIDE"
-}
+sddm_autologin_disable() { write_if_changed "$SDDM_OVERRIDE" "$OI_MARK: disables autologin on managed machines
+[Autologin]
+User=
+Session="; }
 sddm_autologin_restore() { rm -f "$SDDM_OVERRIDE"; }
 
 # --- PAM -----------------------------------------------------------------------------------------
@@ -166,11 +152,6 @@ pam_remove() {
 GREETER_PAM=sddm
 EXPIRED_PAM=monarchy-identity-expired
 SDDM_SESSION_CONF="$SDDM_CONF_D/zz-monarchy-identity-session.conf"
-write_if_changed() { # write_if_changed FILE CONTENT: 0644, only when the content differs (the mtime means something)
-  install -d -m 0755 "$(dirname "$1")"
-  [[ -f $1 && $(cat "$1") == "$2" ]] && return 0
-  printf '%s\n' "$2" > "$1"; chmod 0644 "$1"
-}
 greeter_apply() { # greeter_apply MODULE [ACCOUNT_ARGS]
   remove_if_ours "$ETC/pam.d/$LOGIN_STEPS_PAM"
   write_if_changed "$ETC/pam.d/$EXPIRED_PAM" "$OI_MARK: lib/password-expired asks the directory if a password must be changed
@@ -244,12 +225,11 @@ IDENTITY_THEME=monarchy-identity
 SDDM_THEME_CONF="$SDDM_CONF_D/zz-monarchy-identity-theme.conf"
 sddm_theme_installed() { [[ -f $SDDM_THEMES/$IDENTITY_THEME/Main.qml ]]; }
 sddm_theme_effective() { sddm_conf_value Theme Current; }
-sddm_theme_enable() { # idempotent; returns 1 if the theme package files are missing
+sddm_theme_enable() { # returns 1 if the theme package files are missing
   sddm_theme_installed || return 1
-  local want=$'# managed by monarchy-identity: login screen with a username field\n[Theme]\nCurrent='"$IDENTITY_THEME"$'\n'
-  install -d -m 0755 "$SDDM_CONF_D"
-  [[ -f $SDDM_THEME_CONF && $(cat "$SDDM_THEME_CONF") == "${want%$'\n'}" ]] && return 0
-  printf '%s' "$want" > "$SDDM_THEME_CONF"; chmod 0644 "$SDDM_THEME_CONF"
+  write_if_changed "$SDDM_THEME_CONF" "$OI_MARK: login screen with a username field
+[Theme]
+Current=$IDENTITY_THEME"
 }
 sddm_theme_restore() { rm -f "$SDDM_THEME_CONF"; }
 
