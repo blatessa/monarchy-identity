@@ -32,14 +32,14 @@ echo "[enroll with groups]"
 oi "${E[@]}" --groups linux-users --sudo-groups linux-admins
 [[ $RC -eq 0 && $OUT == *"enrolled in corp.onmicrosoft.com (login mode: groups)"* ]] && ok "enrolled" || { bad "enroll"; sed 's/^/      /' <<<"$OUT"; }
 [[ $(hb domain) == corp.onmicrosoft.com && $(hb pam_allow_groups) == aaaaaaaa-0000-0000-0000-000000000001 ]] && ok "himmelblau.conf: tenant, allowed group by id" || bad "conf: $(cat "$HB")"
-[[ $(hb enable_hello) == false && $(sed -n '/offline_breakglass/,$p' "$HB" | hb enabled) == true ]] && grep -qF "$(head -1 <<<"# managed by monarchy-identity")" "$HB" \
-  && ok "password sign-in, offline cache on, marked as ours" || bad "conf: $(cat "$HB")"
+[[ $(hb enable_hello) == false && $(hb home_attr) == cn && $(hb home_alias) == cn && $(sed -n '/offline_breakglass/,$p' "$HB" | hb enabled) == true ]] && grep -qF "$(head -1 <<<"# managed by monarchy-identity")" "$HB" \
+  && ok "password sign-in, offline cache on, homes named by short name, marked as ours" || bad "conf: $(cat "$HB")"
 [[ $(grep -c '\bhimmelblau\b' "$T/etc/nsswitch.conf") == 3 ]] && ok "nsswitch: passwd, group, shadow" || bad "nsswitch: $(cat "$T/etc/nsswitch.conf")"
 [[ -e $STUB_STATE/himmelblaud-active && -e $STUB_STATE/himmelblaud-tasks-active ]] && ok "both daemons running" || bad "daemons"
 grep -qF -- '-auth      [success=3 default=ignore]  pam_himmelblau.so ignore_unknown_user set_authtok' "$SA" && has_pam omarchy-lock-password \
   && ok "pam_himmelblau in system-auth and the lock screen" || bad "PAM: $(grep himmelblau "$SA")"
-! grep -q pam_mkhomedir "$SA" && [[ ! -e $T/etc/pam.d/monarchy-identity-expired ]] \
-  && ok "no pam_mkhomedir, no expired-password screen (himmelblau does both its own way)" || bad "extras applied"
+grep -qx 'session    required   pam_mkhomedir.so umask=0077' "$SA" && [[ ! -e $T/etc/pam.d/monarchy-identity-expired ]] \
+  && ok "pam_mkhomedir makes the homes (himmelblau's skeleton copy is partial), no expired-password screen (himmelblau does that its own way)" || bad "extras applied"
 grep -qF -- "-auth      [success=done default=ignore]  pam_exec.so quiet stdout expose_authtok $REPO/lib/login-steps" "$T/etc/pam.d/sddm" \
   && [[ $(grep -v '^#' "$T/etc/pam.d/monarchy-identity-login-steps") == 'auth     required  pam_himmelblau.so ignore_unknown_user set_authtok' ]] \
   && [[ ! -e $T/etc/sddm.conf.d/zz-monarchy-identity-session.conf ]] \

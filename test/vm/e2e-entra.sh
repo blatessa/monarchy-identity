@@ -22,6 +22,8 @@ fresh
 himmelblau_install || result
 entra_codes
 printf '%s\n' "$ENTRA_CLIENT_SECRET" | "${V[@]}" "sudo install -m 600 /dev/stdin $SECRET"
+# a home made new from a skeleton with what stopped himmelblau's own copy: a file many levels deep and a dangling link
+"${V[@]}" "sudo install -D /dev/null /etc/skel/.local/state/omarchy/oi/a/b/c/d/deep-marker; sudo ln -sfn /nonexistent /etc/skel/.oi-dangling; sudo rm -rf /home/bob"
 entra_devices_cleanup
 
 echo "[refused before anything changes]"
@@ -48,7 +50,8 @@ expect ALLOWED "login: tester (local) as before" login tester tester
 out=$(pt sshd "$ENTRA_ALICE" "$ENTRA_ALICE_PASSWORD" | grep -E '^(ALLOWED|DENIED)')
 [[ $out == DENIED* ]] && ok "ssh: alice with only a password is refused (Entra wants a second factor remotely)" || bad "ssh: alice (got: ${out:-<nothing>})"
 expect ALLOWED "ssh: tester (local) as before" sshd tester tester
-"${V[@]}" "h=\$(getent passwd $(q "$ENTRA_BOB") | cut -d: -f6); test -L \"\$h\" && test -d \"\$h/\"" && ok "bob's home directory, made by himmelblau" || bad "no home for bob"
+"${V[@]}" "test \"\$(getent passwd $(q "$ENTRA_BOB") | cut -d: -f6)\" = /home/bob && test -d /home/bob && ! test -L /home/bob" && ok "bob's home is /home/bob" || bad "no /home/bob for bob"
+"${V[@]}" "sudo test -e /home/bob/.local/state/omarchy/oi/a/b/c/d/deep-marker && sudo test -L /home/bob/.oi-dangling && test \$(sudo stat -c %U /home/bob/.local/state/omarchy/oi/a/b/c/d/deep-marker) = bob; sudo rm -rf /etc/skel/.oi-dangling /etc/skel/.local/state/omarchy/oi" && ok "bob's new home has all of /etc/skel (deep files, a dangling link), his own" || bad "bob's home is missing part of /etc/skel"
 "${V[@]}" "sudo sudo -l -U $(q "$ENTRA_ALICE") | grep -q '(ALL : ALL) ALL'" && ok "sudo: alice (linux-admins)" || bad "alice has no sudo"
 ! "${V[@]}" "sudo sudo -l -U $(q "$ENTRA_BOB") | grep -q '(ALL : ALL) ALL'" && ok "sudo: not bob" || bad "bob has sudo"
 # SDDM answers every prompt with the password it has, and pam_himmelblau starts over after a refusal: the login
