@@ -4,7 +4,7 @@
 #   himmelblau-4.0.6-change-password-joined.patch         himmelblau#1888
 #   libhimmelblau-0.8.43-change-password-after-mfa.patch  libhimmelblau#109
 #   himmelblau-4.0.6-max-tries.patch                      himmelblau#1895
-#   himmelblau-4.0.6-show-change-error.patch              (to send, with #1888) a refused new password says why
+#   himmelblau-4.0.6-show-change-error.patch              himmelblau#1904
 set -euo pipefail
 H="$(cd "$(dirname "$0")" && pwd)"; I="$H/../images"; B="$I/himmelblau-build"
 mkdir -p "$B" && cp "$H"/PKGBUILD "$H"/himmelblau.install "$H"/*.patch "$B"/
