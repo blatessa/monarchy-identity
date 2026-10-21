@@ -140,7 +140,13 @@ something.
       config"; the person saw "Failed to change user password: Authentication failed"). The libhimmelblau patch keeps
       the change page the sign-in reached (single use, 10 minutes) and changes the password through it.
 - A user created, or a password set, through Graph isn't taken by Entra's sign-in for a minute or two (refused as a
-  wrong password). The lab waits with `entra_takes`.
+  wrong password). The lab waits with `entra_takes`. The change page lags too: the first change for a
+  just-made user can answer `AADSTS120016: User not found`.
+- The module logs through tracing to its stdout, and `pam_exec` hands a script's stdout to the login screen: without
+  `lib/login-steps` moving its own stdout aside, people saw `ERROR PAM conversation failed: PAM_CONV_ERR` after
+  every refusal. And himmelblau 4.0.6 swaps the reason a refused new password carries (`GeneralFailure`: "AADSTS120018
+  ... The password is too common") for "Authentication failed. Please contact your administrator."; the lab build's
+  `himmelblau-4.0.6-show-change-error.patch` keeps it.
 - An MFA user who signed in on the laptop minutes before an admin reset is let in with the reset password, without
   a change, for several minutes: Entra checks the password and wants MFA, and the laptop's session from before still
   satisfies it until Entra revokes it. The change comes at a later sign-in. The lab tests it without such a session.
