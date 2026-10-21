@@ -83,6 +83,12 @@ if entra_expired_user; then
     && ok "sddm: the password alone: a new one is wanted" || bad "must change: $OUT"
   out=$(pt --messages sddm "$EXP_UPN" "$EXP_PW"$'\n\n'short)
   [[ $out == DENIED* && $out == *"MSG Chosen password is too short"* && $out != *"password changed"* ]] && ok "  ... one too short is refused, and says why" || bad "too short: $out"
+  for _ in 1 2 3 4 5 6; do   # a user made minutes ago may still be "not found" to the change page: wait, as entra_takes does
+    out=$(pt --messages sddm "$EXP_UPN" "$EXP_PW"$'\n\n'Password123)
+    [[ $out == *"User not found"* ]] || break; sleep 30
+  done
+  [[ $out == DENIED* && $out == *"MSG Failed to change user password: "*"too common"* && $out != *PAM_CONV_ERR* ]] \
+    && ok "  ... one Entra's policy refuses: Entra's reason, no PAM noise" || bad "policy refusal: $out"
   expect ALLOWED "  ... the new one on the login screen: signed in" sddm "$EXP_UPN" "$EXP_PW"$'\n\n'"$EXP_NEW"
   expect ALLOWED "  ... and it's the password now" login "$EXP_UPN" "$EXP_NEW"
   entra_expired_user_delete

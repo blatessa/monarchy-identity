@@ -40,8 +40,11 @@ PAM_ABORT = 26
 PAM_CONV_ERR = 19
 
 
+OUT = None   # what pam_exec hands the login screen (stdout until main() moves it aside: the module logs to fd 1)
+
+
 def say(text):
-    print(" ".join(text.split()), flush=True)
+    print(" ".join(text.split()), file=OUT or sys.stdout, flush=True)
 
 
 def local_account(user):
@@ -192,6 +195,9 @@ def main():
     if not password or local_account(user):
         sys.exit(1)
     os.environ["LC_ALL"] = "C.UTF-8"   # the module's prompts in English (NEW_PROMPTS); set before it loads
+    global OUT   # the module's own log lines ("PAM conversation failed: PAM_CONV_ERR") are not for the person at the screen
+    OUT = os.fdopen(os.dup(1), "w")
+    os.dup2(os.open(os.devnull, os.O_WRONLY), 1)
     outcome = once(user, password, code.strip(), new)
     if outcome in ("refused", "code", "new"):
         os.makedirs(MARKS, mode=0o755, exist_ok=True)

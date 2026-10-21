@@ -7,7 +7,7 @@
 
 pkgname=himmelblau
 pkgver=4.0.6
-pkgrel=3
+pkgrel=4
 pkgdesc='Microsoft Entra ID authentication for Linux (daemon, PAM, NSS, broker, SSO)'
 arch=('x86_64' 'aarch64')
 url='https://github.com/himmelblau-idm/himmelblau'
@@ -48,8 +48,10 @@ options=('!lto' '!debug')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/himmelblau-idm/himmelblau/archive/refs/tags/$pkgver.tar.gz"
         himmelblau-4.0.6-change-password-joined.patch
         libhimmelblau-0.8.43-change-password-after-mfa.patch
-        himmelblau-4.0.6-max-tries.patch)
+        himmelblau-4.0.6-max-tries.patch
+        himmelblau-4.0.6-show-change-error.patch)
 sha256sums=('cb6c734dfd17c508abccef97397d25878dad8f8e840ef54e62fd9fcb5a7869c5'
+            'SKIP'
             'SKIP'
             'SKIP'
             'SKIP')
@@ -62,6 +64,8 @@ prepare() {
   patch -Np1 -i ../himmelblau-4.0.6-change-password-joined.patch
   # max_tries=N (himmelblau#1882; lab build, until upstream has it).
   patch -Np1 -i ../himmelblau-4.0.6-max-tries.patch
+  # Say why Entra refused a new password (the policy's reason), not "Authentication failed" (lab build).
+  patch -Np1 -i ../himmelblau-4.0.6-show-change-error.patch
   tar -xzf "$CARGO_HOME"/registry/cache/*/libhimmelblau-0.8.43.crate -C ..
   patch -d ../libhimmelblau-0.8.43 -Np1 -i ../libhimmelblau-0.8.43-change-password-after-mfa.patch
   sed -i 's|^\[patch.crates-io\]$|&\nlibhimmelblau = { path = "../libhimmelblau-0.8.43" }|' Cargo.toml
