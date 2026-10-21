@@ -13,6 +13,8 @@ Non-obvious behaviour learned the hard way. Add to it when you learn something.
 - `su`/`su-l` use `pam_unix` directly: directory users can't `su`, and `su - user` can't test directory sign-in.
 - `polkit-1`'s PAM file is a vendor file in `/usr/lib/pam.d/` (not `/etc/pam.d`); it includes `system-auth`.
 - Omarchy enables autologin on encrypted disks (the passphrase is the login).
+- A home owned by another UID (left by the previous directory's user of the same name) passes PAM, then SDDM
+  can't `chdir` into it and goes straight back to the login screen with no message.
 - Omarchy's theme switch writes browser policy as root and grants that to `%wheel` only: directory users got a
   password prompt at every login. `51-monarchy-identity-theme` grants that one command to the sign-in groups.
 - Hyprland 0.56 config is Lua; `hyprctl dispatch exit` is `hyprctl dispatch 'hl.dsp.exit()'`; `hyprctl configerrors`
