@@ -20,7 +20,8 @@ SAFETY (learned the hard way): if the module is missing or its daemon is down, a
 unaffected. Every rule is "-"-prefixed (silent when the module can't load) and the account rule maps
 user_unknown / authinfo_unavail / module_unknown to ignore. Only a real answer from the module (denied, expired,
 new token required) may fail a login. With a plain `default=bad` a missing module failed EVERY login, local
-users and root included, even sshd.
+users and root included, even sshd. An account the directory has disabled, locked or expired (perm_denied,
+acct_expired) ends the auth stack with that answer, so the login screen can say why.
 """
 import os
 import re
@@ -29,6 +30,7 @@ import sys
 
 BEGIN = "# BEGIN monarchy-identity"
 END = "# END monarchy-identity"
+CANT = "perm_denied=die acct_expired=die"   # the directory's own "this account can't", not pam_unix's failure
 
 
 def is_rule(line, kind):
@@ -105,11 +107,11 @@ def apply(lines, module, args, mkhomedir=True, retry=False):
             skip = count_rules(lines, "auth", first, u)
         else:
             skip = count_rules(lines, "auth", first, fail)
-        rule = f"-auth      [success={skip} default=ignore]  {module}{args['auth']}"
+        rule = f"-auth      [success={skip} {CANT} default=ignore]  {module}{args['auth']}"
         if retry:
             # A module that gives up (abort) the first time the directory turns out to be unreachable, and answers
             # from its offline cache when asked again: ask again, once, only after an abort.
-            first_try = f"-auth      [success={skip + 1} abort=ignore default=1]  {module}{args['auth']}"
+            first_try = f"-auth      [success={skip + 1} abort=ignore {CANT} default=1]  {module}{args['auth']}"
             lines[first:first] = guarded("auth", first_try, rule)
         else:
             lines[first:first] = guarded("auth", rule)
@@ -142,7 +144,23 @@ def apply(lines, module, args, mkhomedir=True, retry=False):
     return lines
 
 
-def greeter(lines, helper):
+def lockout(lines, system_auth):
+    """The login screen's service: say so when Omarchy's faillock has locked the account.
+
+    Omarchy's preauth rule is silent, so a locked account read as a wrong password. The same check with the same
+    limits, without `silent`, goes first (ahead of lib/login-steps too): it ends the sign-in with faillock's message.
+    Nothing if there's no preauth.
+    """
+    pre = find(system_auth, "auth", r"pam_faillock\.so\s+preauth\b")
+    a = find(lines, "auth", r"^\s*-?auth\s+(include|substack)\s+system-login\b")
+    if pre is None or a is None:
+        return lines
+    args = [w for w in re.search(r"pam_faillock\.so\s+preauth\b([^#]*)", system_auth[pre]).group(1).split() if w != "silent"]
+    lines[a:a] = block("-auth      [auth_err=die default=ignore]  pam_faillock.so preauth" + "".join(" " + w for w in args))
+    return lines
+
+
+def greeter(lines, helper, system_auth=()):
     """The login screen's service only: let a person whose password must be changed through, to change it first.
 
     SDDM never asks for a new password (it has no pam_chauthtok), so a "new password required" answer is just a failed
@@ -150,7 +168,7 @@ def greeter(lines, helper):
     sign-in; the account rule then ends the stack successfully for a marked sign-in only, and the session command shows
     the change-password screen before the desktop. Both rules are ignored if pam_exec or HELPER is missing.
     """
-    lines = strip_blocks(lines)
+    lines = lockout(strip_blocks(lines), system_auth)
     a = find(lines, "auth", r"^\s*-?auth\s+(include|substack)\s+system-login\b")
     c = next((i for i, ln in enumerate(lines) if is_rule(ln, "account")), None)
     if a is None or c is None:
@@ -160,7 +178,7 @@ def greeter(lines, helper):
     return lines
 
 
-def login_steps(lines, helper):
+def login_steps(lines, helper, system_auth=()):
     """The login screen's service only: sign in with a module that can ask for more than a password, asking once.
 
     SDDM answers every prompt with the password it collected, so a module that asks for a code, or starts over after a
@@ -170,7 +188,7 @@ def login_steps(lines, helper):
     screen. Otherwise (local accounts, the daemon down) both rules are ignored and the normal stack decides, as they
     are if pam_exec or HELPER is missing.
     """
-    lines = strip_blocks(lines)
+    lines = lockout(strip_blocks(lines), system_auth)
     a = find(lines, "auth", r"^\s*-?auth\s+(include|substack)\s+system-login\b")
     if a is None:
         return lines
@@ -196,12 +214,16 @@ def main():
         sys.exit("pamedit: expected an absolute helper path")
     with open(path) as f:
         lines = f.readlines()
+    system_auth = []
+    if mode in ("greeter", "login-steps") and os.path.isfile(os.path.join(os.path.dirname(path), "system-auth")):
+        with open(os.path.join(os.path.dirname(path), "system-auth")) as f:
+            system_auth = strip_blocks(f.readlines())
     if mode == "check":
         sys.exit(0 if any(ln.strip() == BEGIN for ln in lines) else 1)
     if mode == "apply":
         new = apply(lines, module, args, "--no-mkhomedir" not in opts, "--retry-on-abort" in opts)
     else:
-        new = greeter(lines, sys.argv[3]) if mode == "greeter" else login_steps(lines, sys.argv[3]) \
+        new = greeter(lines, sys.argv[3], system_auth) if mode == "greeter" else login_steps(lines, sys.argv[3], system_auth) \
             if mode == "login-steps" else strip_blocks(lines)
     if new != lines:
         tmp = path + ".oi-tmp"

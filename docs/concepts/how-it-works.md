@@ -14,7 +14,7 @@ Nobody, until you say. One of these is required at `enroll`:
 | `--mode any` | Everyone in the directory |
 
 Active Directory names are short (`alice`). Entra ID takes sign-in names (`alice@corp.example.com`); a bare `alice` gets
-the tenant's domain. Someone not allowed is refused exactly like a wrong password. Change it later with
+the tenant's domain. Someone not allowed is told the account can't sign in on this laptop. Change it later with
 [`policy set`](../guides/manage.md#change-who-may-sign-in).
 
 ## Where
@@ -46,6 +46,20 @@ Directory users get `sudo` only through `--sudo-groups`. Members of those groups
   desktop. Giving up returns to the login screen. Other services refuse an expired password. The screen works from the
   first restart after enrolling.
 - **Entra ID:** passwords are changed with Microsoft. See [Entra ID](../providers/entra.md#how-it-behaves).
+
+## When sign-in fails
+
+The login screen says why:
+
+| Situation | The login screen says |
+|---|---|
+| Wrong password | Wrong password. |
+| A name the directory doesn't know, or a first sign-in on this laptop without the internet | No account with that name. A first sign-in on this laptop needs the internet. |
+| Not allowed on this laptop, disabled, or locked out by the directory | This account can't sign in on this laptop. Ask IT. |
+| The account has expired | This account has expired. Ask IT. |
+| 10 wrong passwords in a row (Omarchy's lockout) | Too many wrong passwords. Try again in 2 minutes. |
+
+A disabled or expired account only says so after the right password. Entra ID refusals show Entra's own reason.
 
 ## Autologin
 

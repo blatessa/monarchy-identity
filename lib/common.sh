@@ -127,7 +127,7 @@ pam_apply() { # pam_apply PROVIDER
   for f in "${PAM_FILES[@]}"; do
     if [[ -f $ETC/pam.d/$f ]]; then python3 -I "$PAMEDIT" apply "${opt[@]}" "$ETC/pam.d/$f" "$module" "${args[@]}" || die "could not edit $ETC/pam.d/$f"; fi
   done
-  if [[ $(kv_get "$pc" login_steps false) == true ]]; then login_steps_apply "$module" "$(kv_get "$pc" auth "")"
+  if [[ $(kv_get "$pc" login_steps false) == true ]]; then login_steps_apply "$module" "$(kv_get "$pc" auth "")" "$(kv_get "$pc" account "")"
   elif [[ $(kv_get "$pc" expired_password_screen true) == true ]]; then greeter_apply "$module" "$(kv_get "$pc" account "")"
   else greeter_remove; fi
 }
@@ -172,10 +172,11 @@ SessionCommand=$OI_ROOT/lib/sddm-session"
 # module alone) ahead of the normal stack, with the password and the code from our theme's code field
 # (pamedit.py login-steps).
 LOGIN_STEPS_PAM=monarchy-identity-login-steps
-login_steps_apply() { # login_steps_apply MODULE [AUTH_ARGS]
+login_steps_apply() { # login_steps_apply MODULE [AUTH_ARGS] [ACCOUNT_ARGS]
   remove_if_ours "$ETC/pam.d/$EXPIRED_PAM"; rm -f "$SDDM_SESSION_CONF"
   write_if_changed "$ETC/pam.d/$LOGIN_STEPS_PAM" "$OI_MARK: lib/login-steps signs in through it at the login screen
-auth     required  $1${2:+ $2}"
+auth     required  $1${2:+ $2}
+account  required  $1${3:+ $3}"
   [[ ! -f $ETC/pam.d/$GREETER_PAM ]] || python3 -I "$PAMEDIT" login-steps "$ETC/pam.d/$GREETER_PAM" "$OI_ROOT/lib/login-steps" \
     || die "could not edit $ETC/pam.d/$GREETER_PAM"
 }

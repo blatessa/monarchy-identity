@@ -38,7 +38,7 @@ package_monarchy-identity() {
   install -Dm644 "$_root/packaging/monarchy-identity.hook" \
     "$pkgdir/usr/share/libalpm/hooks/monarchy-identity.hook"
   install -d "$pkgdir/usr/share/sddm/themes/monarchy-identity"
-  install -m644 "$_root/sddm-theme/monarchy-identity/"{Main.qml,metadata.desktop,theme.conf} "$pkgdir/usr/share/sddm/themes/monarchy-identity/"
+  install -m644 "$_root/sddm-theme/monarchy-identity/"{Main.qml,reasons.js,metadata.desktop,theme.conf} "$pkgdir/usr/share/sddm/themes/monarchy-identity/"
   # assets come from Omarchy's own theme so the look stays in sync (dangling, harmlessly, on non-Omarchy systems)
   for a in logo lock lock-failed entry entry-failed bullet; do
     ln -s "../omarchy/$a.png" "$pkgdir/usr/share/sddm/themes/monarchy-identity/$a.png"

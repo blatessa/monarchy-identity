@@ -36,12 +36,12 @@ oi "${E[@]}" --groups linux-users --sudo-groups linux-admins
   && ok "password sign-in, offline cache on, homes named by short name, marked as ours" || bad "conf: $(cat "$HB")"
 [[ $(grep -c '\bhimmelblau\b' "$T/etc/nsswitch.conf") == 3 ]] && ok "nsswitch: passwd, group, shadow" || bad "nsswitch: $(cat "$T/etc/nsswitch.conf")"
 [[ -e $STUB_STATE/himmelblaud-active && -e $STUB_STATE/himmelblaud-tasks-active ]] && ok "both daemons running" || bad "daemons"
-grep -qF -- '-auth      [success=3 default=ignore]  pam_himmelblau.so ignore_unknown_user set_authtok' "$SA" && has_pam omarchy-lock-password \
+grep -qF -- '-auth      [success=3 perm_denied=die acct_expired=die default=ignore]  pam_himmelblau.so ignore_unknown_user set_authtok' "$SA" && has_pam omarchy-lock-password \
   && ok "pam_himmelblau in system-auth and the lock screen" || bad "PAM: $(grep himmelblau "$SA")"
 grep -qx 'session    required   pam_mkhomedir.so umask=0077' "$SA" && [[ ! -e $T/etc/pam.d/monarchy-identity-expired ]] \
   && ok "pam_mkhomedir makes the homes (himmelblau's skeleton copy is partial), no expired-password screen (himmelblau does that its own way)" || bad "extras applied"
 grep -qF -- "-auth      [success=done default=ignore]  pam_exec.so quiet stdout expose_authtok $REPO/lib/login-steps" "$T/etc/pam.d/sddm" \
-  && [[ $(grep -v '^#' "$T/etc/pam.d/monarchy-identity-login-steps") == 'auth     required  pam_himmelblau.so ignore_unknown_user set_authtok' ]] \
+  && [[ $(grep -v '^#' "$T/etc/pam.d/monarchy-identity-login-steps") == $'auth     required  pam_himmelblau.so ignore_unknown_user set_authtok\naccount  required  pam_himmelblau.so ignore_unknown_user' ]] \
   && [[ ! -e $T/etc/sddm.conf.d/zz-monarchy-identity-session.conf ]] \
   && ok "the login screen asks Entra once, through its own service (codes and numbers there too)" || bad "login steps: $(cat "$T/etc/pam.d/sddm")"
 [[ $(cat "$MONARCHY_IDENTITY_SUDOERS") == *"%linux-admins ALL=(ALL:ALL) ALL" ]] && ok "core: sudo for the admin group" || bad "sudoers"

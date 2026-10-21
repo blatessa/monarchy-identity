@@ -42,6 +42,26 @@ Non-obvious behaviour learned the hard way. Add to it when you learn something.
 - SDDM never calls `pam_chauthtok`; "new password required" is a failed sign-in. It reads `sddm.conf.d` only at start.
 - A session command that exits 1 makes `sddm-helper` exit 1: SDDM waits for a greeter it closed, black screen. Exit 0.
 - `lib/pamedit.py` computes skip counts from the file, so it works next to `pam_systemd_home`; `remove` is byte-exact.
+- SDDM passes the theme the modules' messages and then `pam_strerror` of the result, as info messages; nothing says
+  which phase failed. On the `sddm` service (lab, Samba AD):
+
+    | Case | Result | Messages |
+    |---|---|---|
+    | Wrong password (also disabled or expired + wrong password, offline + cached) | `Authentication failure` | |
+    | Unknown name; never signed in here and the DC down | `User not known to the underlying authentication module` | |
+    | Not in the sign-in group (account phase) | `Permission denied` | |
+    | Disabled + right password; locked by AD (any password) | `Permission denied` | |
+    | Account expired + right password | `User account has expired` | |
+    | faillock: 10 wrong | `Authentication failure` | `The account is locked due to 10 failed logins.`, `(2 minutes left to unlock)` |
+
+- sssd knows the KDC's reason (`Client's credentials have been revoked`, `Client's entry in database has expired`) and
+  returns `PAM_PERM_DENIED` / `PAM_ACCT_EXPIRED`, but `default=ignore` dropped it and `pam_unix`'s
+  `Authentication failure` won. sssd's `pam_account_locked_message`/`_expired_message` only reach `sshd` (or
+  `pam_verbosity = 3`). Omarchy's faillock `preauth` is `silent`.
+- pam_himmelblau's account check refuses someone outside the allowed groups with `Authentication failure` (the screen
+  would say wrong password). login-steps runs the account check in its own handle and says so itself.
+- `pam_faillock preauth` returns `PAM_IGNORE` for a name it can't look up; under `default=die` that became
+  `Permission denied` for every unknown name. The notice rule acts only on `auth_err`.
 
 ## Samba / Kerberos / AD
 

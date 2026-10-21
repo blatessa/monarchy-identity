@@ -34,6 +34,10 @@ diag() { # print what SDDM and the session log say (called when a login step fai
   echo "      --- session log:"; "${V[@]}" 'sudo cat /run/oi-test/session.log 2>&1 | tail -4' | sed 's/^/      /'
   echo "      --- sddm:"; "${V[@]}" 'sudo journalctl -u sddm --no-pager -o cat | grep -E "Authentication|Auth:|Login|Session started|crashed|successful|Greeter" | tail -7 | cut -c1-140' | sed 's/^/      /'
 }
+greeter_mark() { "${V[@]}" 'sudo journalctl -n0 --show-cursor -q' | sed -n 's/^-- cursor: //p'; }
+told() { # told CURSOR TEXT: the greeter was passed TEXT since CURSOR (what the theme words for people; unit-tested)
+  "${V[@]}" "sudo journalctl -t sddm-greeter-qt6 --after-cursor=$(printf %q "$1") --no-pager -o cat" | grep -qF "from daemon:  \"$2"
+}
 echo "[setup: packaged install, enroll, X11 greeter for the VM]"
 ./deploy.sh --fixtures >/dev/null
 ./install-package.sh >/dev/null
@@ -69,8 +73,15 @@ echo "[recover on the same screen: switch to another user after a failure]"
 login 3-bob bob "$PW" 1 && [[ $(last_user) == bob ]] && ok "after a failed attempt, retyped username (bob) and logged in" || { bad "could not switch user after failure"; diag; }
 logout_graphical
 
-echo "[wrong password]"
+echo "[wrong password, and locked after too many]"
+mark=$(greeter_mark)
 login 4-wrong alice "wrong-password" 1 && bad "wrong password started a session" || ok "alice + wrong password: no session"
+told "$mark" "Authentication failure" && ok "  ... the login screen was told: a wrong password" || { bad "  ... not told why"; diag; }
+"${V[@]}" 'sudo install -m 644 ~/oi/test/vm/pamtest.py /tmp/pamtest.py; for i in $(seq 10); do sudo python3 -I /tmp/pamtest.py sddm alice wrong-$i >/dev/null; done'
+mark=$(greeter_mark)
+login 4b-locked alice "$PW" 1 && bad "locked alice got a session" || ok "alice, after 10 wrong passwords (faillock): no session with the right one"
+told "$mark" "The account is locked due to 10 failed logins." && told "$mark" "(2 minutes left to unlock)" \
+  && ok "  ... the login screen was told: locked, and for how long" || { bad "  ... not told it's locked"; diag; }
 "${V[@]}" 'sudo faillock --user alice --reset' 2>/dev/null
 
 echo "[local break-glass user at the greeter]"
