@@ -121,6 +121,9 @@ echo "[Entra ID: the login screen asks once; an MFA user's code there]"
 if entra_lab && [[ -n ${ENTRA_DAVE:-} && -n ${ENTRA_DAVE_PASSWORD:-} && -n ${ENTRA_DAVE_TOTP_SECRET:-} ]]; then
   SECRET=/root/entra-secret
   echo "$PW" | "${V[@]}" 'sudo /usr/bin/monarchy-identity leave --admin Administrator' >/dev/null 2>&1
+  # The AD users' homes belong to their AD uids: the Entra user of the same name couldn't enter one, and SDDM
+  # would go straight back to the login screen.
+  "${V[@]}" 'sudo rm -rf /home/alice /home/bob /home/carol /home/dave'
   himmelblau_install; entra_devices_cleanup; entra_codes
   printf '%s\n' "$ENTRA_CLIENT_SECRET" | "${V[@]}" "sudo install -m 600 /dev/stdin $SECRET"
   out=$("${V[@]}" "sudo /usr/bin/monarchy-identity enroll entra --tenant $ENTRA_TENANT --client-id $ENTRA_CLIENT_ID --password-file $SECRET --groups linux-users" 2>&1)
