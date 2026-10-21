@@ -14,7 +14,7 @@ out=$(echo "$PW" | "${V[@]}" "sudo /usr/bin/monarchy-identity enroll$(q $LAB --g
 s=$(st); [[ $s == *'"pam_system_auth":"true"'* && $s == *'"username_field":true'* ]] && ok "sign-in and login theme in place" || bad "status: $s"
 DROPINS="/etc/sudoers.d/50-monarchy-identity /etc/sudoers.d/51-monarchy-identity-theme /etc/polkit-1/rules.d/49-monarchy-identity.rules"
 check "sudoers drop-ins and polkit rule in place" "${V[@]}" "sudo ls $DROPINS >/dev/null"
-check "theme files and Omarchy asset links installed" "${V[@]}" 'test -f /usr/share/sddm/themes/monarchy-identity/Main.qml -a -L /usr/share/sddm/themes/monarchy-identity/logo.png'
+check "theme files and Omarchy asset links installed" "${V[@]}" 'test -f /usr/share/sddm/themes/monarchy-identity/Main.qml -a -f /usr/share/sddm/themes/monarchy-identity/reasons.js -a -L /usr/share/sddm/themes/monarchy-identity/logo.png'
 expect ALLOWED "alice signs in" sddm alice "$PW"
 
 echo "[pacman hook repairs overwritten config]"

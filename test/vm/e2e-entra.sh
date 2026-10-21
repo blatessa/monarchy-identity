@@ -41,6 +41,9 @@ expect ALLOWED "sddm: alice" sddm "$ENTRA_ALICE" "$ENTRA_ALICE_PASSWORD"
 expect ALLOWED "sddm: bob by his short name" sddm "${ENTRA_BOB%@*}" "$ENTRA_BOB_PASSWORD"
 expect ALLOWED "lock screen: bob" omarchy-lock-password "$ENTRA_BOB" "$ENTRA_BOB_PASSWORD"
 expect DENIED  "login: carol (not in linux-users) is refused" login "$ENTRA_CAROL" "$ENTRA_CAROL_PASSWORD"
+out=$(pt sddm "$ENTRA_CAROL" "$ENTRA_CAROL_PASSWORD" --messages)
+[[ $out == DENIED* && $out == *"MSG This account can't sign in on this laptop. Ask IT."* ]] \
+  && ok "login screen: carol is told the account can't sign in here (himmelblau says Authentication failure)" || bad "carol at the login screen: $out"
 expect ALLOWED "login: tester (local) as before" login tester tester
 # pam_himmelblau logs its re-prompt loop to stderr ahead of the result, so look at the result line only
 out=$(pt sshd "$ENTRA_ALICE" "$ENTRA_ALICE_PASSWORD" | grep -E '^(ALLOWED|DENIED)')

@@ -19,7 +19,7 @@ for f in system-auth omarchy-lock-password; do
   ! "${PE[@]}" check "$T/etc/pam.d/$f" && ok "$f: check is false after remove" || bad "$f: check after remove"
 done
 "${PE[@]}" apply "$SA" "${SSS[@]}"
-[[ $(rule "$SA" 'pam_sss.so forward_pass') == "-auth [success=3 default=ignore] pam_sss.so forward_pass" ]] && ok "auth skips systemd_home, unix and faillock authfail (success=3)" || bad "auth skip: $(rule "$SA" forward_pass)"
+[[ $(rule "$SA" 'pam_sss.so forward_pass') == "-auth [success=3 perm_denied=die acct_expired=die default=ignore] pam_sss.so forward_pass" ]] && ok "auth skips systemd_home, unix and faillock authfail (success=3); the directory's \"can't\" ends it" || bad "auth skip: $(rule "$SA" forward_pass)"
 [[ $(rule "$SA" 'module_unknown=ignore') == "-account [success=2 user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad] pam_sss.so" ]] && ok "account: unknown/unavailable ignored, skips systemd_home and unix" || bad "account rule"
 grep -qE '^-password +\[success=2 default=ignore\] +pam_sss.so' "$SA" && ok "password skip count" || bad "password rule"
 grep -qx 'session    required   pam_mkhomedir.so umask=0077' "$SA" && ok "pam_mkhomedir at the top of session" || bad "mkhomedir"
@@ -33,7 +33,7 @@ done
 "${PE[@]}" remove "$SA"
 echo "[another provider's module gets the same rules, with its own arguments]"
 "${PE[@]}" apply "$SA" pam_other.so auth=use_first_pass account='a b'
-[[ $(rule "$SA" 'pam_other.so use_first_pass') == "-auth [success=3 default=ignore] pam_other.so use_first_pass" ]] && ok "auth rule and skip count" || bad "auth: $(rule "$SA" pam_other)"
+[[ $(rule "$SA" 'pam_other.so use_first_pass') == "-auth [success=3 perm_denied=die acct_expired=die default=ignore] pam_other.so use_first_pass" ]] && ok "auth rule and skip count" || bad "auth: $(rule "$SA" pam_other)"
 [[ $(rule "$SA" 'module_unknown=ignore') == *"default=bad] pam_other.so a b" ]] && ok "account rule keeps the ignore mappings" || bad "account: $(rule "$SA" module_unknown)"
 grep -qE '^-password +\[success=2 default=ignore\] +pam_other.so$' "$SA" && grep -qx -- '-session   optional   pam_other.so' "$SA" && ok "password and session rules" || bad "password/session"
 ! grep -E '^[^#]*pam_other' "$SA" | grep -vq '^-' && ! grep -q pam_sss "$SA" && ok "every rule -prefixed, no pam_sss" || bad "rules"
@@ -47,8 +47,8 @@ echo "[a module that makes home directories itself: no pam_mkhomedir]"
 echo "[a module that aborts once when the directory becomes unreachable: asked again only after an abort]"
 "${PE[@]}" apply --retry-on-abort "$SA" pam_other.so auth=x; once=$(cat "$SA")
 [[ $(rule "$SA" 'pam_localuser.so' ) == "-auth [success=2 default=ignore] pam_localuser.so" ]] && ok "local accounts skip both tries" || bad "guard: $(rule "$SA" pam_localuser)"
-[[ $(rule "$SA" 'abort=ignore') == "-auth [success=4 abort=ignore default=1] pam_other.so x" ]] && ok "first try: success skips the retry too; anything but abort skips only the retry" || bad "first: $(rule "$SA" abort=ignore)"
-[[ $(grep -F 'pam_other.so x' "$SA" | sed -n 2p | tr -s ' ') == "-auth [success=3 default=ignore] pam_other.so x" ]] && ok "the retry is the plain rule" || bad "retry rule"
+[[ $(rule "$SA" 'abort=ignore') == "-auth [success=4 abort=ignore perm_denied=die acct_expired=die default=1] pam_other.so x" ]] && ok "first try: success skips the retry too; anything but abort skips only the retry" || bad "first: $(rule "$SA" abort=ignore)"
+[[ $(grep -F 'pam_other.so x' "$SA" | sed -n 2p | tr -s ' ') == "-auth [success=3 perm_denied=die acct_expired=die default=ignore] pam_other.so x" ]] && ok "the retry is the plain rule" || bad "retry rule"
 "${PE[@]}" apply --retry-on-abort "$SA" pam_other.so auth=x; [[ $(cat "$SA") == "$once" ]] && ok "apply twice is the same as once" || bad "not idempotent"
 "${PE[@]}" remove "$SA"; cmp -s "$SA" "$FIX/pam.d/system-auth" && ok "remove restores the file byte for byte" || bad "remove"
 echo "[a module or argument that could add a PAM line is refused, file untouched]"
@@ -63,7 +63,7 @@ refuse "an unknown stack type"       pam_x.so bogus=1
 refuse "no module at all"
 echo "[a plain stack (no systemd_home, no faillock) still gets a correct skip count]"
 printf '#%%PAM-1.0\nauth required pam_unix.so\naccount required pam_unix.so\nsession required pam_unix.so\n' > "$T/plain"
-"${PE[@]}" apply "$T/plain" "${SSS[@]}"; grep -qF -- '-auth      [success=1 default=ignore]  pam_sss.so forward_pass' "$T/plain" && ok "plain stack: success=1" || bad "plain: $(cat "$T/plain")"
+"${PE[@]}" apply "$T/plain" "${SSS[@]}"; grep -qF -- '-auth      [success=1 perm_denied=die acct_expired=die default=ignore]  pam_sss.so forward_pass' "$T/plain" && ok "plain stack: success=1" || bad "plain: $(cat "$T/plain")"
 echo "[a file with no pam_unix at all is left alone]"
 printf '#%%PAM-1.0\nauth required pam_deny.so\n' > "$T/odd"; cp "$T/odd" "$T/odd.0"; "${PE[@]}" apply "$T/odd" "${SSS[@]}"; cmp -s "$T/odd" "$T/odd.0" && ok "unchanged" || bad "odd file modified"
 echo "[permissions survive an edit]"
@@ -96,6 +96,17 @@ H2=/usr/share/monarchy-identity/lib/login-steps
 "${PE[@]}" greeter "$SD" "$H"; ! grep -q login-steps "$SD" && grep -q password-expired "$SD" && ok "switching to the expired-password rules replaces them" || bad "both sets"
 "${PE[@]}" login-steps "$SD" "$H2"; "${PE[@]}" remove "$SD"; cmp -s "$SD" "$FIX/pam.d/sddm" && ok "remove restores the file byte for byte" || bad "login-steps remove"
 "${PE[@]}" login-steps "$SD" 'x; auth sufficient pam_permit.so' 2>/dev/null; cmp -s "$SD" "$FIX/pam.d/sddm" && ok "refused a helper that isn't a plain absolute path" || bad "accepted a bad helper"
+
+echo "[the login screen's service: a locked account says so]"
+FL="-auth      [auth_err=die default=ignore]  pam_faillock.so preauth deny=10 unlock_time=120"
+"${PE[@]}" greeter "$SD" "$H"; [[ $(grep -E '^-?auth' "$SD" | head -1) == "$FL" ]] \
+  && ok "first: Omarchy's faillock check with its limits, not silent; ends the sign-in only when locked" || bad "faillock rule: $(grep -E '^-?auth' "$SD" | head -1)"
+"${PE[@]}" login-steps "$SD" "$H2"; [[ $(grep -E '^-?auth' "$SD" | head -2 | tail -1) == *"$H2" && $(grep -E '^-?auth' "$SD" | head -1) == "$FL" ]] \
+  && ok "ahead of login-steps too (signed in there, the stack is done)" || bad "login-steps order: $(cat "$SD")"
+"${PE[@]}" apply "$SA" "${SSS[@]}"; "${PE[@]}" login-steps "$SD" "$H2"; [[ $(grep -c pam_faillock "$SD") == 1 ]] && ok "limits read from system-auth as Omarchy wrote it, edited or not" || bad "faillock with an edited system-auth"
+"${PE[@]}" remove "$SA"; "${PE[@]}" remove "$SD"; cmp -s "$SD" "$FIX/pam.d/sddm" && ok "remove restores the file byte for byte" || bad "remove"
+cp "$SA" "$T/sa.0"; sed -i '/pam_faillock.so preauth/d' "$SA"; "${PE[@]}" greeter "$SD" "$H"; ! grep -q pam_faillock "$SD" && ok "no faillock check in system-auth: none added" || bad "faillock added without one"
+"${PE[@]}" remove "$SD"; cp "$T/sa.0" "$SA"
 
 echo "[enroll and leave]"
 enroll --groups oi-laptop-users; [[ $OUT == *"enrolled in"* ]] || { bad "enroll: $OUT"; }

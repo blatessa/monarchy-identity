@@ -8,7 +8,7 @@ SSS=/usr/lib/security/pam_sss.so
 pt_as() { local u=$1; shift; "${V[@]}" "sudo -u $u python3 -I /tmp/pamtest.py$(q "$@")" 2>&1; }   # pam_sss refuses root-initiated password changes
 can_sudo() { "${V[@]}" "sudo sudo -l -U $1 2>&1" | grep -q "(ALL : ALL) ALL"; }
 allowed() { reset_locks; [[ $(pt sddm "$1" "$PW") == ALLOWED* ]]; }
-trap 'dc user setpassword alice --newpassword="$PW" >/dev/null; dc ou delete "OU=Laptops,DC=corp,DC=test" >/dev/null; for c in "OI-CLIENT\$" "LAPTOP-0042\$"; do dc computer delete "$c" >/dev/null; done
+trap 'dc user setpassword alice --newpassword="$PW" >/dev/null; for u in oi-off oi-old; do dc user delete $u >/dev/null; done; dc ou delete "OU=Laptops,DC=corp,DC=test" >/dev/null; for c in "OI-CLIENT\$" "LAPTOP-0042\$"; do dc computer delete "$c" >/dev/null; done
   "${V[@]}" "echo tester:tester | sudo chpasswd; test -e $SSS.off && sudo mv $SSS.off $SSS; sudo rm -f /root/oi.pw; for u in carol bob; do grep -q \"^\$u:\" /etc/passwd && sudo userdel -r \$u; done" >/dev/null 2>&1' EXIT
 fresh
 "${V[@]}" 'sudo rm -rf /home/alice /home/bob /home/carol'
@@ -41,6 +41,15 @@ for svc in system-auth omarchy-lock-password sddm sudo login sshd system-remote-
 done
 check "alice's home created on first sign-in, mode 700" test "$("${V[@]}" 'sudo stat -c "%U %a" /home/alice' 2>&1)" == "alice 700"
 check "carol (refused) got no home" "${V[@]}" 'test ! -e /home/carol'
+
+echo "[the directory's own no: the login screen gets it, not a wrong password]"
+for u in oi-off oi-old; do dc user create $u "$PW" >/dev/null; dc group addmembers oi-laptop-users $u >/dev/null; done
+dc user disable oi-off >/dev/null; dc user setexpiry oi-old --days=0 >/dev/null
+expect "DENIED sddm/oi-off: pam_authenticate: Permission denied" "disabled, right password: Permission denied" sddm oi-off "$PW"
+expect "DENIED sddm/oi-off: pam_authenticate: Authentication failure" "disabled, wrong password: just a wrong password" sddm oi-off wrong
+expect "DENIED sddm/oi-old: pam_authenticate: User account has expired" "account expired, right password: User account has expired" sddm oi-old "$PW"
+expect "DENIED sddm/nobody-here: pam_authenticate: User not known" "an unknown name: User not known" sddm nobody-here "$PW"
+for u in oi-off oi-old; do dc user delete $u >/dev/null; done
 
 echo "[admin prompts: a real polkit prompt, through its sandboxed helper]"
 check "polkit's agent helper is socket-activated, as on Omarchy" "${V[@]}" 'systemctl is-active -q polkit-agent-helper.socket'

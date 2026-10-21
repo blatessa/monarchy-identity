@@ -59,6 +59,8 @@ password has expired."
 BANNER1="Update your password You need to update your password because this is the first time you are signing in, or because your password has expired."
 CHANGE=("P Password: " "$BANNER" "P New password: " "$BANNER" "P Confirm password: " "T Changing the password. Please wait...")
 r=$(steps "" "" "P Password: "); [[ $r == "ok | old-pw | 1 | " ]] && ok "a password alone: signed in" || bad "password: $r"
+r=$(steps "" "" "P Password: " "rc -2"); [[ $r == "refused | old-pw | 1 | This account can't sign in on this laptop. Ask IT. / monarchy-identity: refused" ]] \
+  && ok "the right password, but not allowed on this laptop: says so, and refused (not a wrong password)" || bad "not allowed: $r"
 r=$(steps "" "" "P Password: " "P Password: "); [[ $r == "refused | old-pw | 1 | " ]] && ok "the password asked again: refused, sent once" || bad "wrong password: $r"
 W="T AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 1f Correlation ID: b6 Timestamp: 2026-10-21 15:32:45Z"
 r=$(steps "" "" "P Password: " "$W" "T Use the password for your Office 365 or Microsoft online login." "P Password: ")
@@ -127,4 +129,17 @@ foot=$(sed -n 's/^local FOOT = "\(.*\) "$/\1/p' "$REPO/lib/password-change.lua")
 [[ $foot == *" --config=/dev/null "* && $foot == *"spawn-terminal=none"* && $foot == *"show-urls-launch=none"* ]] \
   && ok "foot ignores the person's config and can't start a shell or a URL opener" || bad "foot command: ${foot:-<not found>}"
 ! command -v foot >/dev/null || $foot --check-config 2>/dev/null && ok "foot accepts those options (when installed)" || bad "foot rejects: $foot"
+
+echo "[why a sign-in failed, in people's words]"
+# What SDDM passed on during the try (as recorded in the lab, docs/dev/findings.md) -> what the theme shows.
+why() { node -e 'eval(require("fs").readFileSync(process.argv[1], "utf8").replace(/^\.pragma.*$/m, ""));
+  console.log(explain(process.argv.slice(2)))' "$REPO/sddm-theme/monarchy-identity/reasons.js" "$@"; }
+[[ $(why "Authentication failure") == "Wrong password." ]] && ok "wrong password" || bad "wrong password: $(why "Authentication failure")"
+[[ $(why "User not known to the underlying authentication module") == "No account with that name."* ]] && ok "unknown name (or never signed in here, offline)" || bad "unknown"
+[[ $(why "Permission denied") == *"can't sign in on this laptop"* ]] && ok "disabled, locked by the directory, or not allowed here" || bad "permission denied"
+[[ $(why "User account has expired") == "This account has expired. Ask IT." ]] && ok "account expired" || bad "expired"
+[[ $(why "The account is locked due to 10 failed logins." "(2 minutes left to unlock)" "Authentication failure") == "Too many wrong passwords. Try again in 2 minutes." ]] \
+  && ok "faillock: locked, and for how long" || bad "faillock: $(why "The account is locked due to 10 failed logins." "(2 minutes left to unlock)" "Authentication failure")"
+[[ $(why "The account is locked due to 10 failed logins." "(1 minute left to unlock)" "Authentication failure") == *"in 1 minute." ]] && ok "  ... one minute" || bad "one minute"
+[[ -z $(why "Something new") && -z $(why) ]] && ok "anything else: nothing invented" || bad "made something up"
 result

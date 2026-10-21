@@ -32,7 +32,7 @@ echo "[enroll]"
 oi enroll stub --tenant acme --groups staff --sudo-groups oi-admins --offline-days 7 --password-file "$T/pw"
 [[ $RC -eq 0 && $OUT == *"enrolled in acme (login mode: groups)"* ]] && ok "enrolled" || { bad "enroll"; sed 's/^/      /' <<<"$OUT"; }
 seen "enroll --tenant acme | groups|staff||7|$T/pw" && ok "provider got only --tenant, plus the resolved policy and password file" || bad "stub saw: $(cat "$STUB_LOG")"
-grep -qF -- '-auth      [success=3 default=ignore]  pam_stub.so try_first_pass' "$SA" && has_pam omarchy-lock-password \
+grep -qF -- '-auth      [success=3 perm_denied=die acct_expired=die default=ignore]  pam_stub.so try_first_pass' "$SA" && has_pam omarchy-lock-password \
   && ok "the stub's PAM module, with its arguments, in both services" || bad "PAM: $(grep -A1 BEGIN "$SA")"
 ! grep -q pam_sss "$T"/etc/pam.d/* && ok "no pam_sss anywhere" || bad "pam_sss inserted"
 [[ $(cat "$MONARCHY_IDENTITY_SUDOERS") == *"%oi-admins ALL=(ALL:ALL) ALL" && -z $(autologin_user) ]] && ok "core: sudoers and autologin off" || bad "sudo/autologin"

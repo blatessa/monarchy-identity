@@ -4,6 +4,7 @@
 // password must be changed, two new-password lines appear the same way.
 import QtQuick 2.0
 import SddmComponents 2.0
+import "reasons.js" as Reasons
 
 Rectangle {
   id: root
@@ -20,6 +21,7 @@ Rectangle {
   property bool newWanted: false   // the new-password lines are showing
   property bool changed: false   // this attempt: the directory took the new password
   property bool refused: false   // this attempt: lib/login-steps said the directory refused it, the message says why
+  property var heard: []   // this attempt: what SDDM passed on, for saying why it failed (reasons.js)
   property int sessionIndex: {
     for (var i = 0; i < sessionModel.rowCount(); i++) {
       var name = (sessionModel.data(sessionModel.index(i, 0), Qt.DisplayRole) || "").toString()
@@ -53,6 +55,7 @@ Rectangle {
     root.newAsked = false
     root.changed = false
     root.refused = false
+    root.heard = []
     root.trying = true
     // lib/login-steps splits them: the first line answers the password prompt, the second the code prompt, the third
     // the new-password prompts
@@ -71,13 +74,13 @@ Rectangle {
   Connections {
     target: sddm
     function onInformationMessage(message) {
-      // the directory's own words while it's asked; SDDM's error text after a failure isn't for people
+      // the directory's own words while it's asked; SDDM's error text after a failure becomes people's words (reasons.js)
       if (!root.trying || root.codeAsked || root.newAsked) return
       if (message === "monarchy-identity: code wanted") root.codeAsked = true
       else if (message === "monarchy-identity: new password wanted") root.newAsked = true
       else if (message === "monarchy-identity: password changed") root.changed = true
       else if (message === "monarchy-identity: refused") root.refused = true
-      else root.message = message
+      else { root.message = message; root.heard.push(message) }
     }
     function onLoginFailed() {
       if (!root.trying) return
@@ -117,7 +120,7 @@ Rectangle {
         return
       }
       root.loginFailed = true
-      if (!root.refused) root.message = ""   // the directory's reason stays up until the next try
+      if (!root.refused) root.message = Reasons.explain(root.heard)   // the directory's own reason stays up as it is
       if (root.codeWanted) {
         code.text = ""
         code.forceActiveFocus()

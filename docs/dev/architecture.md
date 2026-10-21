@@ -109,7 +109,7 @@ The core owns the rules; a provider names its module and arguments in `providers
 
 ```text
 -auth      [success=1 default=ignore]  pam_localuser.so
--auth      [success=N default=ignore]  pam_sss.so forward_pass
+-auth      [success=N perm_denied=die acct_expired=die default=ignore]  pam_sss.so forward_pass
 -account   [success=1 default=ignore]  pam_localuser.so
 -account   [success=N user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]  pam_sss.so
 -password  [success=1 default=ignore]  pam_localuser.so
@@ -121,6 +121,8 @@ session    required   pam_mkhomedir.so umask=0077
 
 - `N` is computed from the file so success skips `pam_unix`/`pam_faillock`, also next to Omarchy's `pam_systemd_home`.
 - `-` and the `ignore` mappings: a missing module or stopped daemon can't fail a local login.
+- `perm_denied=die acct_expired=die`: a disabled, locked or expired account ends with the directory's answer instead of
+  `pam_unix`'s `Authentication failure`, so the login screen can say why ([below](#why-a-sign-in-failed)).
 - `pam_localuser` skips the module for names in `/etc/passwd`. Without it the directory decided for a local account
   of the same name (refusing the owner, or letting the directory password in with `wheel`).
 - Module names and arguments can't contain characters that start another rule. `remove FILE` restores the file byte
@@ -131,7 +133,7 @@ session    required   pam_mkhomedir.so umask=0077
 - `mkhomedir = "false"`: no `pam_mkhomedir`.
 - `expired_password_screen = "false"`: no expired-password rules on `sddm`.
 - `login_steps = "true"`: the login-steps rules on `sddm` instead ([below](#more-than-a-password-at-the-login-screen)).
-- `auth_retry_on_abort = "true"`: the auth rule twice, the first `[success=N+1 abort=ignore default=1]`. himmelblau
+- `auth_retry_on_abort = "true"`: the auth rule twice, the first `[success=N+1 abort=ignore ... default=1]`. himmelblau
   aborts the first sign-in after the network drops and answers from its cache when asked again.
 
 Other services: everything that includes `system-auth` gets directory sign-in, including `polkit-1` (a vendor file in
@@ -175,7 +177,7 @@ mistyped password again, until Entra's smart lockout throttles the account (himm
 -auth  [success=die default=ignore]   pam_exec.so quiet HELPER refused
 ```
 
-`lib/login-steps` signs in through `/etc/pam.d/monarchy-identity-login-steps` (the module alone). The theme sends up to
+`lib/login-steps` signs in through `/etc/pam.d/monarchy-identity-login-steps` (the module alone, auth and account). The theme sends up to
 three lines as the password: password, code, new password. The helper answers the first prompt with the password,
 `New password:`/`Confirm password:` with the new password, and any other prompt once with the code. Each try asks Entra
 once. Lines it prints reach the theme as SDDM info messages (`pam_exec stdout`):
@@ -183,6 +185,7 @@ once. Lines it prints reach the theme as SDDM info messages (`pam_exec stdout`):
 | Outcome | Result | Printed |
 |---|---|---|
 | Signed in | auth ends, success; the account stack still applies the policy | |
+| Signed in, its account check says no | refused | "This account can't sign in on this laptop. Ask IT.", `monarchy-identity: refused` |
 | Password or code asked again | refused (rule 2: `die`) | the directory's reason, `monarchy-identity: refused` |
 | Code wanted, none given | refused, nothing sent for the code | the message, `monarchy-identity: code wanted` |
 | New password wanted, none given | refused | the message, `monarchy-identity: new password wanted` |
@@ -207,3 +210,21 @@ it. Entra's system-preferred MFA picks the push whenever one is registered.
 `config.toml` and `state.toml`. It runs from the pacman hook (`packaging/monarchy-identity.hook`: `pambase`, `sssd`,
 `himmelblau`, `filesystem`, `omarchy`, `omarchy-settings`, and our own package) and from the optional Omarchy
 post-update hook (`install-hooks`, via `sudo -n`). No file watcher.
+
+## Why a sign-in failed
+
+The theme turns what SDDM passed on during a try (module messages, then `pam_strerror` of the result) into a sentence:
+`sddm-theme/monarchy-identity/reasons.js`, recorded cases in [findings](findings.md#pam-sssd). It says what the
+directory said, as Windows does. AD itself only reports disabled or expired after the right password; a lockout shows
+whatever the password. Entra refusals keep Entra's words (login-steps above).
+
+Both `sddm` edits (`greeter`, `login-steps`) put Omarchy's faillock check first, with the limits from system-auth's
+`preauth` rule minus `silent`:
+
+```text
+-auth  [auth_err=die default=ignore]  pam_faillock.so preauth deny=10 unlock_time=120
+```
+
+It ends the sign-in only when faillock says locked, with its message. It's also ahead of login-steps, which ends the
+stack when signed in: before, an Entra user locked by faillock still signed in at the login screen.
+
