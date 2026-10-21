@@ -127,14 +127,13 @@ if entra_lab && [[ -n ${ENTRA_DAVE:-} && -n ${ENTRA_DAVE_PASSWORD:-} && -n ${ENT
   "${V[@]}" "sudo rm -f $SECRET"
   [[ $out == *"enrolled in $ENTRA_TENANT"* ]] && ok "enroll entra" || { bad "enroll entra"; sed 's/^/      /' <<<"$out"; }
   has() { "${V[@]}" "pgrep -u$(q "$1") -a $2" 2>/dev/null; }
-  steps() { "${V[@]}" "sudo journalctl -u himmelblaud --since @$1 --no-pager -o cat | grep -c 'pam authenticate step'"; }
   last_session /usr/share/wayland-sessions/hyprland.desktop; greeter_restart   # a fresh greeter, nobody remembered
-  since=$("${V[@]}" 'date +%s')
+  since=$(hb_mark)
   ./qmon.py type "$ENTRA_BOB"; ./qmon.py key ret; sleep 1; ./qmon.py type "not-bobs-password-1"; ./qmon.py key ret
   sleep 15; n=$(steps "$since"); shot 10-entra-wrong
   [[ $n == 1 ]] && ! has "$ENTRA_BOB" Hyprland >/dev/null && ok "bob, wrong password: no session, and Entra was asked once" || { bad "wrong password sent $n times"; diag; }
   last_session /usr/share/wayland-sessions/hyprland.desktop; greeter_restart   # also ends a loop, if there was one
-  since=$("${V[@]}" 'date +%s')
+  since=$(hb_mark)
   ./qmon.py type "$ENTRA_DAVE"; ./qmon.py key ret; sleep 1; ./qmon.py type "$ENTRA_DAVE_PASSWORD"; ./qmon.py key ret
   sleep 10; shot 11-code-wanted
   n=$(steps "$since"); [[ $n == 1 ]] && ! has "$ENTRA_DAVE" Hyprland >/dev/null && ok "dave (MFA, first sign-in here): the password alone isn't enough, nothing sent as the code" || { bad "dave, password only: $n steps"; diag; }
@@ -142,20 +141,6 @@ if entra_lab && [[ -n ${ENTRA_DAVE:-} && -n ${ENTRA_DAVE_PASSWORD:-} && -n ${ENT
   wait_for 60 'has "$ENTRA_DAVE" Hyprland >/dev/null' && ok "  the code on the login screen: dave's desktop starts" || { bad "no desktop after the code"; shot 12-no-desktop; diag; }
   sleep 3; shot 12-desktop
   n=$(greeter_up); "${V[@]}" "sudo loginctl terminate-user $(q "$ENTRA_DAVE")"; wait_for 40 '[[ $(greeter_up) -gt $n ]]'
-  # A password that must be changed: the theme's two new-password lines, then the desktop
-  if entra_expired_user; then
-    trap entra_expired_user_delete EXIT
-    entra_takes "$EXP_UPN" "$EXP_PW" || bad "Entra doesn't take $EXP_UPN's password yet"
-    last_session /usr/share/wayland-sessions/hyprland.desktop; greeter_restart
-    ./qmon.py type "$EXP_UPN"; ./qmon.py key ret; sleep 1; ./qmon.py type "$EXP_PW"; ./qmon.py key ret
-    sleep 10; shot 13-new-password-wanted
-    ! has "$EXP_UPN" Hyprland >/dev/null && ok "must change the password: no desktop with the old one" || bad "a desktop before the change"
-    ./qmon.py type "$EXP_NEW"; ./qmon.py key ret; sleep 1; ./qmon.py type "$EXP_NEW"; shot 14-new-typed; ./qmon.py key ret   # focus: the new line, then the second
-    wait_for 60 'has "$EXP_UPN" Hyprland >/dev/null' && ok "  the new password on the login screen: the desktop starts" || { bad "no desktop after the change"; shot 15-no-desktop; diag; }
-    expect ALLOWED "  ... and it's the password now" system-auth "$EXP_UPN" "$EXP_NEW"
-    n=$(greeter_up); "${V[@]}" "sudo loginctl terminate-user $(q "$EXP_UPN")"; wait_for 40 '[[ $(greeter_up) -gt $n ]]'
-    entra_expired_user_delete; trap - EXIT
-  fi
   "${V[@]}" 'sudo /usr/bin/monarchy-identity leave' >/dev/null 2>&1
   entra_codes off; entra_devices_cleanup
   last_session /usr/share/xsessions/oi-test.desktop

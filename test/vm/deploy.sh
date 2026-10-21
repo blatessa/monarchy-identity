@@ -4,7 +4,9 @@ set -euo pipefail
 H="$(cd "$(dirname "$0")" && pwd)"; R="$(cd "$H/../.." && pwd)"
 source "$H/ssh.sh"
 vm() { ssh "${SSHO[@]}" -p 2222 tester@127.0.0.1 "$@"; }
-tar -C "$R" --exclude=test --exclude=.git -czf - . | vm 'rm -rf ~/oi && mkdir ~/oi && tar -xzf - -C ~/oi'
+# What the CLI runs from (not the docs, or their build environment: it was 100 MB a deploy)
+tar -C "$R" --exclude='__pycache__' --exclude='*.pkg.tar.*' --exclude=packaging/src --exclude=packaging/pkg \
+  -czf - bin lib providers hooks sddm-theme packaging | vm 'rm -rf ~/oi && mkdir ~/oi && tar -xzf - -C ~/oi'
 # --fixtures = reset the VM to stock Omarchy PAM/SDDM files AND no installed monarchy-identity package (its pacman
 # hook would repair drift before the suites can observe it).
 if [[ ${1:-} == --fixtures ]]; then

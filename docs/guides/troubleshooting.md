@@ -1,42 +1,44 @@
 # Troubleshooting
 
-Start with `monarchy-identity status`, `monarchy-identity policy show` and `journalctl -t monarchy-identity`.
+First: `monarchy-identity status`, `monarchy-identity policy show`, `journalctl -t monarchy-identity`.
 
 ## A directory user is refused
 
-- **Are they allowed?** Check `monarchy-identity policy show` against their groups in the directory. A correct password
-  for someone who isn't allowed fails just like a wrong one; `journalctl -t sshd -t sddm` shows `Access denied` for a
-  policy refusal and an `auth` failure for a wrong password.
-- **Too many failed attempts?** The account is locked for a short time: `faillock --user NAME`, and
-  `sudo faillock --user NAME --reset` to clear it.
-- **First time on this laptop, and offline?** The first sign-in needs the company network.
-- **Just enrolled or just rebooted?** The laptop needs a few seconds to reach the directory.
-- **Clock wrong?** Sign-in fails when the clock is more than about five minutes off. Check `timedatectl`.
-- **Testing with `su`?** On Arch, `su` never asks the directory. Test on a text console (Ctrl+Alt+F3), the lock screen
-  or the login screen.
-- **Which password?** People sign in with their own directory password. `enroll` asks for the join account's directory
-  password (Entra ID: the app registration's client secret), and `sudo` for your own.
+| Check | How |
+|---|---|
+| Allowed? | `policy show` against their groups. A policy refusal logs `Access denied` (`journalctl -t sshd -t sddm`); a wrong password logs an `auth` failure. |
+| Locked by failed attempts? | `faillock --user NAME`; `sudo faillock --user NAME --reset` |
+| First sign-in on this laptop, offline? | The first sign-in needs the directory. |
+| Just enrolled or booted? | Give the directory client a few seconds. |
+| Clock? | More than ~5 minutes off fails sign-in: `timedatectl`. |
+| Testing with `su`? | `su` doesn't use the directory. Use a text console (Ctrl+Alt+F3), the lock screen or the login screen. |
+| Right password? | People use their own directory password. `enroll` wants the join account's (Entra ID: the client secret). |
 
-## Opening someone's home folder asks for a password
-
-Home folders are private to their owner, so opening another person's needs administrator rights.
-
-## Directory sign-in stopped working for everyone
+## Sign-in broke for every directory user
 
 ```bash
 sudo monarchy-identity reassert
 ```
 
-It puts the sign-in configuration back and starts the directory service if it has stopped. If that reports that the
-laptop needs re-enrolling, run `leave` and `enroll` again.
+Re-applies the sign-in configuration and starts the directory client. If it says the laptop needs re-enrolling:
+`leave`, then `enroll`.
 
 ## `enroll` refuses
 
-`say who may sign in`: add `--groups` or `--users`. `has no group named`: check the name in the directory.
-`accessible by group/other`: `chmod 600` the password file. The rest: [Active Directory](../providers/ad.md#troubleshooting), [Entra ID](../providers/entra.md#troubleshooting).
-A refusal changes nothing; if `enroll` stops partway, fix the cause and run the same command again.
+| Message | Fix |
+|---|---|
+| `say who may sign in` | Add `--groups` or `--users`. |
+| `has no group named` | Check the name in the directory. |
+| `accessible by group/other` | `chmod 600` the password file. |
+| Others | [Active Directory](../providers/ad.md#troubleshooting), [Entra ID](../providers/entra.md#troubleshooting) |
+
+A refusal changes nothing. If `enroll` stops partway, fix the cause and run the same command again.
+
+## Opening another person's home folder asks for a password
+
+Home folders are private to their owner (mode 700).
 
 ## Getting back in
 
-Local accounts always work. Sign in as your local account on a text console (Ctrl+Alt+F3) or over `ssh`, then
-`sudo monarchy-identity leave` if you want to remove directory sign-in.
+Local accounts always work: sign in as one on a text console or over `ssh`, then `sudo monarchy-identity leave` if
+needed.

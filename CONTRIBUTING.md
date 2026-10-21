@@ -1,12 +1,12 @@
 # Contributing
 
-Contributor and agent guidance lives in [AGENTS.md](AGENTS.md) (rules, layout, conventions),
-[docs/dev/testing.md](docs/dev/testing.md) (the lab) and [docs/dev/architecture.md](docs/dev/architecture.md).
+Rules, layout and conventions: [AGENTS.md](AGENTS.md). The lab: [docs/dev/testing.md](docs/dev/testing.md). Design:
+[docs/dev/architecture.md](docs/dev/architecture.md).
 
-- **Never test PAM/sssd/SDDM changes on your own laptop.** Use the lab in `test/`.
-- Run `test/unit/run.sh` (seconds, no setup) and the lab suites your change touches (`test/run-all.sh` runs everything).
-- PAM additions must be safe when `pam_sss.so` is missing, idempotent, and removable with `lib/pamedit.py remove`. Add a test.
-- Keep to the scope in [docs/dev/architecture.md](docs/dev/architecture.md#scope): authentication only.
-- Update the docs (`docs/`) with behaviour changes and `docs/dev/findings.md` with lessons.
+- Don't test PAM, sssd, nsswitch or SDDM changes on your own laptop; use the lab in `test/`.
+- Run `test/unit/run.sh`, and the lab suites your change touches (`test/run-all.sh` runs them all).
+- A PAM edit goes through `lib/pamedit.py`, works when the module is missing, and has a removal test.
+- Scope is authentication: [architecture](docs/dev/architecture.md#scope).
+- Update `docs/` with behaviour changes and `docs/dev/findings.md` with lessons.
 
-By contributing you agree your work is released under the MIT license in [LICENSE](LICENSE).
+Contributions are released under the MIT license in [LICENSE](LICENSE).

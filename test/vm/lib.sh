@@ -75,50 +75,17 @@ himmelblau_install() {
   scp -q "${SSHO[@]}" -P 2222 "$p" tester@127.0.0.1:/home/tester/himmelblau.pkg.tar.zst \
     && "${V[@]}" 'sudo pacman -U --noconfirm ~/himmelblau.pkg.tar.zst' >/dev/null 2>&1
 }
+# hb_mark: where himmelblaud's log is now; hb_log MARK: its log since; steps MARK: how many sign-in steps since (each
+# one went to Entra). By journal cursor: the lab's clock jumps (e2e-offline), and a time would catch the previous check's steps.
+hb_mark() { "${V[@]}" 'sudo journalctl -u himmelblaud -n0 --show-cursor -q' | sed -n 's/^-- cursor: //p'; }
+hb_log() { "${V[@]}" "sudo journalctl -u himmelblaud --after-cursor=$(printf %q "$1") --no-pager -o cat"; }
+steps() { hb_log "$1" | grep -c 'pam authenticate step'; }
 # Every Entra run registers the VM again; delete the device objects it leaves (needs az signed in to the tenant).
 # Entra's list can lag a registration by a minute, so a cleanup at exit may miss the last device; the next run's gets it.
 entra_devices_cleanup() {
   command -v az >/dev/null || { echo "  NOTE: delete the device 'oi-client' in the Entra admin center"; return; }
   local id; for id in $(az rest --method get --url "https://graph.microsoft.com/v1.0/devices?\$filter=displayName eq 'oi-client'&\$select=id" --query 'value[].id' -o tsv 2>/dev/null); do
     az rest --method delete --url "https://graph.microsoft.com/v1.0/devices/$id" >/dev/null 2>&1; done
-}
-
-# A password Entra says must be changed (needs az signed in to the tenant as a user administrator).
-# entra_must_change UPN PASSWORD: an admin reset to PASSWORD, to be changed at the next sign-in; entra_password UPN
-# PASSWORD: back to PASSWORD, nothing to change.
-GRAPH=https://graph.microsoft.com/v1.0
-graph() { az rest --method "$1" --url "$GRAPH/$2" ${3:+--body "$3"} "${@:4}"; }
-pw_body() { python3 -I -c 'import json,sys; print(json.dumps({"passwordProfile": {"password": sys.argv[1], "forceChangePasswordNextSignIn": sys.argv[2] == "1"}}))' "$1" "$2"; }
-entra_must_change() { graph patch "users/$1" "$(pw_body "$2" 1)" >/dev/null; }
-entra_password() { graph patch "users/$1" "$(pw_body "$2" 0)" >/dev/null; }
-# entra_expired_user: a throwaway user in linux-users who must change the password at the first sign-in: sets EXP_UPN,
-# EXP_PW (and EXP_NEW, the one to change to), or says why not and returns 1. entra_expired_user_delete removes it for
-# good (a deleted user keeps the name for 30 days otherwise).
-entra_expired_user() {
-  command -v az >/dev/null && az account show >/dev/null 2>&1 || { echo "  SKIP: needs az signed in to the tenant"; return 1; }
-  EXP_UPN="oi-expired@$ENTRA_TENANT" EXP_PW="Oi-$(openssl rand -hex 8)-1a" EXP_NEW="Oi-$(openssl rand -hex 8)-2b"
-  entra_expired_user_delete
-  local gid uid body
-  gid=$(graph get "groups?\$filter=displayName eq 'linux-users'&\$select=id" "" --query 'value[0].id' -o tsv) || return 1
-  body=$(python3 -I -c 'import json,sys; print(json.dumps({"accountEnabled": True, "displayName": "oi expired", "mailNickname": "oi-expired",
-    "userPrincipalName": sys.argv[1], "passwordProfile": {"password": sys.argv[2], "forceChangePasswordNextSignIn": True}}))' "$EXP_UPN" "$EXP_PW")
-  uid=$(graph post users "$body" --query id -o tsv) && [[ -n $uid ]] || { bad "could not create $EXP_UPN"; return 1; }
-  graph post "groups/$gid/members/\$ref" "{\"@odata.id\": \"$GRAPH/directoryObjects/$uid\"}" >/dev/null || { bad "could not add $EXP_UPN to linux-users"; return 1; }
-}
-# entra_takes UPN PASSWORD: wait until Entra's sign-in takes a password just set through Graph (a minute or two after):
-# tries the login screen until it gets past the password (a new one or a code wanted), at most 6 times, 30 s apart.
-# Sets OUT to that try's pamtest output.
-entra_takes() {
-  local i; for i in 1 2 3 4 5 6; do
-    OUT=$(pt --messages sddm "$1" "$2")
-    [[ $OUT == *"MSG monarchy-identity: "*" wanted"* ]] && return 0
-    sleep 30
-  done
-  return 1
-}
-entra_expired_user_delete() {
-  local id; id=$(graph get "users/oi-expired@$ENTRA_TENANT" "" --query id -o tsv 2>/dev/null) || return 0
-  graph delete "users/$id" >/dev/null 2>&1; graph delete "directory/deletedItems/$id" >/dev/null 2>&1; true
 }
 
 # fresh: push the repo, reset PAM/SDDM to stock Omarchy, make sure the machine isn't enrolled.

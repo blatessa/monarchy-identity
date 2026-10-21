@@ -21,12 +21,13 @@ echo "[the login-steps helper]"
 LS=(python3 -I "$REPO/lib/login-steps")
 ! printf 'pw\0' | PAM_TYPE=auth PAM_USER=dave "${LS[@]}" && ! PAM_TYPE=auth PAM_USER=dave "${LS[@]}" refused \
   && ok "refuses to run without root (it signs people in)" || bad "login-steps ran unprivileged"
-# Its conversation with the module, against scripts of what pam_himmelblau 4.0.6 asks (P a prompt, T a message, then
-# the result): the outcome, what it answered, and what reaches the login screen.
+# Its conversation with the module, against scripts of what pam_himmelblau 4.0.6 asks (P a prompt, T a message, W
+# seconds the module takes, rc its result): the outcome, what it answered, and what reaches the login screen.
 steps() { python3 -I - "$REPO/lib/login-steps" "$@" <<'PY'
-import importlib.machinery, importlib.util, io, contextlib, sys
+import importlib.machinery, importlib.util, io, contextlib, sys, time
 loader = importlib.machinery.SourceFileLoader("login_steps", sys.argv[1])
 ls = importlib.util.module_from_spec(importlib.util.spec_from_loader("login_steps", loader)); loader.exec_module(ls)
+ls.WAITING = 0.1
 code, new, script = sys.argv[2], sys.argv[3], sys.argv[4:]
 sent, calls = [], [0]
 def sign_in(user, answer):
@@ -35,6 +36,8 @@ def sign_in(user, answer):
         kind, _, text = step.partition(" ")
         if kind == "rc":
             return int(text)
+        if kind == "W":
+            time.sleep(float(text)); continue
         reply = answer(n, 1 if kind == "P" else 4, text)
         if kind == "P":
             n += 1
@@ -57,6 +60,20 @@ BANNER1="Update your password You need to update your password because this is t
 CHANGE=("P Password: " "$BANNER" "P New password: " "$BANNER" "P Confirm password: " "T Changing the password. Please wait...")
 r=$(steps "" "" "P Password: "); [[ $r == "ok | old-pw | 1 | " ]] && ok "a password alone: signed in" || bad "password: $r"
 r=$(steps "" "" "P Password: " "P Password: "); [[ $r == "refused | old-pw | 1 | " ]] && ok "the password asked again: refused, sent once" || bad "wrong password: $r"
+W="T AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 1f Correlation ID: b6 Timestamp: 2026-10-21 15:32:45Z"
+r=$(steps "" "" "P Password: " "$W" "T Use the password for your Office 365 or Microsoft online login." "P Password: ")
+[[ $r == "refused | old-pw | 1 | Error validating credentials due to invalid username or password. / monarchy-identity: refused" ]] \
+  && ok "a wrong password: Entra's sentence alone (no code, IDs or time), then 'refused'" || bad "wrong password, why: $r"
+S="T UserInformationNotProvided - Session information isn't sufficient for single-sign-on. This means that a user isn't signed in."
+r=$(steps "" "" "P Password: " "$S" "P Password: ")
+[[ $r == "refused | old-pw | 1 | Microsoft needs you to sign in on the web first, "*"myaccount.microsoft.com"*" / monarchy-identity: refused" ]] \
+  && ok "Entra wants a web sign-in first (a password to change on a joined laptop): says where, not Entra's text" || bad "web first: $r"
+r=$(steps 000000 "" "P Password: " "T Enter the code" "P Code: " "T AADSTS50126: The code is wrong." "P Code: ")
+[[ $r == "refused | old-pw,000000 | 1 | The code is wrong. / monarchy-identity: refused" ]] \
+  && ok "a wrong code: why, then 'refused'" || bad "wrong code, why: $r"
+r=$(steps 000000 "" "P Password: " "T Enter the code" "P Code: " "T Authentication failed." "W 0.3" "P Code: ")
+[[ $r == "refused | old-pw,000000 | 1 | Authentication failed. / monarchy-identity: refused" ]] \
+  && ok "  ... said once when it stood while the module worked" || bad "wrong code, why said twice: $r"
 r=$(steps "" "" "P Password: " "T Enter the code" "P Code: "); [[ $r == "code | old-pw | 1 | Enter the code / monarchy-identity: code wanted" ]] \
   && ok "a code wanted: its message and 'code wanted', nothing sent for it" || bad "code: $r"
 r=$(steps "" "" "P Password: " "$BANNER" "P New password: ")

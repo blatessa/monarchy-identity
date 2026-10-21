@@ -27,7 +27,6 @@ Until the package is in Omarchy's package repository, install the file from the
 
 ## Documentation
 
-**<https://docs.monarchy.run/monarchy-identity/>**. Start with
-[Getting started](https://docs.monarchy.run/monarchy-identity/getting-started/).
+**<https://docs.monarchy.run/monarchy-identity/>**
 
 Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). Security: [SECURITY.md](SECURITY.md). MIT licensed.

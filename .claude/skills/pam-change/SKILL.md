@@ -12,7 +12,7 @@ A mistake here locks users (including root, over SSH) out of a machine. The host
 2. Every PAM rule is `-`-prefixed and safe when the provider's module (`pam_sss.so` for ad) is missing or its daemon is down. The rules live in `pamedit.py`; a provider only names the module and arguments in `pam.conf`. Account rules map `user_unknown`, `authinfo_unavail`, `module_unknown` to `ignore`. Local users and root must be unaffected. Read the header of `lib/pamedit.py`: a plain `default=bad` once failed EVERY login.
 3. Idempotent (`apply` twice = once) and exactly reversible (`remove` restores byte-identical). Add the check.
 4. `reassert` re-applies it (the pacman hook runs that after updates), `status` reports when it's missing, and `leave` removes it.
-5. Both Omarchy services that matter are covered: `/etc/pam.d/system-auth` (everything funnels into it) and `/etc/pam.d/omarchy-lock-password` (lock screen). `su` uses pam_unix directly; there's no `polkit-1` service.
+5. Both Omarchy services that matter are covered: `/etc/pam.d/system-auth` (everything funnels into it) and `/etc/pam.d/omarchy-lock-password` (lock screen). `su` uses pam_unix directly; `polkit-1` is a vendor file in `/usr/lib/pam.d/` that includes `system-auth`.
 6. sssd restarts only via `sssd_restart`; `sssctl` always with `</dev/null` and `timeout`.
 7. New file under `lib/`, `providers/`, etc. that the CLI sources: add it to `packaging/PKGBUILD` (`test/vm/e2e-package.sh` catches misses).
 

@@ -13,7 +13,8 @@ or, from our theme's extra fields, up to three lines: the password, the code, a 
       Refused (the password asked again, a code or a new password asked for and none given, or a new password not
       accepted): marks this sign-in, exit 1. For something wanted it first prints the directory's message and then
       CODE_WANTED or NEW_PASSWORD_WANTED: pam_exec passes both to the login screen, and the theme shows the fields; a
-      new password not accepted prints why. PASSWORD_CHANGED: the new password was accepted (the theme uses it from
+      new password not accepted prints why; the password or the code asked again prints why, then REFUSED (the theme
+      keeps the reason up). PASSWORD_CHANGED: the new password was accepted (the theme uses it from
       then on). Anything else (a local account, the daemon down): exit 1, the normal stack decides.
       A message the module leaves standing (the number to approve on the phone, while it waits) is printed too.
   auth, `refused`: exit 0 iff this sign-in was just refused (the stack then fails at once, without asking again).
@@ -21,6 +22,7 @@ or, from our theme's extra fields, up to three lines: the password, the code, a 
 import ctypes
 import ctypes.util
 import os
+import re
 import sys
 import threading
 import time
@@ -30,6 +32,7 @@ SERVICE = b"monarchy-identity-login-steps"
 CODE_WANTED = "monarchy-identity: code wanted"   # sddm-theme/monarchy-identity/Main.qml shows its code field
 NEW_PASSWORD_WANTED = "monarchy-identity: new password wanted"   # ... and its new-password fields
 PASSWORD_CHANGED = "monarchy-identity: password changed"   # ... and then signs in with the new one
+REFUSED = "monarchy-identity: refused"   # ... and keeps the message before it up: why the directory said no
 # pam_himmelblau's prompts for a password Entra says must be changed (it changes it, then goes on signing in). Matched
 # by text, so the module speaks English to us (LC_ALL in main); what the person reads comes from the daemon.
 NEW_PROMPTS = ("New password:", "Confirm password:")
@@ -43,8 +46,30 @@ PAM_CONV_ERR = 19
 OUT = None   # what pam_exec hands the login screen (stdout until main() moves it aside: the module logs to fd 1)
 
 
+# Entra wants a sign-in on the web first: a password that must be changed, on a laptop that has joined (released
+# himmelblau can't change it there, himmelblau#1888), or anything else Entra must ask interactively. Its own text for
+# these (AADSTS50058, AADSTS50133) means nothing to a person.
+WEB_FIRST = ("UserInformationNotProvided", "SsoArtifactInvalidOrExpired", "AADSTS50058:", "AADSTS50133:")
+SIGN_IN_ON_WEB = "Microsoft needs you to sign in on the web first, for example to change your password: go to " \
+    "myaccount.microsoft.com on a phone or another computer, then sign in here."
+
+
+def plain(text):
+    """The directory's words for a person: Entra's AADSTS messages lose their code and what follows the sentence
+    (trace and correlation IDs, a timestamp: for the journal, which has them)."""
+    text = " ".join(text.split())
+    if text.startswith(WEB_FIRST):
+        return SIGN_IN_ON_WEB
+    m = re.match(r"AADSTS\d+: (.*?)(?: Trace ID:.*)?$", text)
+    return m.group(1) if m else text
+
+
+SAID = [""]   # the last line printed
+
+
 def say(text):
-    print(" ".join(text.split()), file=OUT or sys.stdout, flush=True)
+    SAID[0] = plain(text)
+    print(SAID[0], file=OUT or sys.stdout, flush=True)
 
 
 def local_account(user):
@@ -150,6 +175,10 @@ def once(user, password, code, new=""):
                 say(PASSWORD_CHANGED)
                 asked.pop("code", None)   # the module signs in again with the new one: a code may be asked again
             if text == first[0] or asked.get("code"):   # asked again: the directory refused what it got
+                if told:   # the first message after the answer says why (then the module's hint for the next try)
+                    if plain(told[0]) != SAID[0]:   # unless it stood long enough to be printed already
+                        say(told[0])
+                    say(REFUSED)
                 seen.append("refused")
                 return None
             asked["code"] = 1

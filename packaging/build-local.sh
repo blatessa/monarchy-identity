@@ -5,6 +5,6 @@
 set -euo pipefail
 P="$(cd "$(dirname "$0")" && pwd)"; R="$(cd "$P/.." && pwd)"
 v=$(sed -n 's/^pkgver=//p' "$P/PKGBUILD"); t="monarchy-identity-$v.tar.gz"
-tar -C "$R" --exclude=./.git --exclude=./test --exclude=./site --exclude=./packaging/src --exclude=./packaging/pkg \
+tar -C "$R" --exclude=./.git --exclude=./test --exclude=./site --exclude=./.venv --exclude=./packaging/src --exclude=./packaging/pkg \
   --exclude="./packaging/$t" --exclude='*.pkg.tar.*' --transform "s,^\.,monarchy-identity-$v," -czf "$P/$t" .
 cd "$P" && makepkg -f --skipchecksums "$@"

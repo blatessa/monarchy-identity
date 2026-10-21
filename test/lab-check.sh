@@ -27,12 +27,12 @@ note() { printf '  note  %s\n        -> %s\n' "$1" "$2"; }
 entra_vars=(ENTRA_TENANT ENTRA_CLIENT_ID ENTRA_CLIENT_SECRET ENTRA_ALICE ENTRA_ALICE_PASSWORD ENTRA_BOB ENTRA_BOB_PASSWORD ENTRA_CAROL ENTRA_CAROL_PASSWORD)
 entra_mfa_vars=(ENTRA_DAVE ENTRA_DAVE_PASSWORD ENTRA_DAVE_TOTP_SECRET)
 if [[ -z ${ENTRA_LAB_ENV:-} || ! -r ${ENTRA_LAB_ENV:-} ]]; then
-  note "no Entra test tenant: e2e-entra.sh will SKIP" "export ENTRA_LAB_ENV=/path/to/lab.env (outside the repo; contents in docs/dev/testing.md#labs-for-other-directories)"
+  note "no Entra test tenant: e2e-entra.sh will SKIP" "export ENTRA_LAB_ENV=/path/to/lab.env (outside the repo; contents in docs/dev/testing.md#entra-id)"
 else
   unset_vars=$(set -a; source "$ENTRA_LAB_ENV" >/dev/null 2>&1; for v in "${entra_vars[@]}"; do [[ -n ${!v:-} ]] || printf '%s ' "$v"; done)
-  [[ -z $unset_vars ]] && ok "Entra test tenant ($ENTRA_LAB_ENV)" || note "$ENTRA_LAB_ENV lacks: $unset_vars" "add them (docs/dev/testing.md#labs-for-other-directories)"
+  [[ -z $unset_vars ]] && ok "Entra test tenant ($ENTRA_LAB_ENV)" || note "$ENTRA_LAB_ENV lacks: $unset_vars" "add them (docs/dev/testing.md#entra-id)"
   unset_vars=$(set -a; source "$ENTRA_LAB_ENV" >/dev/null 2>&1; for v in "${entra_mfa_vars[@]}"; do [[ -n ${!v:-} ]] || printf '%s ' "$v"; done)
-  [[ -z $unset_vars ]] && ok "Entra MFA test user" || note "no Entra MFA test user ($unset_vars): the second-step checks will SKIP" "docs/dev/testing.md#labs-for-other-directories"
+  [[ -z $unset_vars ]] && ok "Entra MFA test user" || note "no Entra MFA test user ($unset_vars): the second-step checks will SKIP" "docs/dev/testing.md#entra-id"
   ssh -i test/vm/keys/id_oi -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=4 -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -p 2222 tester@127.0.0.1 'pacman -Q himmelblau' >/dev/null 2>&1 \
     && ok "VM has himmelblau" || note "VM has no himmelblau" "the suites install it from test/vm/images/himmelblau-*.pkg.tar.zst (build it: test/vm/himmelblau/build.sh)"
