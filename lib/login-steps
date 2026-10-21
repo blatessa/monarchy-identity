@@ -40,11 +40,11 @@ PAM_ABORT = 26
 PAM_CONV_ERR = 19
 
 
-OUT = sys.stdout   # what pam_exec hands the login screen; main() moves it aside, as the module logs to fd 1
+OUT = None   # what pam_exec hands the login screen (stdout until main() moves it aside: the module logs to fd 1)
 
 
 def say(text):
-    print(" ".join(text.split()), file=OUT, flush=True)
+    print(" ".join(text.split()), file=OUT or sys.stdout, flush=True)
 
 
 def local_account(user):
