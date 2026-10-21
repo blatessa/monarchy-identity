@@ -1,66 +1,45 @@
 # Status and limits
 
-Version 0.1.0. Active Directory (Windows Server and Samba AD) is the supported provider. Microsoft Entra ID is in
-development: it works in the lab against a test tenant, and needs the himmelblau package, which isn't in Omarchy's
-repository yet.
+Version 0.1.0.
 
-## Works
+## Active Directory (supported)
 
-- Enrolling, interactively or unattended, into an OU, with a chosen computer name, or over an existing computer account.
-- Sign-in at the login screen, lock screen, terminal, `ssh`, `sudo` and administrator prompts.
-- All three login policies, and changing them without re-joining.
-- `sudo` for a directory group.
-- Cached sign-in while the domain controller is unreachable.
-- Changing a password with `passwd`, and changing an expired password at the login screen.
-- Keeping sign-in working through `omarchy update` and package updates.
+Tested in the lab (Samba AD) and by hand on a Windows Server 2025 domain with a real Omarchy laptop.
 
-## Limits
+Works: enrolling (interactive or unattended, into an OU, with a chosen computer name, over an existing computer
+account); sign-in at the login screen, lock screen, terminal, `ssh`, `sudo` and admin prompts; all three login
+policies and changing them without re-joining; `sudo` for a group; cached sign-in with the DC unreachable; `passwd`
+and expired passwords at the login screen; `omarchy update` and package updates.
 
-- **`su`** doesn't work for directory users. Use `sudo`, or `sudo -iu` to become another user.
-- **Graphical admin prompts** don't say whose password they want: people in the admin group use their own, anyone
-  else an administrator's.
-- **One person per laptop** is what Omarchy is built for: the browser colour is shared, and a second person's
-  `omarchy update` fails on the first one's log file.
-- **`sudo`** is all-or-nothing per group.
-- **Not supported:** Group Policy logon rules and smart cards. Domains with several controllers or AD sites haven't
-  been tested.
+Limits:
+
+- `su` doesn't work for directory users; use `sudo -iu`.
+- Graphical admin prompts don't say whose password they want: admins use their own, others an administrator's.
+- One person per laptop is what Omarchy assumes: the browser colour is shared, and a second person's `omarchy update`
+  fails on the first one's log file.
+- `sudo` is all-or-nothing per group.
+- Not supported: Group Policy logon rules, smart cards. Not tested: several domain controllers, AD sites.
 
 ## Entra ID (in development)
 
-Setup and behaviour: [Entra ID](providers/entra.md).
+Setup and behaviour: [Entra ID](providers/entra.md). Tested in the lab against a test tenant with himmelblau 4.0.6
+(the version packaged for Omarchy).
 
-**Works in the lab** (a virtual machine against a test tenant):
+Works: enrolling with an app registration (unattended too); sign-in at the login screen, lock screen and terminal;
+MFA at the login screen (phone approval or code); groups, users and `sudo` for a group; cached sign-in offline;
+`leave` and enrolling again.
 
-- enrolling with an app registration, unattended too;
-- sign-in at the login screen, lock screen and terminal;
-- multi-factor authentication at the login screen, with an approval on the phone or a code;
-- changing a password Entra says must be changed, at the login screen, with multi-factor authentication too (needs
-  a fix to the Entra client that isn't released yet: see below);
-- allowing groups or people, and `sudo` for a group;
-- cached sign-in with no network;
-- leaving, and enrolling again.
+Limits:
 
-**Not tested yet:**
+- A password Entra says must be changed is changed at the login screen only on a laptop's first sign-in, for someone
+  without MFA. Otherwise they change it at myaccount.microsoft.com first (the himmelblau fixes are unreleased).
+- Windows Hello PINs and security keys aren't supported.
+- Password-only `ssh` is refused; MFA users give a code every time.
+- `--offline-days` is refused. Offline sign-in uses the last online password; changes in Entra (password, disabled
+  account, group removal, Conditional Access) reach the laptop when it's next online.
+- `leave` keeps the device in Entra; delete it by the ID `leave` prints.
+- himmelblau 4.0.7 starts ~20 s slower and sometimes fails to start ([findings](dev/findings.md#entra-id-himmelblau-406)).
 
-- real laptops;
-- Conditional Access policies;
-- guest accounts;
-- the tenant setting that requires multi-factor authentication to join devices.
-
-- **MFA at the login screen.** Where Entra asks for a second step (a person's first sign-in on a laptop, and when it
-  wants MFA again), the login screen shows the number to approve in the Authenticator app, or asks for the code after
-  the password. Windows Hello PINs and security keys aren't supported.
-- **Passwords are changed with Microsoft**, not with `passwd` on the laptop. A password Entra says must be changed
-  is changed at the login screen. Released versions of the Entra client (himmelblau 4.0.6) only manage that on the
-  laptop's first sign-in, for people without multi-factor authentication; the fix for the rest isn't released yet.
-- **`ssh` with only a password is refused** by the Entra client for remote sign-in; with MFA it asks for the code
-  every time.
-- **`--offline-days`** can't be honoured: Entra's client has no limit for its offline cache.
-- **Offline sign-in uses the password from the last online sign-in.** Until the laptop is online again, a password
-  changed or reset in Entra isn't known to it (the old one still works), and disabling an account, removing it from
-  the allowed groups or a Conditional Access policy doesn't reach it. Someone who never signed in on the laptop can't
-  sign in offline.
-- **Leaving** keeps the laptop's device record in Entra; delete it in the Entra admin center (`leave` prints its device
-  ID). Enrolling a reinstalled laptop registers a new device with the same name next to the old one.
+Not tested: real laptops, Conditional Access, guest accounts, the tenant setting requiring MFA to join devices.
 
 Planned work: [GitHub issues](https://github.com/blatessa/monarchy-identity/issues).

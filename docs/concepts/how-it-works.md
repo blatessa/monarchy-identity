@@ -1,64 +1,57 @@
 # How sign-in works
 
-## The idea
+An enrolled laptop asks the directory at each sign-in whether the person exists, the password is right, and they are
+allowed. Accounts aren't created ahead of time: a person's account and home folder appear at their first sign-in.
 
-Once a laptop is **enrolled**, it asks your directory whenever someone signs in: *does this person exist, is the
-password right, and are they allowed on this laptop?* The directory stays the one place where people, groups and
-passwords live. Enrolling registers the laptop with the directory (in Active Directory, a computer account) and connects
-its sign-in, alongside the local accounts it already has. Nothing is created per person in advance: a person's account
-appears on a laptop the first time they sign in.
+## Who may sign in
 
-## Where people sign in
+Nobody, until you say. One of these is required at `enroll`:
 
-| Where | What happens |
+| Option | Who |
 |---|---|
-| **Login screen** | Omarchy's stock login screen only signs in whoever used it last, so enrolling switches to a theme with a username box. It looks like Omarchy's, with one extra line, and remembers the last user. |
-| **Lock screen** | Unlocks with the directory password. |
-| **Terminals, `ssh`, `sudo`** | Same password, same rules. |
+| `--groups laptop-users` | Members of these directory groups (`--groups a,b` for several) |
+| `--users alice,bob` | Only these people |
+| `--mode any` | Everyone in the directory |
 
-Someone who isn't allowed gets the same result as a wrong password.
+Active Directory names are short (`alice`). Entra ID takes sign-in names (`alice@corp.example.com`); a bare `alice` gets
+the tenant's domain. Someone not allowed is refused exactly like a wrong password. Change it later with
+[`policy set`](../guides/manage.md#change-who-may-sign-in).
 
-## First sign-in and working offline
+## Where
 
-The **first** sign-in on a laptop needs the company network: that's when the laptop learns who the person is and creates
-their home folder, which is private to them. Later sign-ins work offline, from a protected cached copy of the
-credentials. You can make that copy expire after some days away (`--offline-days`).
+| Where | |
+|---|---|
+| Login screen | Switched to a theme with a username field (Omarchy's stock theme only signs in the last user). |
+| Lock screen, terminals, `ssh`, `sudo`, admin prompts | Directory password, same policy. |
+| `su` | Not supported for directory users (Arch's `su` uses local passwords only). Use `sudo -iu`. |
+
+## Offline
+
+The first sign-in on a laptop needs the directory. After that, cached credentials work offline. `--offline-days N`
+makes them expire after N days without reaching the directory (Active Directory only).
 
 ## Local accounts
 
-Local accounts, including the one the laptop was set up with, keep working exactly as before, also when the directory
-can't be reached. The rules on these pages don't apply to them.
-
-A local account wins over a directory user with the same name: it signs in with its local password only, and the
-directory user can't sign in on that laptop. If the person who set up the laptop has the same name in the directory,
-they keep using the local account there, or you remove it to let them sign in as their directory account.
-
-## Passwords
-
-People change their directory password with `passwd` in a terminal, and the directory's password rules apply.
-
-If a password has **expired** (or you set "change at next sign-in"), the person signs in at the login screen as usual
-and gets a full-screen "Your password has expired" screen before the desktop. They type the current password, then the
-new one twice; the directory's own messages ("too short", "used before") appear there. Once it's changed, the desktop
-starts; if they give up, they're back at the login screen. Nothing else (the lock screen, `ssh`, `sudo`) lets an
-expired password in. The screen works from the first restart after enrolling.
-
-With Entra ID, passwords are changed with Microsoft rather than with `passwd`, and a password that must be changed is
-changed on the login screen itself: see [Entra ID](../providers/entra.md#how-it-behaves).
+Unchanged, including when the directory is unreachable or its client is broken. A local account wins over a directory
+user of the same name: that directory user can't sign in on the laptop.
 
 ## Admin rights
 
-Signing in doesn't make someone an administrator. Directory users get `sudo` only if you name their group with
-`--sudo-groups`. Local users keep whatever rights they had.
+Directory users get `sudo` only through `--sudo-groups`. Members of those groups also answer graphical admin prompts.
+
+## Passwords
+
+- **Active Directory:** `passwd` changes it, under the directory's rules. An expired password (or "change at next
+  sign-in") gets a full-screen change screen after the login screen: current password, new one twice, then the
+  desktop. Giving up returns to the login screen. Other services refuse an expired password. The screen works from the
+  first restart after enrolling.
+- **Entra ID:** passwords are changed with Microsoft. See [Entra ID](../providers/entra.md#how-it-behaves).
 
 ## Autologin
 
-Omarchy signs the first user in automatically once the disk is unlocked. On a laptop people sign in to with their own
-account, that would skip the login screen, so enrolling turns autologin off. `--keep-autologin` keeps it, and `leave`
-turns it back on.
+`enroll` turns off Omarchy's autologin so the login screen appears; `--keep-autologin` keeps it. `leave` restores it.
 
 ## Updates
 
-Omarchy updates sometimes overwrite the sign-in configuration. monarchy-identity puts its part back after every package
-update, and after its own upgrades, so directory sign-in keeps working with nothing to set up.
-`sudo monarchy-identity reassert` repairs it by hand, and is safe to run any time.
+After package updates (Omarchy's included) the pacman hook re-applies the sign-in configuration.
+`sudo monarchy-identity reassert` does the same by hand.

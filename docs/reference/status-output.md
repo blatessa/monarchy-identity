@@ -1,6 +1,6 @@
 # Status output
 
-`monarchy-identity status --json` prints one JSON object for scripts and other tools. Anyone can run it.
+`monarchy-identity status --json` prints one JSON object. Any user can run it.
 
 ```json
 {
@@ -33,11 +33,8 @@
 | `username_field` | The login screen has a username box, so directory users can sign in there. |
 | `details` | Provider health checks, each `"true"`, `"false"` or `"unknown"`. Empty when not enrolled. |
 
-Each provider documents its `details` keys on its page: [Active Directory](../providers/ad.md#status-details),
-[Entra ID](../providers/entra.md#status-details).
-
-A `"false"` while `enrolled` is true means something overwrote the configuration; `sudo monarchy-identity reassert`
-fixes it.
+`details` keys per provider: [Active Directory](../providers/ad.md#status-details),
+[Entra ID](../providers/entra.md#status-details). A `"false"` while enrolled: run `sudo monarchy-identity reassert`.
 
 ```bash
 monarchy-identity status --json | jq -e '.enrolled'                      # exit 0 if enrolled

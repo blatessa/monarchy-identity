@@ -1,200 +1,131 @@
 # Testing
 
-Never test PAM, sssd, nsswitch or SDDM changes on a real machine: a bad edit locks the owner out. Use the lab. For the AD provider it is a
-throwaway Samba AD domain `CORP.TEST` in Docker (published on loopback only) and an Arch client VM under QEMU/KVM
-(UEFI, user-mode networking, host address 10.0.2.2). The VM is stock Arch with Omarchy's PAM and SDDM files copied in
-as fixtures; it is not a full Omarchy install.
+Don't test PAM, sssd, nsswitch or SDDM changes on a real machine: a bad edit locks you out. Use the lab: a Samba AD
+domain `CORP.TEST` in Docker (loopback only) and an Arch VM under QEMU/KVM (UEFI, user networking, host 10.0.2.2) with
+Omarchy's PAM and SDDM files as fixtures (not a full Omarchy install).
 
-Agents and contributors: the working rules and definition of done are in
-[AGENTS.md](https://github.com/blatessa/monarchy-identity/blob/main/AGENTS.md).
-
-## Two layers
-
-| Layer | Runs | Needs | Covers |
+| Layer | Time | Needs | Covers |
 |---|---|---|---|
-| Fast (`test/unit/`) | seconds, every PR in CI | bash, python3, `unshare -r` | Logic: input validation, refusals, generated `sssd.conf`/sudoers, policy changes, enroll options, PAM/nsswitch/SDDM edits, `leave`, `status --json` |
-| Lab (`test/vm/`) | minutes, locally | the VM and the DC | What only real sssd, PAM and a directory can show: the join, sign-in through the PAM stack, offline cache, the package |
+| Fast, `test/unit/` | ~2 s, every PR in CI | bash, python3, `unshare -r` | Validation, refusals, generated config, PAM/nsswitch/SDDM edits, `leave`, `status --json`, `lib/login-steps` |
+| Lab, `test/vm/` | minutes, local | VM, DC, a tenant for Entra | Real join, sign-in through PAM, offline cache, the package, the greeter |
 
-Put a check in the fast layer unless it needs real sssd, PAM or a directory. The fast layer is always required; the lab
-is required when a change touches enroll/join, the PAM stack's behaviour, sssd, the package, or (`e2e-greeter`) the login
-screen.
+Logic goes in the fast layer. The lab is required for enroll/join, PAM stack behaviour, sssd/himmelblau, the package,
+and (`e2e-greeter`) the login screen.
 
-## The fast layer
+## Fast layer
 
 ```bash
-test/unit/run.sh                  # all of it
-bash test/unit/pam.sh             # or one suite
+test/unit/run.sh          # all suites, in parallel
+bash test/unit/pam.sh     # one
 ```
 
-`test/unit/lib.sh` builds a sandbox per suite: a temp `/etc` seeded with the lab's Omarchy PAM and SDDM fixtures
-(`test/vm/fixtures`), the real `bin/monarchy-identity` run as fake root (`unshare -r`), and stub commands
-(`test/unit/stubs/`: `net`, `systemctl`, `getent`, `sssctl`, `visudo`, `kinit`, `uname`, `omarchy`, ...) first on `PATH`.
-Paths come from the `MONARCHY_IDENTITY_*` overrides. Knobs are `STUB_*` variables (`STUB_GROUPS`,
-`STUB_COMPUTERS`, `STUB_HOSTNAME`, `STUB_DC_DOWN`, `STUB_VISUDO_FAIL`, ...); `called` greps what the stubs saw.
+`test/unit/lib.sh` gives each suite a temp `/etc` seeded from `test/vm/fixtures`, the real CLI as fake root
+(`unshare -r`), and stub commands (`test/unit/stubs/`) first on `PATH`. Paths come from `MONARCHY_IDENTITY_*`
+overrides, stub knobs are `STUB_*` variables, `called` greps what the stubs saw. A stub copies real output and cites
+where it was captured in `findings.md`.
 
 | Suite | Covers |
 |---|---|
-| `refused` | Everything `enroll` must refuse before sign-in changes: bad input, wrong password, unknown group, DC down, colliding or generic names, unsafe password files. Each refusal leaves the temp `/etc` unchanged. |
-| `policy` | Implied modes, `policy set` changing only what's passed, refusals, `--if-needed`, generated `sssd.conf` and sudoers, autologin |
-| `enroll` | `--computer-name`, `--ou`, password sources, `--replace-computer-account`, re-running a half-finished enrollment, login theme, hook installer |
-| `pam` | PAM/nsswitch/SDDM edits on Omarchy's real files: apply, remove, idempotent, skip counts, another provider's module, unsafe module arguments refused; `leave` removes only marked files; autologin merge order |
-| `provider` | The provider contract, against `test/unit/stub-provider` installed next to `ad`: the core validates shared options, the provider gets only its own plus the resolved policy, its PAM module is inserted, `policy`, `--if-needed`, `status`, `reassert`, `leave` |
-| `status` | `status --json` shape and that its checks follow reality |
-| `validation`, `naming` | Input validators, computer names and OU conversion |
+| `refused` | What `enroll` refuses before changing anything; each refusal leaves `/etc` unchanged |
+| `policy` | Modes, `policy set`, `--if-needed`, generated `sssd.conf` and sudoers, autologin |
+| `enroll` | `--computer-name`, `--ou`, password sources, `--replace-computer-account`, re-runs, theme, hooks |
+| `pam` | PAM/nsswitch/SDDM edits on Omarchy's files: apply, remove, idempotency, skip counts |
+| `provider` | The provider contract against `test/unit/stub-provider` |
+| `entra` | The Entra provider with a stub Graph and `aad-tool` |
+| `greeter` | `lib/password-expired`, `lib/login-steps` against scripted pam_himmelblau conversations, `lib/sddm-session` |
+| `status`, `validation`, `naming`, `reassert`, `config` | As named |
 
-A stub that mirrors real tool output cites where it was observed in `findings.md`. When a lab run shows a stub
-was wrong, fix the stub and the note. These also run in CI.
-
-## The lab
-
-Prerequisites: Docker, QEMU/KVM with OVMF (`edk2-ovmf`), ssh, python3, curl and node. Check them and the lab state
-with:
+## Lab
 
 ```bash
-test/lab-check.sh
-```
-
-It prints the exact command to fix each missing item and exits 0 when the lab is ready.
-
-Bring-up:
-
-```bash
-cd test/dc && docker compose up -d && ./seed-users.sh                 # directory
-cd ../vm && ./fetch-image.sh                                           # once, checksum-verified
-(setsid ./run.sh </dev/null >vm.log 2>&1 &)                            # first boot runs cloud-init, about 1 minute
-test/vm/deploy.sh --fixtures                                           # push the repo, reset PAM to stock Omarchy
-```
-
-`run.sh` generates the VM's ssh key (`test/vm/keys/id_oi`) on first use and renders the cloud-init seed from
-`test/vm/seed/user-data.tmpl`. Keys and images are never committed. Connect with:
-
-```bash
+test/lab-check.sh                                                      # what's missing, with the fix
+cd test/dc && docker compose up -d && ./seed-users.sh                  # directory
+cd ../vm && ./fetch-image.sh && (setsid ./run.sh </dev/null >vm.log 2>&1 &)   # first boot ~1 min
+test/vm/deploy.sh [--fixtures]                                         # push the CLI (~1 s); --fixtures resets PAM/SDDM, removes the package
 ssh -i test/vm/keys/id_oi -p 2222 tester@127.0.0.1
 ```
 
-The suites reuse one ssh connection for all their calls (`test/vm/ssh.sh`; it stays open two minutes after the last
-one), which cut the default suites' run by about a fifth. It means a call doesn't go through `sshd`'s PAM stack: test
-sign-in with `pt` (`pamtest.py`) or `trylogin.sh`, never by whether ssh connects.
+- `run.sh` makes the ssh key and renders the cloud-init seed. Keys and images are never committed.
+- Suites share one ssh connection (`test/vm/ssh.sh`, open 2 minutes after the last call). So test sign-in with `pt`
+  (`pamtest.py`) or `trylogin.sh`, not by whether ssh connects.
+- Stop the VM by PID (`pgrep -x qemu-system-x86`).
+- Credentials (throwaway): `Administrator`, `alice` (allowed, `oi-admins`), `bob` (allowed), `carol` (directory only,
+  refused), password `Passw0rd!Test`.
 
-`deploy.sh` without `--fixtures` keeps the current PAM files. `--fixtures` resets `/etc/pam.d` and `sddm.conf.d` to
-the Omarchy fixtures, removes the installed package, and deletes stale lab computer accounts. Stop the VM by PID
-(`pgrep -x qemu-system-x86`).
+### Entra ID
 
-Lab credentials are throwaway: `Administrator`, `alice`, `bob`, `carol`, password `Passw0rd!Test`. `alice` is
-allowed and in `oi-admins`, `bob` is allowed, `carol` exists in the directory only and must be refused.
+`e2e-entra.sh`, and the Entra parts of `e2e-package.sh` and `e2e-greeter.sh`, need a test tenant and skip (passing)
+without one:
 
-## Labs for other directories
+- The himmelblau package in `test/vm/images/`: `test/vm/himmelblau/build.sh` builds the omarchy-pkgs recipe
+  (#1274, stock himmelblau 4.0.6) in an Arch container (~2 minutes, skipped when `images/` has that version).
+  Suites install it in the VM. The lab tests what people install: no patched builds.
+- In the tenant: `alice`, `bob`, `carol` with password-only sign-in; groups `linux-users` (alice, bob) and
+  `linux-admins` (alice); an app registration with `Group.Read.All` and `User.Read.All` application permissions
+  (admin consent) and a client secret.
+- An env file outside the repo, named by `ENTRA_LAB_ENV`: `ENTRA_TENANT`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`,
+  `ENTRA_ALICE`/`ENTRA_ALICE_PASSWORD` (same for `BOB`, `CAROL`; full sign-in names).
+- Optional, for the code checks: `dave` in `linux-users` with per-user MFA and a third-party authenticator app
+  ("I want to use a different authenticator app", "Can't scan image?"), and `ENTRA_DAVE`, `ENTRA_DAVE_PASSWORD`,
+  `ENTRA_DAVE_TOTP_SECRET` (that key). Re-registering dave's authenticator changes the key: update the env file.
+  The suite says so when Entra answers `OathCodeIncorrect`.
+- Optional: `az` signed in to the tenant (devices administrator), so the suites delete the device each run registers
+  (otherwise delete `oi-client` under Devices by hand).
 
-Each new provider brings its own lab directory: a container where one exists (FreeIPA), otherwise a test tenant or
-a documented stand-in, chosen in the provider's issue. The client VM, `lib.sh` and the core suites are shared.
+Don't loop a wrong password or code against the tenant: pam_himmelblau re-prompts instead of failing and Entra
+throttles the account. `pamtest.py` gives up on the third identical prompt. Each run sends one wrong password (bob) and
+one wrong code (dave).
 
-**Entra ID** has no container: `test/vm/e2e-entra.sh` and the Entra part of `e2e-package.sh` run against a real test
-tenant and are skipped (passing) without one. They need:
-
-- the himmelblau package file in `test/vm/images/`, until it's in Omarchy's repository: `test/vm/himmelblau/build.sh`
-  builds it (the omarchy-pkgs recipe, in an Arch container) with the fixes upstream hasn't released yet, which the
-  password-change checks need (`docs/dev/findings.md`). The suites install the newest package in the VM, and
-  `e2e-package.sh` removes and reinstalls it;
-- in the tenant: users `alice`, `bob`, `carol` with password-only sign-in, groups `linux-users` (alice, bob) and
-  `linux-admins` (alice), and an app registration with the `Group.Read.All` and `User.Read.All` application
-  permissions (admin consent) and a client secret;
-- an env file outside the repo, named by `ENTRA_LAB_ENV`, with `ENTRA_TENANT`, `ENTRA_CLIENT_ID`,
-  `ENTRA_CLIENT_SECRET`, and `ENTRA_ALICE`/`ENTRA_ALICE_PASSWORD` (same for `BOB`, `CAROL`; full sign-in names);
-- optionally an MFA user for the code checks: `dave` in `linux-users` with per-user MFA and an authenticator-app
-  code as the default method (set up with "I want to use a different authenticator app", "Can't scan image?"), and
-  `ENTRA_DAVE`, `ENTRA_DAVE_PASSWORD`, `ENTRA_DAVE_TOTP_SECRET` (that key) in the env file: the suite makes the codes;
-- `az` signed in to the tenant as an administrator who may manage users and devices, so the suite can delete the
-  device each run registers (otherwise delete `oi-client` under Devices yourself), and for the password-change checks:
-  it creates and deletes a throwaway user `oi-expired`, and resets the MFA user's password and puts it back.
-
-`test/lab-check.sh` checks these when `ENTRA_LAB_ENV` is set, as notes: the suite is opt-in, so a missing tenant
-doesn't make the lab "not ready".
-
-Never loop a wrong password or code against the tenant: `pam_himmelblau` re-prompts instead of failing, and Entra
-throttles the account. `pamtest.py` gives up when the same prompt comes a third time. Each run sends one wrong
-password (bob) and one wrong code (dave), on purpose.
-
-## Running the lab suites
+## Suites
 
 ```bash
-test/run-all.sh          # the fast layer plus the default lab suites
-test/vm/e2e.sh           # or one suite
-test/vm/e2e-greeter.sh   # login-screen changes only; not part of the default run
+test/run-all.sh            # fast layer + default lab suites
+test/vm/e2e.sh             # one suite
+test/vm/e2e-greeter.sh     # login screen; not in the default run
 ```
-
-Each suite is built around as few enrollments as possible. Add a check to the suite that already has the enrollment
-you need before writing a new one; a new suite pays for its own deploy, enroll and leave.
 
 | Suite | Covers |
 |---|---|
-| `e2e` | The core: the directory's refusals (wrong password, unknown group), every Omarchy PAM service (allowed, refused, wrong password, local), a real admin prompt, home creation, `passwd`, repair with `reassert`, who-may-sign-in policies and sudo as sssd enforces them, the sudoers and polkit drop-ins (`visudo -c`, the theme rule granted only to allowed users), local users with sssd stopped and `pam_sss.so` missing, `leave`; then `--computer-name`, `--ou`, `--password-file`, an existing computer account (refused, then `--replace-computer-account`) re-running a half-finished enrollment, and `enroll --if-needed` on an enrolled laptop (converges, doesn't re-join) |
-| `e2e-offline` | Enroll refused with the DC down, an expired password through SDDM's PAM stack (let through and marked, wrong password counted once, not-allowed refused, the guard while SDDM predates enroll), cached sign-in with the DC down, `--offline-days` expiry (the VM's clock moved forward), recovery |
-| `e2e-dns` | Enrolling without `--server` (DNS SRV discovery) |
-| `e2e-entra` | With a tenant: refused enrolls, enroll, every PAM service, groups and sudo, password-only `ssh` refused, the login screen asking Entra once (a wrong password tried once) and, with an MFA user, the code there (password alone refused with nothing sent as the code, a wrong code, the code, then password only), a password that must be changed there on a joined laptop (a throwaway user: a new one wanted, one too short refused, changed and signed in; the MFA user: the code, the change, a fresh code), offline, enrolling again, `leave` |
-| `e2e-package` | The real package: install, pacman hook repair (also on its own upgrade), removal while enrolled (PAM, nsswitch, SDDM, sudoers and polkit drop-ins gone). With a tenant, the same for Entra: enroll refused without himmelblau, repair on a himmelblau transaction, local sign-in with himmelblau removed, removal while enrolled |
-| `e2e-greeter` | The real SDDM greeter (X11), driven with typed keys: sign-in, refusals, local user; an expired password in the change-password screen (Hyprland session): giving up, then changing it and reaching the desktop. With a tenant and an MFA user: a wrong Entra password tried once, and the code typed into the theme's code line, then the desktop; a throwaway user's password that must be changed, typed twice into the theme's new-password lines, then the desktop. Separate run: only for login-screen changes |
+| `e2e` | AD core: refusals, every Omarchy PAM service, admin prompt, homes, `passwd`, `reassert`, policies and sudo, sssd down / module missing, `leave`, enroll options, existing computer account, `--if-needed` |
+| `e2e-offline` | Enroll with the DC down, expired password through SDDM's stack, cached sign-in, `--offline-days` expiry (VM clock moved), recovery |
+| `e2e-dns` | Enroll without `--server` (DNS SRV) |
+| `e2e-entra` | Refused enrolls, enroll, every PAM service, groups and sudo, password-only `ssh` refused, the login screen asking once and saying why, MFA code (optional user), offline, enroll again, `leave`, enroll after `leave` (~2 minutes) |
+| `e2e-package` | Install, pacman hook repair, removal while enrolled; the same for Entra with a tenant |
+| `e2e-greeter` | The real SDDM greeter driven by keystrokes: sign-in, refusals, the expired-password screen; with a tenant, a wrong Entra password tried once and the MFA code line |
 
-Suites share `test/vm/lib.sh`: `fresh` (deploy and reset), `enroll`/`leave`, `expect` (run a PAM service), `check`,
-`cli`/`scli` (the CLI as tester/root) and `result`.
-
-Suites don't depend on each other or on order: each starts with `fresh` (stock PAM, not enrolled, stale lab
-computer accounts deleted). Behaviour that depends on leftover state, such as an existing computer account, gets an
-explicit check (`e2e`, `unit/refused`) instead of relying on a second run.
+Each suite starts with `fresh` (deploy, stock PAM, not enrolled) and doesn't depend on the others. Add checks to the
+suite that already has the enrollment you need. `lib.sh`: `fresh`, `enroll`/`leave`, `expect`, `pt`, `check`,
+`cli`/`scli`, `hb_mark`/`hb_log`/`steps` (himmelblaud's log by journal cursor), `result`.
 
 ## Helpers
 
-- `test/vm/trylogin.sh USER PW` and `test/vm/pamtest.py SERVICE USER PW` exercise the PAM stack (there is no
-  `sshpass` or `pamtester` on Arch).
-- `test/vm/adminprompt.py IDENTITY PW` answers a real polkit admin prompt (`pkexec` under `pkttyagent`, through
-  polkit's sandboxed helper); `admin_prompt` in `lib.sh`. The VM needs polkit (`lab-check.sh` says how).
-- `e2e-greeter.sh` uses `qmon.py` (QEMU monitor `sendkey` and `screendump`); the VM must have been started by the
-  current `run.sh` (`-vga std` plus the monitor socket). `install-package.sh` builds and installs the real package.
-- DNS lab: `test/dc/fix-dns.sh` points the DC's A record at 10.0.2.2; `e2e-dns.sh` configures the VM resolver.
-- Render the login theme on a host without touching system configuration:
-  `sddm-greeter-qt6 --test-mode --theme sddm-theme/monarchy-identity` and capture with `grim`.
+- `trylogin.sh USER PW`, `pamtest.py SERVICE USER PW [--messages]`: run a PAM stack (Arch has no `pamtester`).
+- `adminprompt.py IDENTITY PW`: answer a real polkit prompt (`admin_prompt` in `lib.sh`).
+- `qmon.py`: QEMU monitor `sendkey`/`screendump` for `e2e-greeter.sh`.
+- `install-package.sh`: build and install the real package.
+- `test/dc/fix-dns.sh`: point the DC's A record at 10.0.2.2 for `e2e-dns.sh`.
+- Theme preview without touching the system: `sddm-greeter-qt6 --test-mode --theme sddm-theme/monarchy-identity`.
 
 ## Writing tests
 
-- Quote inputs that go through ssh with `q` (`printf %q`); use `grep -F` for computer names (`$` is a regex anchor).
-- Reset faillock after enrollment, not before: before it, directory users do not resolve and the reset silently does
-  nothing.
-- A new PAM edit needs a remove and idempotency check (`test/unit/pam.sh`).
-- Logic goes in `test/unit/`; a lab suite is for what stubs cannot show.
-- Print diagnostics on a failing step (`diag()` in `e2e-greeter.sh`).
+Quote ssh inputs with `q`; `grep -F` for computer names; reset faillock after enrolling (before, directory users don't
+resolve); a new PAM edit needs remove and idempotency checks; print diagnostics on failure.
 
-## Continuous integration
+## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main` and on pull requests (skipped for documentation-only changes; a
-newer push cancels the run in progress):
-
-- **Unit tests and lint**: shellcheck (errors only), Python syntax, the fast layer (`test/unit/run.sh`, its suites in parallel).
-- **Build the Arch package**: `packaging/build-local.sh` (makepkg on the checkout) in an `archlinux:base-devel`
-  container and a check of the package contents.
-
-The lab suites need KVM and Docker and run locally.
-`.github/workflows/docs.yml` builds this site with `mkdocs build --strict` on pull requests and deploys it to GitHub
-Pages from `main`.
+`.github/workflows/ci.yml` on pushes to `main` and PRs (not docs-only): shellcheck (errors), Python syntax, the fast
+layer, and an Arch package build with a contents check. `docs.yml` builds the site with `mkdocs build --strict` and
+deploys it from `main`. The lab runs locally.
 
 ## Releases
 
-Set `pkgver` in `packaging/PKGBUILD`, commit, then tag and push:
+Set `pkgver` in `packaging/PKGBUILD`, commit, `git tag vX.Y.Z && git push origin vX.Y.Z`. `release.yml` checks the
+tag against `pkgver` and publishes the packages and `SHA256SUMS`.
 
-```bash
-git tag vX.Y.Z && git push origin vX.Y.Z
-```
-
-`.github/workflows/release.yml` re-runs CI, checks that the tag matches `pkgver`, and publishes the
-`.pkg.tar.zst` files and `SHA256SUMS` as a GitHub release with generated notes.
-
-## Not yet verified
-
-The lab suites against a Windows DC (Windows Server 2025 was only tried by hand, on a real Omarchy laptop: greeter, lock screen,
-console, `omarchy update`), and every non-AD directory (no providers yet).
-
-## Building these docs
+## Docs
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r .github/docs-requirements.txt
-.venv/bin/mkdocs serve            # live preview
+.venv/bin/mkdocs serve            # preview
 .venv/bin/mkdocs build --strict   # what CI runs
 ```

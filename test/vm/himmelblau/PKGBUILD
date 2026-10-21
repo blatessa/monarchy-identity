@@ -1,13 +1,12 @@
 # Maintainer: Monarchy contributors
 #
-# The lab build (build.sh): the omarchy-pkgs recipe with the patches in prepare(). Based on upstream's
-# platform/arch/PKGBUILD, built from the release tag. Installing it doesn't configure sign-in:
-# no PAM or nsswitch edits, and the sshd, display manager, browser policy and AppArmor files are under
-# /usr/share/doc/himmelblau/examples.
+# The recipe in omacom/omarchy-pkgs#1274 (what people install), unchanged but for this comment. Based on upstream's
+# platform/arch/PKGBUILD, built from the release tag. Installing it doesn't configure sign-in: no PAM or nsswitch
+# edits, and the sshd, display manager, browser policy and AppArmor files are under /usr/share/doc/himmelblau/examples.
 
 pkgname=himmelblau
 pkgver=4.0.6
-pkgrel=4
+pkgrel=1
 pkgdesc='Microsoft Entra ID authentication for Linux (daemon, PAM, NSS, broker, SSO)'
 arch=('x86_64' 'aarch64')
 url='https://github.com/himmelblau-idm/himmelblau'
@@ -45,30 +44,13 @@ backup=('etc/himmelblau/himmelblau.conf')
 install=himmelblau.install
 # !lto: LTO is configured by cargo, not CFLAGS.
 options=('!lto' '!debug')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/himmelblau-idm/himmelblau/archive/refs/tags/$pkgver.tar.gz"
-        himmelblau-4.0.6-change-password-joined.patch
-        libhimmelblau-0.8.43-change-password-after-mfa.patch
-        himmelblau-4.0.6-max-tries.patch
-        himmelblau-4.0.6-show-change-error.patch)
-sha256sums=('cb6c734dfd17c508abccef97397d25878dad8f8e840ef54e62fd9fcb5a7869c5'
-            'SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/himmelblau-idm/himmelblau/archive/refs/tags/$pkgver.tar.gz")
+sha256sums=('cb6c734dfd17c508abccef97397d25878dad8f8e840ef54e62fd9fcb5a7869c5')
 
 prepare() {
   cd "$pkgname-$pkgver"
   export CARGO_HOME="$srcdir/cargo-home"
   cargo fetch --locked --target "$(rustc --print host-tuple)"
-  # A password Entra says must be changed: on a joined device, and after MFA (lab build, until upstream has it).
-  patch -Np1 -i ../himmelblau-4.0.6-change-password-joined.patch
-  # max_tries=N (himmelblau#1882; lab build, until upstream has it).
-  patch -Np1 -i ../himmelblau-4.0.6-max-tries.patch
-  # Say why Entra refused a new password (the policy's reason), not "Authentication failed" (lab build).
-  patch -Np1 -i ../himmelblau-4.0.6-show-change-error.patch
-  tar -xzf "$CARGO_HOME"/registry/cache/*/libhimmelblau-0.8.43.crate -C ..
-  patch -d ../libhimmelblau-0.8.43 -Np1 -i ../libhimmelblau-0.8.43-change-password-after-mfa.patch
-  sed -i 's|^\[patch.crates-io\]$|&\nlibhimmelblau = { path = "../libhimmelblau-0.8.43" }|' Cargo.toml
 }
 
 build() {
@@ -88,7 +70,7 @@ build() {
   python3 scripts/gen_servicefiles.py --out-dir ./platform/opensuse/ --assume-version 254
 
   # `tpm` is defined by himmelblau_unix_common, so with an explicit package selection it is <crate>/<feature>.
-  cargo build --release --offline --features himmelblau_unix_common/tpm \
+  cargo build --release --frozen --features himmelblau_unix_common/tpm \
     -p aad-tool \
     -p broker \
     -p himmelblaud \

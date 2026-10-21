@@ -1,219 +1,181 @@
 # Findings
 
-Non-obvious behaviour learned the hard way, kept so it is not rediscovered. Add to this page when you learn
-something.
+Non-obvious behaviour learned the hard way. Add to it when you learn something.
 
 ## Omarchy
-- The lock screen uses its own PAM service `/etc/pam.d/omarchy-lock-password` (not package-owned). It must be edited too.
-- Omarchy ships `etc-overrides/nsswitch.conf`; updates may reset `sss`. The pacman hook's reassert re-adds it.
-- SDDM drop-ins merge in C-locale filename order, last wins. Omarchy's `autologin.conf` sorts after `99-*`, so ours is `zz-*`.
-- Omarchy's SDDM greeter runs inside Hyprland; the VM uses SDDM's X11 greeter (same theme QML, daemon, PAM).
-- `omarchy-hook` runs as the invoking USER from `~/.config/omarchy/hooks`; `omarchy update` keeps sudo alive, so hooks use `sudo -n`.
-- Plain pacman upgrades keep modified `backup=` files (`.pacnew`); real drift comes from migrations and manual edits.
-- `su` uses `pam_unix` directly, so directory users can't `su`. The `polkit-1` PAM service exists, but as a vendor file in
-  `/usr/lib/pam.d/` (so `ls /etc/pam.d` misses it).
-- Omarchy enables autologin on encrypted disks by design (the passphrase is the login).
 
-## PAM / sssd (the lockout class)
-- With `pam_sss.so` missing, an `account ... default=bad` rule failed EVERY login (local, root, even sshd) and bricked
-  the VM. Rules are now `-account [... user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]`.
-  If the VM is bricked: delete `test/vm/images/client.qcow2` + `OVMF_VARS.fd` and rerun `run.sh`.
-- sssd answers for any name its domain has, whatever nsswitch resolves it to. With the module first and no guard, a local
-  account sharing a directory user's name was decided by the directory: the owner denied their own account (directory
-  user outside the group), or the directory password signing in as the local account, in `wheel`. `pam_localuser`
-  skips the module for local names; `useradd` refuses such names once enrolled, so test with accounts made before.
-- systemd `start-limit-hit`: >5 sssd (re)starts in 10s leaves sssd FAILED (all directory users locked out). Always `sssd_restart` (reset-failed first).
-- `sssctl` prompts "Start SSSD now?" on a TTY when sssd is down and hangs: always `</dev/null` + `timeout`. A hung root
-  process holding `/run/monarchy-identity.lock` blocks every later enroll/policy/reassert: find stale processes by PID, never `pkill -f`.
-- `pam_faillock` (deny=10) applies to directory users too.
-  It counts by name for 15 minutes across every service, so suites run back to back pile up their test users'
-  failures until one is locked (`grantors=? res=failed` while `pam_sss` still answers). `deploy.sh --fixtures` clears
-  `/run/faillock`; `faillock --user` can't, because it needs the user to exist.
+- The lock screen uses `/etc/pam.d/omarchy-lock-password` (not package-owned); it's edited too.
+- Omarchy ships `etc-overrides/nsswitch.conf`; updates may drop `sss`. The pacman hook's `reassert` re-adds it.
+- SDDM drop-ins merge in C-locale filename order, last wins. Omarchy's `autologin.conf` sorts after `99-*`, so ours are `zz-*`.
+- Omarchy's greeter runs inside Hyprland; the VM uses SDDM's X11 greeter (same theme QML, daemon, PAM).
+- `omarchy-hook` runs as the user from `~/.config/omarchy/hooks`; `omarchy update` keeps sudo alive, so hooks use `sudo -n`.
+- Plain pacman upgrades keep modified `backup=` files (`.pacnew`); drift comes from migrations and manual edits.
+- `su`/`su-l` use `pam_unix` directly: directory users can't `su`, and `su - user` can't test directory sign-in.
+- `polkit-1`'s PAM file is a vendor file in `/usr/lib/pam.d/` (not `/etc/pam.d`); it includes `system-auth`.
+- Omarchy enables autologin on encrypted disks (the passphrase is the login).
+- Omarchy's theme switch writes browser policy as root and grants that to `%wheel` only: directory users got a
+  password prompt at every login. `51-monarchy-identity-theme` grants that one command to the sign-in groups.
+- Hyprland 0.56 config is Lua; `hyprctl dispatch exit` is `hyprctl dispatch 'hl.dsp.exit()'`; `hyprctl configerrors`
+  checks it from inside. Hyprland opens an "updated to X" window on a user's second start that takes the keyboard:
+  the change-password screen sets `ecosystem.no_update_news`.
+- `foot`'s Ctrl+Shift+N opens a terminal with the user's shell and reads the user's `foot.ini`: on the change-password
+  screen that bypassed the change. It runs with `--config=/dev/null` and those bindings `none`.
+
+## PAM / sssd
+
+- With `pam_sss.so` missing, `account ... default=bad` failed every login (local, root, sshd). Rules are
+  `-account [... user_unknown=ignore authinfo_unavail=ignore module_unknown=ignore default=bad]`. Bricked VM: delete
+  `test/vm/images/client.qcow2` and `OVMF_VARS.fd`, rerun `run.sh`.
+- sssd answers for any name in its domain. Without `pam_localuser`, a local account sharing a directory user's name was
+  decided by the directory (owner refused, or the directory password let in with `wheel`). `useradd` refuses such names
+  once enrolled, so test with accounts made before.
+- More than 5 sssd (re)starts in 10 s: `start-limit-hit`, sssd failed, everyone locked out. Use `sssd_restart`.
+- `sssctl` prompts "Start SSSD now?" on a TTY and hangs: always `</dev/null` and `timeout`. A hung root process holding
+  `/run/monarchy-identity.lock` blocks later commands: find it by PID, never `pkill -f`.
+- `pam_faillock` (deny=10) counts directory users by name for 15 minutes across services: back-to-back suites lock
+  test users. `deploy.sh --fixtures` clears `/run/faillock` (`faillock --user` needs the user to exist).
 - `pam_sss` refuses password changes initiated by root: test as the user.
-- An expired AD password: `pam_sss` auth logs "authentication failure ... 12" but returns success; the 12 comes from
-  `pam_acct_mgmt`, and only within the handle that authenticated (a separate account-only check says nothing).
+- Expired AD password: `pam_sss` auth logs "authentication failure ... 12" but succeeds; the 12 comes from
+  `pam_acct_mgmt`, only in the handle that authenticated.
 - SDDM never calls `pam_chauthtok`; "new password required" is a failed sign-in. It reads `sddm.conf.d` only at start.
-- `foot`'s default Ctrl+Shift+N opens a new terminal with the user's shell, and it reads the user's own `foot.ini`: on the
-  change-password screen that was a way past the change. It runs with `--config=/dev/null` and those bindings `none`.
-- A session command that exits 1 makes `sddm-helper` exit 1, which SDDM reads as an authentication error: it waits for
-  the greeter it already closed and the screen stays black. End a refused session with 0.
-- Hyprland 0.56 config is Lua; `hyprctl dispatch exit` is now `hyprctl dispatch 'hl.dsp.exit()'`. It runs in the lab
-  VM (`-vga std`, software rendering).
-- Hyprland opens an "updated to X" news window on a user's second start, which takes the keyboard: the change-password
-  screen sets `ecosystem.no_update_news`. `hyprctl configerrors` (from inside) is how to check a Lua config.
-- `lib/pamedit.py` computes skip counts from the file so it is safe next to Omarchy's `pam_systemd_home` lines; `remove` restores byte-identical.
+- A session command that exits 1 makes `sddm-helper` exit 1: SDDM waits for a greeter it closed, black screen. Exit 0.
+- `lib/pamedit.py` computes skip counts from the file, so it works next to `pam_systemd_home`; `remove` is byte-exact.
 
 ## Samba / Kerberos / AD
-- sssd, samba, krb5 are in Arch `extra`; adcli and oddjob are AUR-only (not used).
-- DC discovery needs UDP 389 (CLDAP). Samba commands need `-S <server>` when there is no DNS (the lab).
-- Fresh computer account quirk: after the first `net ads join`, sssd gets "Preauthentication failed" although `kinit -k`
-  works; a second join fixes it, so enroll joins twice. Cause unknown (only `pwdLastSet` differs). Keytab must be built
-  with `net ads keytab create -S srv -U admin` (NOT `-P`) after `rm -f /etc/krb5.keytab`.
-- `net ads leave` needs admin creds + `-S` to delete the computer account; without them the account stays behind and
-  re-enrolling that name needs `--replace-computer-account`.
-- `net ads search -U admin` checks the password, DC reachability and group names in one go, before anything is joined.
-  An empty result still exits 0 ("Got 0 replies"): match the attribute line, not the exit code.
 
-## Entra ID / himmelblau (spike, 4.0.6)
-- The device joins on the first successful sign-in, with that user's password; no admin credentials, no separate
-  join step. It shows in Entra as an Entra-joined Linux device named after the hostname.
-- Unjoining locally (`aad-tool cache-clear --full`, prompts Y/N) leaves the device object in Entra, enabled. Deleting
-  it needs Graph rights (Cloud Device Administrator or similar).
-- The registration is `device_id` in `/var/cache/himmelblaud/himmelblau.conf` (himmelblau's "server config", its
-  CacheDirectory), not in `/etc/himmelblau/himmelblau.conf`: rewriting ours keeps the laptop registered. After an
-  unjoin the next sign-in registers a new device; Entra keeps both, with the same display name (no collision error).
-- The himmelblau package owns `/etc/himmelblau/himmelblau.conf` (a `backup` file). Writing ours there meant
-  `pacman -R himmelblau` saved it as `.pacsave` and a reinstall brought back the stock file, so `reassert` refused and
-  Entra sign-in stayed off. himmelblau reads `himmelblau.conf.d/*.conf` after the main file (the PAM and NSS modules
-  too), so ours is a drop-in. Caught by `e2e-package.sh` removing and reinstalling himmelblau while enrolled.
-- Graph's device list can lag a fresh registration by a minute or more; check the laptop's `device_id`, not the list.
-- NSS answers before anyone signs in, by UPN and by short name (`alice`). `files` stays first, so a local account of
-  the same name wins. UIDs/GIDs are murmur3(tenant, object id) into `idmap_range`: the same on every machine.
-- `nsswitch.conf` needs `himmelblau` on `shadow:` too, or `pam_unix`'s account check fails with "Authentication
-  service cannot retrieve authentication info" after a correct password.
-- By default the daemon creates the home directory itself at session open: `/home/<object-id>` plus a `/home/<upn>`
-  symlink, and passwd names the symlink. We let `pam_mkhomedir` do it instead (see the two notes below).
-- `pam_allow_groups` (group object ids) is enforced in the `account` phase: carol's password is checked, then she's
-  refused. `sudo_groups` and `local_groups` exist natively (untested).
-- Any failure re-prompts forever inside one `pam_authenticate` (wrong password, MFA enrollment required, offline wrong
-  password); it never returns PAM_AUTH_ERR, so faillock never counts. A test driver that always answers the same
-  password hammers Entra until it answers AADSTS50196 (request loop) and smart lockout throttles that user for minutes.
-  Use a timeout and never loop a wrong password against the tenant. The greeter must handle repeated prompts.
-- MFA (per-user, authenticator code): himmelblau asks `Code:` after the password only at the first sign-in on the
-  device; afterwards it logs "Sign-in frequency satisfied for user via PRT - skipping MFA" (login screen, lock screen,
-  `sudo`). `sshd` asks for the code every time. Before that first sign-in, `pam_acct_mgmt` alone fails for every user,
-  allowed or not: the account check needs a token. Answering no input to `Code:` ends the sign-in with `PAM_ABORT`
-  and sends nothing; a wrong code is `MFAInvalidCode`, then the loop below.
-- SDDM 0.21 answers every PAM prompt with the typed password (`Display::slotRequestChanged`), so the loop below sends
-  it forever at the login screen: as the MFA code, or again after a typo. Reported upstream (himmelblau#1882).
-- Before someone's first completed sign-in on the device, NSS resolves them by name but not by uid (`getent passwd
-  <uid>` is empty), so logind's `CreateSession` fails and Hyprland aborts: no session can start for them until
-  `pam_authenticate` has succeeded once. That rules out finishing MFA in a screen after the login screen.
-- Entra's system-preferred MFA sends a push (with number matching) whenever Authenticator push is registered, whatever
-  the user's default method. himmelblau's `mfa_method = PhoneAppOTP` (`[global]`) asks for the code instead; the lab
-  sets it in a test-only drop-in.
-- `ssh` (and other remote services in `password_only_remote_services_deny_list`) refuses password-only sign-in: a user
-  without MFA gets AADSTS50072 "needs to enroll for second factor", in the same loop.
-- Offline needs `[offline_breakglass] enabled = true`. Without it the password verifier is only cached on the
-  first, enrolling sign-in path, so offline gives "No cached password" (the docs suggest single-factor users get offline
-  for free; the code doesn't). `enable_sfa_fallback` alone isn't enough. With breakglass on, the first offline attempt
-  notices the outage and still succeeds. No knob maps to `--offline-days` (the TTL is breakglass duration, not
-  verifier lifetime).
-- Upstream's `aad-tool configure-pam` adds unprefixed `auth sufficient pam_himmelblau.so` above `pam_faillock`
-  preauth in both `system-auth` and `system-login` (runs twice, bypasses faillock); our core does the PAM edit.
-- Home naming: himmelblau makes `/home/<object id>` and passwd names the `home_alias` path (the full sign-in name, a
-  link), so `$HOME` was `/home/alice@corp...`. `home_alias` alone decides what passwd says; set both `home_attr` and
-  `home_alias` to `cn` to get `/home/alice`.
-- himmelblau's homes were empty (`use_etc_skel` defaults to false): the first sign-in landed on Hyprland's stock config
-  and welcome screen. Turning it on isn't enough: its copy walks `/etc/skel` with `fs::copy` and the first error ends
-  the walk with the home already made, so it's never repaired. Omarchy's skeleton came out as 92 of 10,238 entries
-  (nothing under `.local`, no `.bash_profile`): no theme, so a black background, and none of Omarchy's migration
-  markers, so "124 migrations" pending, whose `sudo` steps a non-admin can't run (a password prompt that never
-  succeeds). `pam_mkhomedir` copies it all, as on AD, and the migration markers are in the skeleton, so nothing is pending.
-  The lab's skeleton is stock Arch's, so `e2e-entra` puts a deep file and a dangling link in it.
-- `enable_hello` defaults to true (Hello PIN enrollment at sign-in); the spike ran with it off.
-- The first sign-in after the network drops returns PAM_ABORT ("Network outage detected") and falls through to
-  `pam_unix`; the next one answers from the offline cache. Upstream's `configure-pam` hides this by putting the module
-  in the stack twice; ours asks again only after an abort (`auth_retry_on_abort`).
-- Groups don't resolve through NSS before the device is joined (users do), so checking group names at enroll needs a
-  Graph credential: an app registration's client secret, not kept on the laptop.
-- `pam_allow_groups` unset means every user in the tenant may sign in (himmelblau only logs a warning).
-- `himmelblaud` keeps its PRTs in systemd's file-descriptor store (`FileDescriptorStorePreserve=yes`), so they survive
-  `systemctl stop`. After an unjoin they no longer match the device keys ("Failed unsealing PRT"), and on the next
-  enroll the daemon answers nothing: users unknown, every sign-in times out. `leave` runs
+- sssd, samba, krb5 are in `extra`; adcli and oddjob are AUR-only (not used).
+- DC discovery needs UDP 389 (CLDAP). Samba commands need `-S <server>` without DNS (the lab).
+- After the first `net ads join` of a fresh computer account, sssd gets "Preauthentication failed" though `kinit -k`
+  works; a second join fixes it, so enroll joins twice. Cause unknown. Build the keytab with
+  `net ads keytab create -S srv -U admin` (not `-P`) after `rm -f /etc/krb5.keytab`.
+- `net ads leave` needs admin credentials and `-S` to delete the computer account.
+- `net ads search -U admin` checks the password, reachability and group names at once. An empty result exits 0
+  ("Got 0 replies"): match the attribute line.
+- The NetBIOS name isn't the realm's first label (`badcaptcha.net` can be `BAD`); `smb.conf` `workgroup` must be it or
+  the join fails silently. `enroll` asks the DC (`net ads lookup`, `Pre-Win2k Domain:`). Found on Windows Server 2025.
+
+## Entra ID / himmelblau 4.0.6
+
+Registration and config
+
+- The device registers at the first successful sign-in, with that user's password. It shows as an Entra-joined Linux
+  device named after the hostname. `aad-tool cache-clear --full` unjoins locally; the device object stays, enabled.
+- The registration (`device_id`) is in `/var/cache/himmelblaud/himmelblau.conf`, not `/etc`: rewriting our config keeps
+  it. After an unjoin the next sign-in registers a new device of the same name.
+- The package owns `/etc/himmelblau/himmelblau.conf` (`backup`); an edited one became `.pacsave` on removal and stock on
+  reinstall. himmelblau reads `himmelblau.conf.d/*.conf` after it (PAM and NSS modules too): ours is a drop-in.
+- Graph's device list lags a registration by a minute or more; check `device_id`.
+- NSS answers by UPN and short name before anyone signs in. `files` stays first. UIDs/GIDs are murmur3(tenant, object
+  id) in `idmap_range`: the same everywhere.
+- `shadow:` needs `himmelblau` too, or `pam_unix`'s account check fails after a correct password.
+- `pam_allow_groups` (object ids) is enforced in `account`. Unset, every tenant user may sign in (only a warning).
+- Groups don't resolve through NSS before the device joins (users do): enroll needs Graph and a client secret.
+- Upstream's `aad-tool configure-pam` adds unprefixed `auth sufficient pam_himmelblau.so` above faillock in both
+  `system-auth` and `system-login`. The core does the PAM edit instead.
+- `himmelblaud` keeps PRTs in systemd's fd store (`FileDescriptorStorePreserve=yes`), surviving `systemctl stop`.
+  After an unjoin they don't match the device keys and the daemon answers nothing on the next enroll. `leave` runs
   `systemctl clean --what=fdstore --what=state --what=cache` on both units.
-- `passwd` (`pam_sm_chauthtok`) changes a Hello PIN ("This command changes your local Hello PIN, NOT your Entra Id
-  password"), never the Entra password. A password Entra says must be changed (expired, or an admin reset with
-  `forceChangePasswordNextSignIn`) is changed inside `pam_authenticate`: after the password, the daemon's "Update your
-  password" message, `New password:`, `Confirm password:` (both translated: `himmelblau.mo`), then libhimmelblau's
-  `handle_password_change`, then sign-in goes on with the new one. A new password under 8 characters is refused
-  locally, before Entra.
-- In 4.0.6 that only works on the laptop's first sign-in (before it joins), for a user without MFA. Two bugs, fixed
-  by the patches in the lab's himmelblau build (`test/vm/himmelblau/`; upstream PRs, not yet released):
-    - **Joined laptop:** the password is checked by getting a PRT, which Entra issues, then trading it for an
-      authorization code silently; a must-change user can't be signed in silently, so Entra answers AADSTS50058 (or
-      AADSTS50133, "session isn't valid due to password expiration or recent password change", when the user had a
-      PRT before the reset), and himmelblau reports a refusal. The patch falls back to the interactive flow, without
-      ForceMFA, which reaches Entra's change page and checks the password again.
-    - **MFA user:** Entra asks the code first, then shows the change page; `handle_password_change` threw that page
-      away and signed in again with the password alone, which ends at MFA ("url_async_sspr_begin missing from auth
-      config"; the person saw "Failed to change user password: Authentication failed"). The libhimmelblau patch keeps
-      the change page the sign-in reached (single use, 10 minutes) and changes the password through it.
-- A user created, or a password set, through Graph isn't taken by Entra's sign-in for a minute or two (refused as a
-  wrong password). The lab waits with `entra_takes`. The change page lags too: the first change for a
-  just-made user can answer `AADSTS120016: User not found`.
-- The module logs through tracing to its stdout, and `pam_exec` hands a script's stdout to the login screen: without
-  `lib/login-steps` moving its own stdout aside, people saw `ERROR PAM conversation failed: PAM_CONV_ERR` after
-  every refusal. And himmelblau 4.0.6 swaps the reason a refused new password carries (`GeneralFailure`: "AADSTS120018
-  ... The password is too common") for "Authentication failed. Please contact your administrator."; the lab build's
-  `himmelblau-4.0.6-show-change-error.patch` keeps it.
-- An MFA user who signed in on the laptop minutes before an admin reset is let in with the reset password, without
-  a change, for several minutes: Entra checks the password and wants MFA, and the laptop's session from before still
-  satisfies it until Entra revokes it. The change comes at a later sign-in. The lab tests it without such a session.
-- Twice, a sign-in step sent after the daemon sat idle ~30 s logged "Network down detected" (on `GetCredentialType`),
-  so the daemon went offline and answered "NotFound: token in AuthSession" for a user with nothing cached. Probably a
-  pooled connection Microsoft had closed (unverified). Asking again works; the lab avoids idle gaps it doesn't need.
-- Harmless noise: the profile-photo task warns that `/var/lib/AccountsService/icons/` doesn't exist
-  (`fetch_profile_picture`).
+- `enable_hello` defaults to true (PIN enrollment at sign-in); we set it false.
 
-## Stubs in the fast layer (`test/unit/stubs/`)
-The fast layer runs the real CLI with stub commands first on `PATH`. A stub is only as good as the output it copies; these shapes were
-captured from the lab VM (samba `net` against the Samba AD, 17 Oct 2026):
+Homes
 
-- `net ads search -S dc -U Administrator '(&(objectClass=group)(sAMAccountName=oi-laptop-users))' sAMAccountName distinguishedName`
-  prints a blank line, `Got 1 replies`, a blank line, then `sAMAccountName: oi-laptop-users` and
-  `distinguishedName: CN=oi-laptop-users,CN=Users,DC=corp,DC=test`; no match prints `Got 0 replies` and still exits 0.
-- A wrong password (or an admin account that doesn't exist) prints a `gensec_gse_client_prepare_ccache: ... NT_STATUS_LOGON_FAILURE`
-  line, then `ads_startup_int: ads_connect_creds: Invalid credentials`, and exits 255. A computer lookup
-  (`(sAMAccountName=NAME$)`) has the same shape as the group lookup.
-- Failures exit 255 with one `ads_startup_int: ads_connect_creds:` line: an `-S` name that doesn't resolve says `The object was
-  not found.`; a DC that is down, an address with no route, and a realm with no DNS SRV records all say `No logon servers are
-  currently available to service the logon request.` So `net_explain` checks DNS itself (`getent ahosts`, and `net lookup ldap
-  DOMAIN` for the SRV records) to tell "DNS can't find it" from "it doesn't answer".
-- `net ads join` failures print `Password for [WG\admin]:` then `Failed to join domain: REASON` (exit 255), e.g. `failed to precreate
-  account in ou ou=Gone,...: No such object`, or `Invalid configuration ("workgroup" set to 'X', should be 'CORP')`.
-- `systemctl is-active` must exit non-zero when the unit is down. A stub that ends in `exit 0` after the `case` made
-  every provider status check report healthy.
-- The fast layer runs as fake root with `unshare -r`. On Ubuntu runners, AppArmor blocks that unless
-  `kernel.apparmor_restrict_unprivileged_userns=0` (CI sets it). Files created there are owned by uid 0, so the
-  password-file ownership check behaves as it does for real root.
+- By default the daemon makes `/home/<object id>` plus a `/home/<upn>` link, and passwd names the link. `home_alias`
+  decides what passwd says: `home_attr = home_alias = cn` gives `/home/alice`.
+- Its skeleton copy (`use_etc_skel`, off by default) stops at the first error and never repairs: Omarchy's skeleton
+  came out 92 of 10,238 entries (no theme, 124 pending migrations needing sudo). `pam_mkhomedir` copies it all. The
+  lab's skeleton is Arch's, so `e2e-entra` adds a deep file and a dangling link.
 
-## Test lab
-- `deploy.sh` WITHOUT `--fixtures` keeps the current PAM files; WITH it resets `/etc/pam.d` to stock Omarchy (undoes edits).
-- `run.sh`'s cloud-init seed server (python http.server :8000) can be a STALE process from a renamed directory: the VM
-  silently provisions with defaults. `run.sh` now replaces any listener on :8000.
-- `loginctl terminate-session` makes SDDM treat the helper as crashed and NOT restart the greeter: end test sessions by letting the script exit. SDDM logs failed logins with `user ""`.
-- `samba-tool group addmembers a,b` rejects the whole call if any is already a member: seed per member.
-- Files created by one user in a shared sticky dir aren't writable by another (`fs.protected_regular`): use a world-writable non-sticky dir.
-- `hostnamectl --transient` is ignored when a static hostname exists: simulate hostnames with `sysctl kernel.hostname=`.
-- When patching scripts with python `s.index(...)`, make sure you match the intended occurrence.
-- The VM's SSH private key was once committed (anchored `.gitignore` bug) and purged from history. Never commit `test/vm/images`, `test/vm/keys`.
-- The NetBIOS domain name is not the realm's first label (`badcaptcha.net` can be `BAD`). `smb.conf` `workgroup` must be the
-  NetBIOS name or `net ads join` fails, and the script hides its output. `enroll` asks the DC (`net ads lookup`, `Pre-Win2k Domain:`).
-  The lab's `corp.test`/`CORP` hid this; found on a real Windows Server 2025 DC.
-- Omarchy's theme switch writes browser policy as root and grants that to `%wheel` only. A directory user is in no local group, so
-  every login showed a graphical password prompt (real hardware, Oct 2026). `enroll` mirrors that one narrow rule for the sign-in
-  groups (`51-monarchy-identity-theme`); making them wheel would hand out full sudo. `su`/`su-l` on Arch use `pam_unix` directly, so
-  `su - user` can never test directory sign-in: use a console login or the greeter.
-- Admin prompts (polkit) take admin identities from rules, and Omarchy's default is `unix-group:wheel`; directory groups can't join wheel,
-  so a directory admin could `sudo` but not answer one. Polkit stops at the first rule that answers, so `49-monarchy-identity.rules` sorts
-  before `50-default` and names wheel too (else it would replace the local admins). The `polkit-1` PAM service is a vendor file in
-  `/usr/lib/pam.d/` that includes `system-auth`, so directory passwords already work there (not in `/etc/pam.d`, which is why `ls` misses it).
-- polkit 127 checks prompt passwords in a socket-activated helper unit (`polkit-agent-helper.socket`), not a setuid binary.
-  The helper takes the agent's uid from the socket, so `pkexec`'s built-in text agent (setuid root) gets PAM success and then
-  `No session for cookie` for everyone (upstream polkit-org/polkit#686, #47). A user-run agent (`pkttyagent`, Omarchy's graphical
-  one) works: `test/vm/adminprompt.py`.
-  A freshly installed polkit has the socket inactive until reboot, and without it the helper isn't sandboxed: check it's active.
-- polkit offers every admin identity (wheel plus the sudo groups) even when the person asking is one of them, in the order the
-  rule returns them; picking one is the agent's job. Omarchy's dialog never picks, so Quickshell's `AuthFlow` asks as the first
-  (`mIdentities.first()`) without saying whose password it wants: a directory admin was asked for the local admin's (#34). The
-  rule now lists an admin who asks first.
+Sign-in
 
-## Conventions that came from these
-- Anything the CLI sources must also be installed by `packaging/PKGBUILD` (`e2e-package.sh` catches misses).
-- Removing the package while enrolled runs `leave` (pre_remove) so PAM edits never outlive the tool.
+- Any failure re-prompts inside one `pam_authenticate` (wrong password, MFA enrollment needed, offline wrong password);
+  it never returns PAM_AUTH_ERR, so faillock doesn't count. Answering the same password in a loop gets AADSTS50196 and
+  smart lockout throttles the user for minutes. Never loop a wrong password against the tenant.
+- SDDM 0.21 answers every prompt with the typed password (`Display::slotRequestChanged`): at the login screen that
+  loop sends it forever, as the MFA code or after a typo (himmelblau#1882). `lib/login-steps` exists for this.
+- MFA (code): asked after the password at the first sign-in on the device; then "Sign-in frequency satisfied for user
+  via PRT - skipping MFA" (login screen, lock screen, `sudo`). `sshd` asks every time. Before that first sign-in,
+  `pam_acct_mgmt` alone fails for every user. No input to `Code:` ends with `PAM_ABORT`, nothing sent; a wrong code
+  is `MFAInvalidCode`, then the loop.
+- Before a first completed sign-in, NSS resolves the user by name but not by uid: logind's `CreateSession` fails and no
+  session can start. So MFA can't be finished in a screen after the login screen.
+- System-preferred MFA sends a push whenever Authenticator push is registered. `mfa_method = PhoneAppOTP` asks for the
+  code; the lab sets it in a test-only drop-in.
+- `ssh` (`password_only_remote_services_deny_list`) refuses password-only sign-in: AADSTS50072, in the same loop.
+- The first sign-in after the network drops returns PAM_ABORT ("Network outage detected"); the next answers from the
+  offline cache. Ours retries after an abort (`auth_retry_on_abort`); upstream's `configure-pam` lists the module twice.
+- Offline needs `[offline_breakglass] enabled = true`; without it the verifier is only cached on the enrolling sign-in
+  ("No cached password"). No setting maps to `--offline-days`.
+- After ~30 s idle, a sign-in step twice logged "Network down detected" and the daemon went offline ("NotFound: token
+  in AuthSession" for a user with nothing cached). Probably a pooled connection Microsoft closed. Asking again works.
+- The module logs to stdout; `pam_exec` hands a script's stdout to the login screen. `lib/login-steps` moves its own
+  stdout aside, or people see `PAM_CONV_ERR`.
 
-## Scope
-- A self-heal file watcher, an auto-revert timer, a local-fallback precondition, byte-exact backups and a device
-  compliance checker were all built and then removed (Oct 2026): they were MDM or undo machinery, not authentication.
-  The PAM design already keeps local users working; the rest belongs to whoever deploys this.
+Passwords
+
+- `passwd` (`pam_sm_chauthtok`) changes a Hello PIN, never the Entra password.
+- A password that must be changed (expired, or reset with `forceChangePasswordNextSignIn`) is changed inside
+  `pam_authenticate`: after the password, "Update your password", `New password:`, `Confirm password:` (translated:
+  `himmelblau.mo`), then sign-in continues with the new one. Under 8 characters is refused locally.
+- In released himmelblau that only works at the laptop's first sign-in, for a user without MFA. On a joined laptop
+  Entra answers the silent token exchange with AADSTS50058 (or AADSTS50133 if the user had a PRT before the reset) and
+  himmelblau reports a refusal. With MFA, the change page is thrown away and the change fails ("Authentication failed").
+  Fixes upstream, unreleased: himmelblau#1888, libhimmelblau#109. Until then `lib/login-steps` tells the person to sign
+  in at myaccount.microsoft.com first (verified in the lab on 4.0.6). A refused new password shows "Authentication failed"
+  instead of Entra's reason until himmelblau#1904.
+- An MFA user who signed in minutes before an admin reset can sign in with the reset password, no change, until Entra
+  revokes the session.
+- A user or password set through Graph isn't accepted by sign-in for a minute or two (refused as a wrong password); the
+  change page can answer `AADSTS120016: User not found` for a new user.
+
+himmelblau 4.0.7 (not used)
+
+- The unit now has socket units, `DynamicUser=yes` and `LoadCredentialEncrypted=hsm-pin:...`. Decrypting the credential
+  goes through `io.systemd.Credentials`, whose NSS lookup reaches nss_himmelblau, which connects to the socket systemd
+  holds for the daemon that isn't running yet: it waits for systemd's 25 s varlink timeout (`ERRNO=110`). Every start
+  took ~31 s instead of ~11 s, and some failed. Every NSS lookup on the machine blocks meanwhile (`sudo` too). The
+  module's `should_skip_daemon_call` only covers the daemon's own units. Reproduce: 4.0.7, `himmelblau` in nsswitch,
+  `systemctl restart himmelblaud`.
+- ~6 s of every start is argon2 parameter calibration (both versions).
+- Both are himmelblau#1809 (reported on NixOS, open).
+
+## Stubs in the fast layer
+
+Shapes captured from the lab (samba `net` against Samba AD, 17 Oct 2026):
+
+- `net ads search -S dc -U Administrator '(&(objectClass=group)(sAMAccountName=oi-laptop-users))' sAMAccountName
+  distinguishedName`: a blank line, `Got 1 replies`, a blank line, `sAMAccountName: oi-laptop-users`,
+  `distinguishedName: CN=oi-laptop-users,CN=Users,DC=corp,DC=test`. No match: `Got 0 replies`, exit 0. A computer
+  lookup (`(sAMAccountName=NAME$)`) has the same shape.
+- Wrong password or unknown admin: a `gensec_gse_client_prepare_ccache: ... NT_STATUS_LOGON_FAILURE` line, then
+  `ads_startup_int: ads_connect_creds: Invalid credentials`, exit 255.
+- Other failures exit 255 with one `ads_startup_int: ads_connect_creds:` line: an unresolvable `-S` says `The object
+  was not found.`; a DC down, no route, or no SRV records all say `No logon servers are currently available to service
+  the logon request.` `net_explain` checks DNS itself (`getent ahosts`, `net lookup ldap DOMAIN`).
+- `net ads join` failures: `Password for [WG\admin]:` then `Failed to join domain: REASON` (exit 255).
+- `systemctl is-active` stubs must exit non-zero when down (one that ended in `exit 0` made every check healthy).
+- The fast layer uses `unshare -r`; Ubuntu runners need `kernel.apparmor_restrict_unprivileged_userns=0` (CI sets it).
+  Files made there are owned by uid 0, so the password-file ownership check behaves as for real root.
+
+## Lab
+
+- `deploy.sh` without `--fixtures` keeps the VM's PAM files; with it, stock Omarchy PAM/SDDM.
+- `run.sh`'s cloud-init seed server (:8000) can be a stale process from a renamed directory: the VM provisions with
+  defaults. `run.sh` replaces any listener on :8000.
+- `loginctl terminate-session` makes SDDM treat the helper as crashed and not restart the greeter: end test sessions by
+  letting the script exit. SDDM logs failed logins with `user ""`.
+- `samba-tool group addmembers a,b` rejects the whole call if one is already a member: one member per call.
+- Files one user creates in a sticky shared dir aren't writable by another (`fs.protected_regular`).
+- `hostnamectl --transient` is ignored with a static hostname: use `sysctl kernel.hostname=`.
+- `e2e-offline` moves the VM's clock, so the journal has entries dated in the future and `journalctl --since` mixes
+  checks: count himmelblaud steps by cursor (`hb_mark`, `steps`).
+- `deploy.sh` used to tar the whole repo, mkdocs `.venv` included: 100 MB per deploy. It ships the runtime dirs only.
+- Bash ignores `PS4` from the environment for root: `sudo env PS4=... bash -x` prints no timestamps.
+- polkit 127 checks passwords in a socket-activated helper (`polkit-agent-helper.socket`) that takes the agent's uid
+  from the socket: `pkexec`'s built-in text agent gets `No session for cookie` for everyone (polkit-org/polkit#686,
+  #47). `pkttyagent` and Omarchy's agent work (`test/vm/adminprompt.py`). A fresh polkit has the socket inactive until
+  reboot.
+- Polkit stops at the first rule that answers: `49-monarchy-identity.rules` sorts before `50-default` and names
+  `wheel` too (directory groups can't join `wheel`).
+- polkit offers every admin identity (`wheel` plus sudo groups) in the rule's order, and Omarchy's dialog asks as the
+  first without saying whose password (#34): the rule lists an admin who asks first.
+- The VM's ssh key was once committed (anchored `.gitignore` bug) and purged. Never commit `test/vm/images` or `keys`.

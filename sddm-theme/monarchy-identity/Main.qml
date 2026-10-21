@@ -19,6 +19,7 @@ Rectangle {
   property bool newAsked: false   // this attempt: lib/login-steps said a new password is wanted
   property bool newWanted: false   // the new-password lines are showing
   property bool changed: false   // this attempt: the directory took the new password
+  property bool refused: false   // this attempt: lib/login-steps said the directory refused it, the message says why
   property int sessionIndex: {
     for (var i = 0; i < sessionModel.rowCount(); i++) {
       var name = (sessionModel.data(sessionModel.index(i, 0), Qt.DisplayRole) || "").toString()
@@ -51,6 +52,7 @@ Rectangle {
     root.codeAsked = false
     root.newAsked = false
     root.changed = false
+    root.refused = false
     root.trying = true
     // lib/login-steps splits them: the first line answers the password prompt, the second the code prompt, the third
     // the new-password prompts
@@ -74,6 +76,7 @@ Rectangle {
       if (message === "monarchy-identity: code wanted") root.codeAsked = true
       else if (message === "monarchy-identity: new password wanted") root.newAsked = true
       else if (message === "monarchy-identity: password changed") root.changed = true
+      else if (message === "monarchy-identity: refused") root.refused = true
       else root.message = message
     }
     function onLoginFailed() {
@@ -114,7 +117,7 @@ Rectangle {
         return
       }
       root.loginFailed = true
-      root.message = ""
+      if (!root.refused) root.message = ""   // the directory's reason stays up until the next try
       if (root.codeWanted) {
         code.text = ""
         code.forceActiveFocus()

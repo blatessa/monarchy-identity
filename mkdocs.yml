@@ -34,15 +34,9 @@ markdown_extensions:
 
 nav:
   - Overview: index.md
-  - Getting started: getting-started.md
-  - Understand:
-      - How sign-in works: concepts/how-it-works.md
-      - Who may sign in: concepts/login-policy.md
-  - Guides:
-      - Roll out to a fleet: guides/rollout.md
-      - Automate enrollment: guides/automation.md
-      - Manage enrolled laptops: guides/manage.md
-      - Troubleshooting: guides/troubleshooting.md
+  - How sign-in works: concepts/how-it-works.md
+  - Manage laptops: guides/manage.md
+  - Troubleshooting: guides/troubleshooting.md
   - Reference:
       - CLI: reference/cli.md
       - Status output: reference/status-output.md
@@ -54,4 +48,3 @@ nav:
       - Writing a provider: dev/writing-a-provider.md
       - Testing: dev/testing.md
       - Findings: dev/findings.md
-      - Test evidence: dev/evidence.md
